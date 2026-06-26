@@ -6,8 +6,10 @@ Handles file uploads and document storage into client folders.
 import os
 import uuid
 import tempfile
+
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
-from models.schemas import DocumentType
+
+from models.schemas import DocumentType, normalize_document_type
 from services.storage_service import (
     store_document,
     detect_doc_type_from_content_or_filename,
@@ -15,14 +17,14 @@ from services.storage_service import (
 
 router = APIRouter()
 
-# Allowed file extensions
 ALLOWED_EXTENSIONS = {".docx", ".pdf", ".xlsx", ".pptx", ".doc", ".txt"}
 
 
 @router.post("/")
 async def upload_document(
     file: UploadFile = File(...),
-    client_name: str = Form(...),
+    client_name: str | None = Form(default=None),
+    project_name: str | None = Form(default=None),
     document_type: str = Form(...),
     notes: str = Form(default=""),
 ):
@@ -31,47 +33,42 @@ async def upload_document(
 
     Body (multipart/form-data):
     - file: The document file
-    - client_name: Client/project name (e.g., "Acme Corp")
-    - document_type: SOW, FRD, HLD, LLD, BRD, MSA, or OTHER
+    - client_name / project_name: Client/project name
+    - document_type: FRD, DATA_MANAGEMENT_PLAN, HLD, LLD, SOFTWARE_REQUIREMENTS, or OTHER
     """
-    # ── Validate file extension
+
+    effective_client_name = (client_name or project_name or "").strip()
+    if not effective_client_name:
+        raise HTTPException(status_code=400, detail="Client name cannot be empty.")
+
     _, ext = os.path.splitext(file.filename or "")
     if ext.lower() not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=400,
-            detail=f"File type '{ext}' not allowed. Accepted: {list(ALLOWED_EXTENSIONS)}"
+            detail=f"File type '{ext}' not allowed. Accepted: {sorted(ALLOWED_EXTENSIONS)}",
         )
 
-    # ── Validate document type
-    try:
-        doc_enum = DocumentType(document_type.upper())
-    except ValueError:
+    doc_enum = normalize_document_type(document_type)
+    if doc_enum is None:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid document type '{document_type}'."
+            detail=f"Invalid document type '{document_type}'.",
         )
 
-    # ── Validate client name
-    client_name = client_name.strip()
-    if not client_name:
-        raise HTTPException(status_code=400, detail="Client name cannot be empty.")
-
-    # ── Save to a temp file first
     content = await file.read()
     if len(content) == 0:
         raise HTTPException(status_code=400, detail="Uploaded file is empty.")
 
-    # Write to temp location
-    tmp_dir  = tempfile.gettempdir()
+    tmp_dir = tempfile.gettempdir()
     tmp_path = os.path.join(tmp_dir, f"upload_{uuid.uuid4().hex}{ext}")
+
     with open(tmp_path, "wb") as f_out:
         f_out.write(content)
 
-    # ── Store the document
     try:
         doc_info = store_document(
             source_path=tmp_path,
-            client_name=client_name,
+            client_name=effective_client_name,
             document_type=doc_enum,
             original_filename=file.filename or f"document{ext}",
         )
@@ -80,7 +77,7 @@ async def upload_document(
 
     return {
         "success": True,
-        "message": f"Document stored successfully for client '{client_name}'",
+        "message": f"Document stored successfully for client '{effective_client_name}'",
         "document": doc_info.dict(),
         "notes": notes,
     }
@@ -94,8 +91,9 @@ async def detect_document_type(file: UploadFile = File(...)):
     """
     filename = file.filename or ""
     detected = detect_doc_type_from_content_or_filename(filename)
+
     return {
         "filename": filename,
         "detected_type": detected.value if detected else None,
-        "confidence": "high" if detected else "low",
+        "confidence": "high" if detected and detected != DocumentType.OTHER else "low",
     }

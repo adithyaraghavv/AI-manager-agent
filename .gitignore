@@ -1,0 +1,42 @@
+# ----------------------
+# Python
+# ----------------------
+__pycache__/
+*.pyc
+*.pyo
+
+# Ignore all __pycache__ folders inside subdirs
+**/__pycache__/
+# ----------------------
+# Virtual Environment
+# ----------------------
+venv/
+.venv/
+env/
+
+# ----------------------
+# Environment variables
+# ----------------------
+.env
+
+# ----------------------
+# Logs
+# ----------------------
+*.log
+# ----------------------
+# OS files
+# ----------------------
+.DS_Store
+Thumbs.db
+
+# ----------------------
+# IDE
+# ----------------------
+.vscode/
+.idea/
+# ----------------------
+# Frontend build (if used later)
+# ----------------------
+node_modules/
+dist/
+build/

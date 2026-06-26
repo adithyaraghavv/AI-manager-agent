@@ -3,16 +3,18 @@ Templates Router
 Endpoints for listing and downloading document templates.
 """
 
+import os
+import mimetypes
+
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
-import os
 
+from models.schemas import DocumentType, normalize_document_type
 from services.storage_service import (
     get_template_path,
     list_templates,
     TEMPLATES_DIR,
 )
-from models.schemas import DocumentType
 
 router = APIRouter()
 
@@ -28,26 +30,28 @@ def get_all_templates():
 def get_template(doc_type: str):
     """
     Get metadata for a specific template type.
-    Example: GET /api/templates/SOW
+    Example: GET /api/templates/FRD
+    Example: GET /api/templates/Data%20Management%20Plan
     """
-    try:
-        doc_enum = DocumentType(doc_type.upper())
-    except ValueError:
+    doc_enum = normalize_document_type(doc_type)
+
+    if doc_enum is None or doc_enum == DocumentType.OTHER:
         valid = [d.value for d in DocumentType if d != DocumentType.OTHER]
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid document type '{doc_type}'. Valid types: {valid}"
+            detail=f"Invalid document type '{doc_type}'. Valid types: {valid}",
         )
 
     path = get_template_path(doc_enum)
     if not path:
         raise HTTPException(
             status_code=404,
-            detail=f"No template found for {doc_enum.value}. Please contact your admin."
+            detail=f"No template found for {doc_enum.value}. Please contact your admin.",
         )
 
     filename = os.path.basename(path)
-    size_kb  = round(os.path.getsize(path) / 1024, 2)
+    size_kb = round(os.path.getsize(path) / 1024, 2)
+
     return {
         "document_type": doc_enum.value,
         "filename": filename,
@@ -61,17 +65,19 @@ def get_template(doc_type: str):
 def download_template(filename: str):
     """
     Stream a template file for download.
-    Example: GET /api/templates/download/sow_template.docx
+    Example: GET /api/templates/download/frd_template.docx
     """
-    # Security: prevent directory traversal
     safe_filename = os.path.basename(filename)
     file_path = os.path.join(TEMPLATES_DIR, safe_filename)
 
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail=f"File '{safe_filename}' not found")
 
+    media_type, _ = mimetypes.guess_type(file_path)
+    media_type = media_type or "application/octet-stream"
+
     return FileResponse(
         path=file_path,
         filename=safe_filename,
-        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        media_type=media_type,
     )

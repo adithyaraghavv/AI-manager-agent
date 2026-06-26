@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
+import mimetypes
 
 from routers import templates, upload, chat, documents
 
@@ -37,13 +38,7 @@ app.add_middleware(
 async def startup_event():
     os.makedirs("../Templates", exist_ok=True)
     os.makedirs("../Clients", exist_ok=True)
-    # Create placeholder template files for demo
-    templates_path = "../Templates"
-    for doc in ["SOW", "FRD", "HLD", "LLD", "BRD", "MSA"]:
-        path = os.path.join(templates_path, f"{doc.lower()}_template.docx")
-        if not os.path.exists(path):
-            with open(path, "w") as f:
-                f.write(f"[{doc} Template Placeholder - Replace with actual .docx]")
+    
 
 # ─────────────────────────────────────────────
 # Register Routers

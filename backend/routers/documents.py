@@ -3,9 +3,11 @@ Documents Router
 Endpoints for browsing and searching stored client documents.
 """
 
+import os
+import mimetypes
+
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse
-import os
 
 from services.storage_service import (
     list_client_documents,
@@ -31,13 +33,14 @@ def list_all_documents(client: str = Query(default=None, description="Filter by 
 def list_clients():
     """List all clients that have stored documents."""
     if not os.path.exists(CLIENTS_DIR):
-        return {"clients": []}
+        return {"clients": [], "count": 0}
 
     clients = [
         name for name in os.listdir(CLIENTS_DIR)
         if os.path.isdir(os.path.join(CLIENTS_DIR, name))
     ]
-    return {"clients": sorted(clients), "count": len(clients)}
+    clients = sorted(clients)
+    return {"clients": clients, "count": len(clients)}
 
 
 @router.get("/search")
@@ -57,7 +60,6 @@ def download_document(file_path: str = Query(..., description="Full path of the 
     Download a specific stored document.
     NOTE: In production, use signed URLs or access control here.
     """
-    # Security: ensure path is within Clients directory
     abs_path = os.path.abspath(file_path)
     abs_clients = os.path.abspath(CLIENTS_DIR)
 
@@ -68,4 +70,11 @@ def download_document(file_path: str = Query(..., description="Full path of the 
         raise HTTPException(status_code=404, detail="File not found")
 
     filename = os.path.basename(abs_path)
-    return FileResponse(path=abs_path, filename=filename)
+    media_type, _ = mimetypes.guess_type(abs_path)
+    media_type = media_type or "application/octet-stream"
+
+    return FileResponse(
+        path=abs_path,
+        filename=filename,
+        media_type=media_type,
+    )
