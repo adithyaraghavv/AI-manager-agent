@@ -1,408 +1,199 @@
 """
 Intent Detection Service
-Determines what the user wants to",Determines what the user wants to do from their message.
+Classifies user intent and extracts entities from messages.
+Uses LLM when API key is available, rule-based fallback otherwise.
 """
 
 import os
 import re
 import json
 import logging
-from typing import Optional
+from typing import Optional, List
 
 from openai import AsyncOpenAI
 
-from models.schemas import (
-    IntentType,
-    DocumentType,
-    IntentResult,
-    normalize_document_type,
-)
+from models.schemas import IntentType, IntentResult
 
 logger = logging.getLogger(__name__)
 
 
-FETCH_KEYWORDS = [
-    "fetch",
-    "get",
-    "download",
-    "give me",
+# ─── Keyword lists ────────────────────────────────────────────────────────────
 
-    "send me",
-    "provide",
-    "template",
+_GREETING_KW = {"hello", "hi", "hey", "good morning", "good afternoon", "howdy"}
+
+_LIST_CLIENTS_KW = [
+    "list clients", "show clients", "fetch clients", "get clients",
+    "list all clients", "show all clients", "active clients", "available clients",
+    "existing clients", "what clients", "which clients", "clients do you",
+    "list projects", "show projects", "fetch projects",
+    "get projects", "all clients", "my clients",
 ]
 
-UPLOAD_KEYWORDS = [
-    "upload",
-    "submit",
-    "attach",
-    "here is",
-    "i am uploading",
-    "uploading",
+_LIST_TEMPLATES_KW = [
+    "list templates", "show templates", "available templates",
+    "all templates", "what templates", "which templates", "template list",
+    "list all templates", "show all templates",
 ]
 
-STORE_KEYWORDS = [
-    "store",
-    "save",
-    "archive",
-    "organize",
-    "keep this",
+_UPLOAD_KW = ["upload", "submit", "attach", "uploading", "here is my", "i am uploading"]
+_STORE_KW = ["store", "save", "archive", "organize", "keep this"]
+_SEARCH_KW = ["search", "find document", "find file", "locate document", "search document"]
+
+_CLIENT_DOC_PATTERNS = [
+    r"(?:fetch|get|show|download|list|find)\s+(?:completed\s+)?(?:documents?|docs?|files?)\s+(?:for|from|of|belonging\s+to)\s+([\w][\w\s&.\-]{0,60}?)(?:\s*$|\s+(?:please|thanks))",
+    r"(?:get|download|fetch)\s+([\w][\w\s&.\-]{0,40}?)\s+(?:frd|hld|lld|srs|dmp|documents?|docs?|files?)",
+    r"(?:documents?|files?|docs?)\s+(?:for|from|of)\s+([\w][\w\s&.\-]{0,60}?)(?:\s*$|\s+(?:please|thanks))",
+    r"(?:fetch|show)\s+([\w][\w\s&.\-]{1,40}?)\s+(?:completed|uploaded)\s+(?:documents?|files?)",
+    r"(?:files|documents|docs)\s+(?:in|under|inside)\s+([\w][\w\s&.\-]{1,60}?)(?:\s+folder)?(?:\s*$)",
 ]
 
-LIST_TEMPLATE_KEYWORDS = [
-    "list templates",
-    "show templates",
-    "available templates",
-    "what templates do you have",
-    "which templates are available",
-    "template list",
-]
-
-LIST_CLIENTS_KEYWORDS = [
-    "list clients",
-    "show clients",
-    "existing clients",
-    "available clients",
-    "list projects",
-    "show projects",
-    "existing projects",
-]
-
-SEARCH_KEYWORDS = [
-    "search",
-    "find",
-    "locate",
-    "look for",
-    "search documents",
-    "find document",
-    "find file",
-]
-
-GREET_KEYWORDS = [
-    "hello",
-    "hi",
-    "hey",
-    "good morning",
-    "good afternoon",
-    "howdy",
-]
-
-
-DOC_TYPE_KEYWORDS: dict[DocumentType, list[str]] = {
-    DocumentType.FRD: [
-        "frd",
-        "functional requirement",
-        "functional requirements",
-        "functional requirements document",
-        "functional spec",
-        "functional specification",
-    ],
-    DocumentType.DATA_MANAGEMENT_PLAN: [
-        "data management plan",
-        "data plan",
-        "dmp",
-        "data management",
-    ],
-    DocumentType.HLD: [
-        "hld",
-        "high level design",
-        "high-level design",
-        "architecture document",
-        "architecture doc",
-        "solution design",
-    ],
-    DocumentType.LLD: [
-        "lld",
-        "low level design",
-        "low-level design",
-        "detailed design",
-        "technical design",
-    ],
-    DocumentType.SOFTWARE_REQUIREMENTS: [
-        "software requirements",
-        "software requirements template",
-        "software requirement",
-        "requirements document",
-        "requirement document",
-        "requirements doc",
-        "srs",
-        "specification document",
-    ],
+_CLIENT_STOPWORDS = {
+    "template", "templates", "the", "a", "an", "me", "my", "all",
+    "please", "can", "could", "would", "some", "any",
 }
 
 
-SYSTEM_PROMPT = """
-You are an intent classifier for a Project Management Document Assistant.
+# ─── Helper functions ─────────────────────────────────────────────────────────
 
-Classify the user's message into exactly one intent from this list:
-- FETCH_TEMPLATE
-- UPLOAD_DOCUMENT
-- STORE_DOCUMENT
-- LIST_TEMPLATES
-- LIST_CLIENTS
-- SEARCH_DOCUMENTS
-- GREETING
-- CLARIFY_INTENT
-- UNKNOWN
-
-Supported document types:
-- FRD
-- DATA_MANAGEMENT_PLAN
-- HLD
-- LLD
-- SOFTWARE_REQUIREMENTS
-- OTHER
-- null
-
-Also extract:
-- document_type
-- client_name
-- needs_clarification
-- clarification_question
-
-Rules:
-- If the user clearly mentions a supported document type like "FRD", "HLD", "LLD", "data management plan", "software requirements", or similar variations, map it correctly.
-- If the user message is vague but still looks like they want a template, for example just a doc type name, classify as FETCH_TEMPLATE if that is the most likely intent.
-- If more information is required, set needs_clarification=true and provide one short helpful question.
-- Respond ONLY with valid JSON matching this schema:
-
-{
-  "intent": "FETCH_TEMPLATE",
-  "document_type": "FRD",
-  "client_name": "Acme Corp",
-  "confidence": 0.95,
-  "needs_clarification": false,
-  "clarification_question": null
-}
-""".strip()
+def _norm(text: str) -> str:
+    return re.sub(r"\s+", " ", text.lower().replace("-", " ").replace("/", " ")).strip()
 
 
-def _normalize_text(text: str) -> str:
-    text = text.lower()
-    text = text.replace("/", " ")
-    text = text.replace("-", " ")
-    text = re.sub(r"[^\w\s&.]", " ", text)
-    text = re.sub(r"\s+", " ", text).strip()
-    return text
-
-
-def _contains_keyword(message: str, keywords: list[str]) -> bool:
-    normalized = _normalize_text(message)
-
-    for keyword in keywords:
-        keyword_normalized = _normalize_text(keyword)
-        if keyword_normalized and keyword_normalized in normalized:
-            return True
-
-    return False
+def _has_kw(message: str, keywords: List[str]) -> bool:
+    n = _norm(message)
+    return any(_norm(kw) in n for kw in keywords)
 
 
 def _is_greeting(message: str) -> bool:
-    normalized = _normalize_text(message)
+    n = _norm(message)
+    return any(re.search(rf"\b{re.escape(kw)}\b", n) for kw in _GREETING_KW)
 
-    return any(
-        re.search(rf"\b{re.escape(_normalize_text(keyword))}\b", normalized)
-        for keyword in GREET_KEYWORDS
+
+def _extract_client_name_from_message(message: str) -> Optional[str]:
+    """Try to extract a client name from a message using multiple patterns."""
+    for pattern in _CLIENT_DOC_PATTERNS:
+        m = re.search(pattern, message, re.IGNORECASE)
+        if m:
+            candidate = m.group(1).strip(" .,-")
+            if candidate.lower() not in _CLIENT_STOPWORDS and len(candidate) > 1:
+                return candidate
+    # Fallback: "for/from ClientName"
+    m2 = re.search(
+        r"(?:for|from)\s+([A-Za-z0-9][A-Za-z0-9&.\-\s]{1,60}?)(?:\s*$|\s+(?:template|document|file|please|thanks|doc)\b)",
+        message, re.IGNORECASE
     )
-
-
-def _detect_document_type(message: str) -> Optional[DocumentType]:
-    normalized = _normalize_text(message)
-
-    for document_type, keywords in DOC_TYPE_KEYWORDS.items():
-        for keyword in keywords:
-            if _normalize_text(keyword) in normalized:
-                return document_type
-
-    return None
-
-
-def _extract_client_name(message: str) -> Optional[str]:
-    patterns = [
-        r"(?:for|client|project)\s*[:\-]?\s*([A-Za-z0-9][A-Za-z0-9&.\- ]{1,80}?)(?=\s+(?:template|document|doc|file|please|thanks)\b|$)",
-        r"(?:client name|project name)\s*[:\-]?\s*([A-Za-z0-9][A-Za-z0-9&.\- ]{1,80})",
-    ]
-
-    for pattern in patterns:
-        match = re.search(pattern, message, flags=re.IGNORECASE)
-
-        if match:
-            client_name = match.group(1).strip(" .,-")
-            if client_name:
-                return client_name
-
+    if m2:
+        candidate = m2.group(1).strip()
+        if candidate.lower() not in _CLIENT_STOPWORDS:
+            return candidate
     return None
 
 
 def _safe_intent(value: Optional[str]) -> IntentType:
     if not value:
         return IntentType.UNKNOWN
-
-    cleaned = str(value).strip().upper()
-
     try:
-        return IntentType(cleaned)
+        return IntentType(str(value).strip().upper())
     except Exception:
         return IntentType.UNKNOWN
 
 
-def _safe_doc_type(value: Optional[str]) -> Optional[DocumentType]:
-    return normalize_document_type(value)
-
-
-def _safe_confidence(value) -> float:
+def _safe_float(value, default: float = 0.8) -> float:
     try:
-        confidence = float(value)
+        return max(0.0, min(1.0, float(value)))
     except Exception:
-        confidence = 0.8
-
-    return max(0.0, min(1.0, confidence))
+        return default
 
 
-def _build_messages(message: str, history: list) -> list[dict]:
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-
-    for item in history[-6:]:
-        if isinstance(item, dict):
-            role = item.get("role", "user")
-            content = item.get("content", "")
-        else:
-            role = getattr(item, "role", "user")
-            content = getattr(item, "content", "")
-
-        if role in {"system", "user", "assistant"} and content:
-            messages.append({"role": role, "content": content})
-
-    messages.append({"role": "user", "content": message})
-    return messages
-
-
-async def detect_intent_llm(
-    message: str,
-    history: list,
-    client: AsyncOpenAI,
-) -> IntentResult:
-    messages = _build_messages(message, history)
-
-    try:
-        response = await client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=messages,
-            temperature=0,
-            response_format={"type": "json_object"},
-            max_tokens=300,
-        )
-
-        raw = response.choices[0].message.content
-        data = json.loads(raw)
-
-        return IntentResult(
-            intent=_safe_intent(data.get("intent")),
-            document_type=_safe_doc_type(data.get("document_type")),
-            client_name=data.get("client_name"),
-            confidence=_safe_confidence(data.get("confidence", 0.8)),
-            needs_clarification=bool(data.get("needs_clarification", False)),
-            clarification_question=data.get("clarification_question"),
-        )
-
-    except Exception as error:
-        logger.warning(
-            "LLM intent detection failed: %s. Falling back to rule-based.",
-            error,
-        )
-        return detect_intent_rules(message)
-
+# ─── Rule-based detection ─────────────────────────────────────────────────────
 
 def detect_intent_rules(message: str) -> IntentResult:
-    detected_doc_type = _detect_document_type(message)
-    client_name = _extract_client_name(message)
+    msg = message.strip()
 
-    if _is_greeting(message):
-        return IntentResult(
-            intent=IntentType.GREETING,
-            confidence=0.95,
-        )
+    if _is_greeting(msg):
+        return IntentResult(intent=IntentType.GREETING, confidence=0.95)
 
-    if _contains_keyword(message, UPLOAD_KEYWORDS):
-        needs_clarification = not client_name or not detected_doc_type
+    # LIST_CLIENTS must be checked before FETCH_TEMPLATE to avoid
+    # "fetch clients" → FETCH_TEMPLATE mismatch
+    if _has_kw(msg, _LIST_CLIENTS_KW):
+        return IntentResult(intent=IntentType.LIST_CLIENTS, confidence=0.93)
 
+    # UPLOAD / STORE checked before FETCH_CLIENT_DOCUMENTS so that
+    # "upload document for XYZ" is not caught by the client-doc patterns
+    if _has_kw(msg, _UPLOAD_KW):
+        client = _extract_client_name_from_message(msg)
+        needs_cl = not client
         return IntentResult(
             intent=IntentType.UPLOAD_DOCUMENT,
-            document_type=detected_doc_type,
-            client_name=client_name,
-            confidence=0.88 if not needs_clarification else 0.75,
-            needs_clarification=needs_clarification,
-            clarification_question=(
-                "Sure — please tell me the client name and document type so I can upload it correctly."
-                if needs_clarification
-                else None
-            ),
-        )
-
-    if _contains_keyword(message, STORE_KEYWORDS):
-        needs_clarification = not client_name or not detected_doc_type
-
-        return IntentResult(
-            intent=IntentType.STORE_DOCUMENT,
-            document_type=detected_doc_type,
-            client_name=client_name,
-            confidence=0.86 if not needs_clarification else 0.72,
-            needs_clarification=needs_clarification,
+            client_name=client,
+            confidence=0.88 if client else 0.72,
+            needs_clarification=needs_cl,
             clarification_question=(
                 "Sure — which client is this for, and what document type is it?"
-                if needs_clarification
-                else None
+                if needs_cl else None
             ),
         )
 
-    if _contains_keyword(message, SEARCH_KEYWORDS):
-        needs_clarification = not client_name and not detected_doc_type
+    if _has_kw(msg, _STORE_KW):
+        client = _extract_client_name_from_message(msg)
+        needs_cl = not client
+        return IntentResult(
+            intent=IntentType.STORE_DOCUMENT,
+            client_name=client,
+            confidence=0.86 if client else 0.70,
+            needs_clarification=needs_cl,
+            clarification_question=(
+                "Which client folder should I store this under, and what document type?"
+                if needs_cl else None
+            ),
+        )
 
+    # FETCH_CLIENT_DOCUMENTS: "docs for XYZ", "get XYZ files", etc.
+    for pattern in _CLIENT_DOC_PATTERNS:
+        m = re.search(pattern, msg, re.IGNORECASE)
+        if m:
+            candidate = m.group(1).strip(" .,-")
+            first_word = candidate.lower().split()[0] if candidate.split() else ""
+            if (candidate.lower() not in _CLIENT_STOPWORDS
+                    and first_word not in _CLIENT_STOPWORDS
+                    and len(candidate) > 1):
+                return IntentResult(
+                    intent=IntentType.FETCH_CLIENT_DOCUMENTS,
+                    client_name=candidate,
+                    confidence=0.87,
+                )
+
+    # SEARCH
+    if _has_kw(msg, _SEARCH_KW):
+        client = _extract_client_name_from_message(msg)
         return IntentResult(
             intent=IntentType.SEARCH_DOCUMENTS,
-            document_type=detected_doc_type,
-            client_name=client_name,
+            client_name=client,
             confidence=0.85,
-            needs_clarification=needs_clarification,
-            clarification_question=(
-                "What would you like me to search for — a client name, project, or document type?"
-                if needs_clarification
-                else None
-            ),
         )
 
-    if _contains_keyword(message, LIST_TEMPLATE_KEYWORDS):
-        return IntentResult(
-            intent=IntentType.LIST_TEMPLATES,
-            confidence=0.9,
-        )
+    # LIST_TEMPLATES
+    if _has_kw(msg, _LIST_TEMPLATES_KW):
+        return IntentResult(intent=IntentType.LIST_TEMPLATES, confidence=0.92)
 
-    if _contains_keyword(message, LIST_CLIENTS_KEYWORDS):
-        return IntentResult(
-            intent=IntentType.LIST_CLIENTS,
-            confidence=0.9,
-        )
+    # FETCH_TEMPLATE — only if "client" is NOT the focus
+    _DOC_ABBREVS = {"frd", "hld", "lld", "srs", "dmp"}
+    fetch_words = {
+        "fetch", "get", "download", "give me", "send me", "provide",
+        "template", "need a", "need the", "i need", "can i get", "want a",
+        "want the", "looking for",
+    } | _DOC_ABBREVS
+    msg_lower = msg.lower()
+    has_fetch = any(w in msg_lower for w in fetch_words)
 
-    if detected_doc_type:
-        explicit_fetch = _contains_keyword(message, FETCH_KEYWORDS)
-
+    if has_fetch and "client" not in msg_lower:
         return IntentResult(
             intent=IntentType.FETCH_TEMPLATE,
-            document_type=detected_doc_type,
-            client_name=client_name,
-            confidence=0.92 if explicit_fetch else 0.78,
-            needs_clarification=False,
-            clarification_question=None,
-        )
-
-    if _contains_keyword(message, FETCH_KEYWORDS):
-        return IntentResult(
-            intent=IntentType.FETCH_TEMPLATE,
-            confidence=0.68,
+            confidence=0.70,
             needs_clarification=True,
             clarification_question=(
-                "I can fetch a template for you — which one do you need? "
-                "Available templates: FRD, Data Management Plan, HLD, LLD, Software Requirements."
+                "I can fetch a template for you. Which template do you need? "
+                "Available templates include FRD, HLD, LLD, Software Requirements, and Data Management Plan."
             ),
         )
 
@@ -411,22 +202,120 @@ def detect_intent_rules(message: str) -> IntentResult:
         confidence=0.3,
         needs_clarification=True,
         clarification_question=(
-            "I’m not fully sure what you need. I can help you fetch a template, upload/store a document, "
-            "list templates, list clients, or search documents. What would you like to do?"
+            "I'm not sure what you need. I can:\n"
+            "• **Fetch a template** — e.g. 'Give me the FRD template'\n"
+            "• **Upload a document** — e.g. 'Upload completed FRD for XYZ'\n"
+            "• **List clients** — e.g. 'Show all clients'\n"
+            "• **Get client documents** — e.g. 'Show documents for XYZ'\n"
+            "What would you like to do?"
         ),
     )
 
 
-async def detect_intent(
+# ─── LLM-based detection ──────────────────────────────────────────────────────
+
+def _build_system_prompt(template_names: List[str]) -> str:
+    if template_names:
+        tpl_list = "\n".join(f"  - {n}" for n in template_names)
+    else:
+        tpl_list = "  (no templates currently available)"
+
+    return f"""You are an intent classifier for a Project Management Document Assistant.
+
+Available template files:
+{tpl_list}
+
+Classify the user message into exactly one intent:
+- FETCH_TEMPLATE     : User wants to download/get a template to work from.
+- UPLOAD_DOCUMENT    : User wants to upload or submit a completed document.
+- STORE_DOCUMENT     : User wants to save/archive a document.
+- LIST_TEMPLATES     : User wants to see all available templates.
+- LIST_CLIENTS       : User wants to see all clients/projects. Triggered by: "list clients", "show clients", "fetch clients", "active clients", "list projects".
+- FETCH_CLIENT_DOCUMENTS : User wants to see or download completed docs for a specific client. Triggered by: "documents for XYZ", "files for XYZ", "get XYZ files".
+- SEARCH_DOCUMENTS   : User wants to search stored documents.
+- GREETING           : Hello, hi, good morning, etc.
+- CLARIFY_INTENT     : Too vague to determine.
+- UNKNOWN            : Unrelated to documents.
+
+CRITICAL RULES:
+1. "fetch clients", "list clients", "show clients", "get clients" → LIST_CLIENTS. NEVER FETCH_TEMPLATE.
+2. "documents for <name>", "files for <name>", "get <name> docs" → FETCH_CLIENT_DOCUMENTS with client_name extracted.
+3. FETCH_TEMPLATE: match matched_filename to ONE of the available template files listed above. If no file matches, set matched_filename to null and needs_clarification to true.
+4. Do NOT invent template filenames. Only use filenames from the list above.
+5. client_name is only relevant for FETCH_CLIENT_DOCUMENTS and UPLOAD_DOCUMENT.
+6. Single abbreviations "FRD", "HLD", "LLD", "SRS", "DMP" alone or in short phrases ALWAYS mean FETCH_TEMPLATE. Match the corresponding file and set needs_clarification to false.
+
+Respond ONLY with valid JSON:
+{{
+  "intent": "FETCH_TEMPLATE",
+  "client_name": null,
+  "document_type": null,
+  "document_query": null,
+  "matched_filename": "exact_filename.docx",
+  "confidence": 0.95,
+  "needs_clarification": false,
+  "clarification_question": null
+}}""".strip()
+
+
+def _build_messages(message: str, history: list, template_names: List[str]) -> list:
+    messages = [{"role": "system", "content": _build_system_prompt(template_names)}]
+    for item in history[-6:]:
+        if isinstance(item, dict):
+            role = item.get("role", "user")
+            content = item.get("content", "")
+        else:
+            role = getattr(item, "role", "user")
+            content = getattr(item, "content", "")
+        if role in {"system", "user", "assistant"} and content:
+            messages.append({"role": role, "content": content})
+    messages.append({"role": "user", "content": message})
+    return messages
+
+
+async def detect_intent_llm(
     message: str,
     history: list,
+    client: AsyncOpenAI,
+    template_names: List[str],
 ) -> IntentResult:
+    messages = _build_messages(message, history, template_names)
+    try:
+        response = await client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            temperature=0,
+            response_format={"type": "json_object"},
+            max_tokens=350,
+        )
+        raw = response.choices[0].message.content or "{}"
+        data = json.loads(raw)
+        return IntentResult(
+            intent=_safe_intent(data.get("intent")),
+            document_type=data.get("document_type"),
+            client_name=data.get("client_name"),
+            document_query=data.get("document_query"),
+            matched_filename=data.get("matched_filename"),
+            confidence=_safe_float(data.get("confidence", 0.8)),
+            needs_clarification=bool(data.get("needs_clarification", False)),
+            clarification_question=data.get("clarification_question"),
+        )
+    except Exception as error:
+        logger.warning("LLM intent detection failed: %s. Using rule-based fallback.", error)
+        return detect_intent_rules(message)
+
+
+async def detect_intent(message: str, history: list) -> IntentResult:
+    """Main entry point: use LLM if available, else rule-based."""
+    # Import here to avoid circular imports
+    from services.storage_service import list_templates
+    templates = list_templates()
+    template_names = [t.filename for t in templates]
+
     api_key = os.getenv("OPENAI_API_KEY")
-
     if api_key:
-        client = AsyncOpenAI(api_key=api_key)
-        return await detect_intent_llm(message, history, client)
+        openai_client = AsyncOpenAI(api_key=api_key)
+        return await detect_intent_llm(message, history, openai_client, template_names)
 
-    logger.info("No OPENAI_API_KEY found — using rule-based intent detection")
+    logger.info("No OPENAI_API_KEY — using rule-based intent detection")
     return detect_intent_rules(message)
-

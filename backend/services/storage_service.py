@@ -1,306 +1,37 @@
 """
 File Storage Service
-Manages template retrieval and management plan",Manages template retrieval and document storage in structured folders.
+Manages dynamic template discovery and client document storage/retrieval.
 """
 
-import difflib
 import os
 import re
 import shutil
 import logging
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Tuple
 from urllib.parse import quote
 
-from models.schemas import (
-    DocumentType,
-    DocumentInfo,
-    TemplateInfo,
-    document_type_to_display,
-)
+from models.schemas import TemplateInfo, DocumentInfo, ClientInfo
 
 logger = logging.getLogger(__name__)
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PROJECT_ROOT = os.path.abspath(os.path.join(BASE_DIR, ".."))
+ALLOWED_EXTENSIONS = {".docx", ".doc", ".pdf", ".xlsx", ".pptx", ".txt"}
+MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
+
+_this_file = os.path.abspath(__file__)
+_services_dir = os.path.dirname(_this_file)
+_backend_dir = os.path.dirname(_services_dir)
+PROJECT_ROOT = os.path.abspath(os.path.join(_backend_dir, ".."))
 
 TEMPLATES_DIR = os.path.join(PROJECT_ROOT, "Templates")
 CLIENTS_DIR = os.path.join(PROJECT_ROOT, "Clients")
 
 
-SUPPORTED_TEMPLATE_ALIASES: dict[DocumentType, list[str]] = {
-    DocumentType.FRD: [
-        "frd",
-        "functional requirement",
-        "functional requirements",
-        "functional requirements document",
-        "functional specification",
-        "functional spec",
-    ],
-    DocumentType.DATA_MANAGEMENT_PLAN: [
-
-        "data management",
-        "dmp",
-        "data plan",
-    ],
-    DocumentType.HLD: [
-        "hld",
-        "high level design",
-        "high-level design",
-        "high level design document",
-        "architecture document",
-        "architecture doc",
-        "solution design",
-    ],
-    DocumentType.LLD: [
-        "lld",
-        "low level design",
-        "low-level design",
-        "low level design document",
-        "detailed design",
-        "technical design",
-    ],
-    DocumentType.SOFTWARE_REQUIREMENTS: [
-        "software requirements",
-        "software requirement",
-        "software requirements template",
-        "software requirements specification",
-        "srs",
-        "requirements template",
-        "requirements document",
-        "requirements doc",
-        "specification document",
-    ],
-}
-
-
-def _normalize_text(value: str) -> str:
-    value = os.path.splitext(value)[0]
-    value = value.lower()
-    value = re.sub(r"[^a-z0-9]+", " ", value)
-    value = re.sub(r"\s+", " ", value)
-    return value.strip()
-
-
-def _tokenize(value: str) -> set[str]:
-    normalized = _normalize_text(value)
-    return {token for token in normalized.split() if len(token) > 1}
-
-
-def _detect_supported_template_type(filename: str) -> Optional[DocumentType]:
-    normalized = _normalize_text(filename)
-    tokens = set(normalized.split())
-
-    for template_type, aliases in SUPPORTED_TEMPLATE_ALIASES.items():
-        for alias in aliases:
-            alias_normalized = _normalize_text(alias)
-            alias_tokens = set(alias_normalized.split())
-
-            if alias_normalized in normalized or alias_tokens.issubset(tokens):
-                return template_type
-
-    return None
-
-
-def list_templates() -> List[TemplateInfo]:
-    templates: List[TemplateInfo] = []
-
-    if not os.path.exists(TEMPLATES_DIR):
-        return templates
-
-    for fname in sorted(os.listdir(TEMPLATES_DIR)):
-        fpath = os.path.join(TEMPLATES_DIR, fname)
-
-        if not os.path.isfile(fpath):
-            continue
-
-        detected_template_type = _detect_supported_template_type(fname)
-
-        if not detected_template_type:
-            continue
-
-        size_kb = round(os.path.getsize(fpath) / 1024, 2)
-
-        templates.append(
-            TemplateInfo(
-                name=os.path.splitext(fname)[0].replace("_", " ").strip(),
-                document_type=document_type_to_display(detected_template_type)
-                or detected_template_type.value,
-                filename=fname,
-                download_url=f"/api/templates/download/{quote(fname)}",
-                size_kb=size_kb,
-            )
-        )
-
-    return templates
-
-
-def get_template_path(document_type: DocumentType) -> Optional[str]:
-    if not os.path.exists(TEMPLATES_DIR):
-        return None
-
-    for fname in os.listdir(TEMPLATES_DIR):
-        detected_template_type = _detect_supported_template_type(fname)
-
-        if detected_template_type == document_type:
-            return os.path.join(TEMPLATES_DIR, fname)
-
-    return None
-
-
-def find_best_template(
-    query: str,
-    document_type: Optional[DocumentType] = None,
-    minimum_score: float = 0.35,
-) -> Optional[TemplateInfo]:
-    templates = list_templates()
-
-    if not templates:
-        return None
-
-    query_normalized = _normalize_text(query)
-    query_tokens = _tokenize(query)
-
-    if not query_normalized and not document_type:
-        return None
-
-    best_template = None
-    best_score = 0.0
-
-    for template in templates:
-        template_detected_type = _detect_supported_template_type(template.filename)
-
-        searchable_text = f"{template.name} {template.filename} {template.document_type or ''}"
-        searchable_normalized = _normalize_text(searchable_text)
-        searchable_tokens = _tokenize(searchable_text)
-
-        score = difflib.SequenceMatcher(
-            None,
-            query_normalized,
-            searchable_normalized,
-        ).ratio()
-
-        if query_tokens:
-            token_overlap = len(query_tokens.intersection(searchable_tokens)) / len(query_tokens)
-            score += token_overlap * 0.8
-
-        if query_normalized and query_normalized in searchable_normalized:
-            score += 0.7
-
-        if document_type and template_detected_type == document_type:
-            score += 1.0
-
-        for enum_type, aliases in SUPPORTED_TEMPLATE_ALIASES.items():
-            if template_detected_type != enum_type:
-                continue
-
-            for alias in aliases:
-                alias_normalized = _normalize_text(alias)
-
-                if alias_normalized == query_normalized:
-                    score += 1.0
-                elif alias_normalized in query_normalized or query_normalized in alias_normalized:
-                    score += 0.7
-
-        if score > best_score:
-            best_score = score
-            best_template = template
-
-    if best_template and best_score >= minimum_score:
-        return best_template
-
-    return None
-
-
-def get_client_folder(client_name: str, document_type: DocumentType) -> str:
-    safe_client = _sanitize_folder_name(client_name)
-    folder = os.path.join(CLIENTS_DIR, safe_client, document_type.value)
-    os.makedirs(folder, exist_ok=True)
-    return folder
-
-
-def store_document(
-    source_path: str,
-    client_name: str,
-    document_type: DocumentType,
-    original_filename: str,
-) -> DocumentInfo:
-    folder = get_client_folder(client_name, document_type)
-
-    _, ext = os.path.splitext(original_filename)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    safe_client = _sanitize_folder_name(client_name).lower()
-    new_filename = f"{safe_client}_{document_type.value.lower()}_{timestamp}{ext}"
-
-    dest_path = os.path.join(folder, new_filename)
-    shutil.move(source_path, dest_path)
-
-    size_kb = round(os.path.getsize(dest_path) / 1024, 2)
-
-    return DocumentInfo(
-        filename=new_filename,
-        client_name=client_name,
-        document_type=document_type.value,
-        file_path=dest_path,
-        uploaded_at=datetime.now().isoformat(),
-        size_kb=size_kb,
-    )
-
-
-def list_client_documents(client_name: Optional[str] = None) -> List[DocumentInfo]:
-    results: List[DocumentInfo] = []
-
-    if not os.path.exists(CLIENTS_DIR):
-        return results
-
-    clients = [client_name] if client_name else os.listdir(CLIENTS_DIR)
-
-    for client in clients:
-        client_path = os.path.join(CLIENTS_DIR, client)
-
-        if not os.path.isdir(client_path):
-            continue
-
-        for doc_type_folder in os.listdir(client_path):
-            doc_folder = os.path.join(client_path, doc_type_folder)
-
-            if not os.path.isdir(doc_folder):
-                continue
-
-            for fname in os.listdir(doc_folder):
-                fpath = os.path.join(doc_folder, fname)
-
-                if not os.path.isfile(fpath):
-                    continue
-
-                size_kb = round(os.path.getsize(fpath) / 1024, 2)
-                mtime = datetime.fromtimestamp(os.path.getmtime(fpath)).isoformat()
-
-                results.append(
-                    DocumentInfo(
-                        filename=fname,
-                        client_name=client,
-                        document_type=doc_type_folder,
-                        file_path=fpath,
-                        uploaded_at=mtime,
-                        size_kb=size_kb,
-                    )
-                )
-
-    results.sort(key=lambda x: x.uploaded_at or "", reverse=True)
-    return results
-
-
-def search_documents(query: str) -> List[DocumentInfo]:
-    q = query.lower().strip()
-    all_docs = list_client_documents()
-
-    return [
-        d for d in all_docs
-        if q in d.filename.lower()
-        or q in d.client_name.lower()
-        or q in d.document_type.lower()
-    ]
+# ─── Utilities ────────────────────────────────────────────────────────────────
+
+def _is_valid_document(filename: str) -> bool:
+    _, ext = os.path.splitext(filename)
+    return ext.lower() in ALLOWED_EXTENSIONS
 
 
 def _sanitize_folder_name(name: str) -> str:
@@ -309,49 +40,375 @@ def _sanitize_folder_name(name: str) -> str:
     return safe or "Unknown"
 
 
-def _detect_doc_type_from_filename(filename: str) -> Optional[DocumentType]:
-    return _detect_supported_template_type(filename)
+def _display_name_from_filename(filename: str) -> str:
+    """Convert filename to a readable display name."""
+    name_no_ext = os.path.splitext(filename)[0]
+    name_no_ext = re.sub(r"\(.*?\)", "", name_no_ext)  # remove (QMS-126) etc.
+    name_no_ext = re.sub(r"[_\-]+", " ", name_no_ext)
+    name_no_ext = re.sub(r"\s+", " ", name_no_ext)
+    return name_no_ext.strip()
+
+
+# ─── Templates ────────────────────────────────────────────────────────────────
+
+def list_templates() -> List[TemplateInfo]:
+    """Dynamically discover all valid template files from the Templates directory."""
+    if not os.path.exists(TEMPLATES_DIR):
+        logger.warning("Templates directory not found: %s", TEMPLATES_DIR)
+        return []
+
+    templates: List[TemplateInfo] = []
+    for fname in sorted(os.listdir(TEMPLATES_DIR)):
+        fpath = os.path.join(TEMPLATES_DIR, fname)
+        if not os.path.isfile(fpath):
+            continue
+        if not _is_valid_document(fname):
+            continue
+        _, ext = os.path.splitext(fname)
+        size_kb = round(os.path.getsize(fpath) / 1024, 2)
+        display_name = _display_name_from_filename(fname)
+        templates.append(TemplateInfo(
+            name=display_name,
+            document_type=display_name,
+            filename=fname,
+            extension=ext.lower(),
+            download_url=f"/api/templates/download/{quote(fname)}",
+            size_kb=size_kb,
+        ))
+    return templates
+
+
+def get_template_path(filename: str) -> Optional[str]:
+    """Validate and return the absolute path of a template by filename."""
+    safe = os.path.basename(filename)
+    path = os.path.join(TEMPLATES_DIR, safe)
+    if os.path.isfile(path) and _is_valid_document(safe):
+        return path
+    return None
+
+
+# Phrases in template names → their common abbreviations (appended to searchable text)
+_PHRASE_TO_ABBREV: dict[str, str] = {
+    "high level design":                  "hld",
+    "low level design":                   "lld",
+    "software requirements specification": "srs",
+    "data management plan":               "dmp",
+    "functional requirement":             "frd",
+}
+
+# Phrases in user QUERIES → abbreviations to add to q_tokens for better matching
+_QUERY_PHRASE_TO_ABBREV: dict[str, str] = {
+    "functional requirement": "frd",
+    "high level design":      "hld",
+    "low level design":       "lld",
+    "software requirements":  "srs",
+    "data management plan":   "dmp",
+}
+
+
+def _enrich_searchable(text: str) -> str:
+    """Append abbreviations for any spelled-out phrases found in template text."""
+    extras: list[str] = []
+    for phrase, abbrev in _PHRASE_TO_ABBREV.items():
+        if phrase in text:
+            extras.append(abbrev)
+    return (text + " " + " ".join(extras)) if extras else text
+
+
+def _enrich_query_tokens(q_norm: str, tokens: set) -> set:
+    """If query contains a spelled-out phrase, add its abbreviation to token set."""
+    extra: set = set()
+    for phrase, abbrev in _QUERY_PHRASE_TO_ABBREV.items():
+        if phrase in q_norm:
+            extra.add(abbrev)
+    return tokens | extra
+
+
+def find_best_template(
+    query: str,
+    document_type: Optional[str] = None,
+    minimum_score: float = 0.3,
+) -> Optional[TemplateInfo]:
+    """Find the best matching template using fuzzy + token-overlap scoring."""
+    import difflib
+    templates = list_templates()
+    if not templates:
+        return None
+
+    q_norm = re.sub(r"[^a-z0-9]+", " ", query.lower()).strip()
+    q_tokens = _enrich_query_tokens(
+        q_norm, {t for t in q_norm.split() if len(t) > 1}
+    )
+    best: Optional[TemplateInfo] = None
+    best_score = 0.0
+
+    for t in templates:
+        searchable_raw = f"{t.name} {t.filename} {t.document_type or ''}".lower()
+        searchable = _enrich_searchable(re.sub(r"[^a-z0-9]+", " ", searchable_raw).strip())
+        s_tokens = {tok for tok in searchable.split() if len(tok) > 1}
+
+        score = difflib.SequenceMatcher(None, q_norm, searchable).ratio()
+
+        # Token overlap bonus (critical for abbreviation queries)
+        if q_tokens:
+            overlap = len(q_tokens & s_tokens) / len(q_tokens)
+            score += overlap * 1.2
+
+        # Exact substring bonus
+        if q_norm and q_norm in searchable:
+            score += 0.7
+
+        # Explicit document_type hint bonus
+        if document_type:
+            dt_norm = re.sub(r"[^a-z0-9]+", " ", document_type.lower()).strip()
+            if dt_norm and dt_norm in searchable:
+                score += 1.2
+
+        if score > best_score:
+            best_score = score
+            best = t
+
+    return best if (best and best_score >= minimum_score) else None
+
+
+# ─── Client Discovery ─────────────────────────────────────────────────────────
+
+def _extract_client_name_from_folder(folder_name: str) -> str:
+    """Extract readable client name from folder like Clients_XYZ_FRD → XYZ."""
+    remainder = re.sub(r"^[Cc]lients?_?", "", folder_name)
+    parts = remainder.rsplit("_", 1)
+    if (len(parts) == 2
+            and parts[1].isupper()
+            and len(parts[1]) <= 12
+            and not any(c.isdigit() for c in parts[1])):
+        return parts[0]
+    return remainder or folder_name
+
+
+def _discover_client_locations() -> List[Tuple[str, str, str]]:
+    """
+    Find all client document storage locations.
+    Returns list of (client_name, folder_display_name, absolute_path).
+    """
+    seen: set = set()
+    locations: List[Tuple[str, str, str]] = []
+
+    # Standard structure: CLIENTS_DIR/client_name/
+    if os.path.isdir(CLIENTS_DIR):
+        for entry in sorted(os.listdir(CLIENTS_DIR)):
+            fpath = os.path.join(CLIENTS_DIR, entry)
+            real_path = os.path.realpath(fpath)
+            if os.path.isdir(fpath) and real_path not in seen:
+                seen.add(real_path)
+                locations.append((entry, entry, fpath))
+
+    # Legacy / flat structure: PROJECT_ROOT/Clients_*/
+    if os.path.isdir(PROJECT_ROOT):
+        for entry in sorted(os.listdir(PROJECT_ROOT)):
+            if not re.match(r"^[Cc]lients?_", entry):
+                continue
+            fpath = os.path.join(PROJECT_ROOT, entry)
+            real_path = os.path.realpath(fpath)
+            if os.path.isdir(fpath) and real_path not in seen:
+                seen.add(real_path)
+                client_name = _extract_client_name_from_folder(entry)
+                locations.append((client_name, entry, fpath))
+
+    return locations
+
+
+def _collect_documents_in_folder(
+    client_name: str, folder_path: str
+) -> List[DocumentInfo]:
+    """Collect all valid documents in a client folder (recursive, 2 levels)."""
+    docs: List[DocumentInfo] = []
+
+    def _scan(dir_path: str, depth: int = 0):
+        if not os.path.isdir(dir_path) or depth > 2:
+            return
+        try:
+            entries = sorted(os.listdir(dir_path))
+        except PermissionError:
+            return
+        for fname in entries:
+            fpath = os.path.join(dir_path, fname)
+            if os.path.isfile(fpath) and _is_valid_document(fname):
+                _, ext = os.path.splitext(fname)
+                try:
+                    size_kb = round(os.path.getsize(fpath) / 1024, 2)
+                    mtime = datetime.fromtimestamp(
+                        os.path.getmtime(fpath)
+                    ).isoformat()
+                except OSError:
+                    size_kb = 0.0
+                    mtime = None
+                rel = os.path.relpath(fpath, PROJECT_ROOT).replace("\\", "/")
+                docs.append(DocumentInfo(
+                    filename=fname,
+                    display_name=_display_name_from_filename(fname),
+                    client_name=client_name,
+                    extension=ext.lower(),
+                    file_path=fpath,
+                    uploaded_at=mtime,
+                    size_kb=size_kb,
+                    download_url=f"/api/documents/client-file?path={quote(rel)}",
+                ))
+            elif os.path.isdir(fpath):
+                _scan(fpath, depth + 1)
+
+    _scan(folder_path)
+    return sorted(docs, key=lambda d: d.uploaded_at or "", reverse=True)
+
+
+def list_all_clients() -> List[ClientInfo]:
+    """List all clients with their stored documents."""
+    clients: List[ClientInfo] = []
+    for client_name, folder_name, folder_path in _discover_client_locations():
+        docs = _collect_documents_in_folder(client_name, folder_path)
+        clients.append(ClientInfo(
+            client_name=client_name,
+            folder_name=folder_name,
+            document_count=len(docs),
+            documents=docs,
+        ))
+    return sorted(clients, key=lambda c: c.client_name.lower())
+
+
+def find_client_documents(query_client: str) -> Optional[ClientInfo]:
+    """Find a client by name (exact then partial match)."""
+    q = query_client.strip().lower()
+    locations = _discover_client_locations()
+    if not locations:
+        return None
+
+    for client_name, folder_name, folder_path in locations:
+        if client_name.lower() == q or folder_name.lower() == q:
+            docs = _collect_documents_in_folder(client_name, folder_path)
+            return ClientInfo(
+                client_name=client_name,
+                folder_name=folder_name,
+                document_count=len(docs),
+                documents=docs,
+            )
+
+    for client_name, folder_name, folder_path in locations:
+        if q in client_name.lower() or q in folder_name.lower():
+            docs = _collect_documents_in_folder(client_name, folder_path)
+            return ClientInfo(
+                client_name=client_name,
+                folder_name=folder_name,
+                document_count=len(docs),
+                documents=docs,
+            )
+
+    return None
+
+
+def get_client_file_path(rel_path: str) -> Optional[str]:
+    """
+    Resolve a relative path and validate it is within an allowed client directory.
+    Returns absolute path or None if invalid/unsafe.
+    """
+    normalized = rel_path.replace("/", os.sep).replace("\\", os.sep)
+    abs_path = os.path.normpath(os.path.join(PROJECT_ROOT, normalized))
+    project_root_abs = os.path.abspath(PROJECT_ROOT)
+
+    if not abs_path.startswith(project_root_abs + os.sep):
+        logger.warning("Path traversal attempt blocked: %s", rel_path)
+        return None
+
+    abs_clients = os.path.abspath(CLIENTS_DIR)
+    within_clients = abs_path.startswith(abs_clients + os.sep)
+
+    within_legacy = False
+    if not within_clients and os.path.isdir(PROJECT_ROOT):
+        for entry in os.listdir(PROJECT_ROOT):
+            if re.match(r"^[Cc]lients?_", entry):
+                legacy = os.path.abspath(os.path.join(PROJECT_ROOT, entry))
+                if abs_path.startswith(legacy + os.sep):
+                    within_legacy = True
+                    break
+
+    if not (within_clients or within_legacy):
+        return None
+
+    if not os.path.isfile(abs_path):
+        return None
+
+    if not _is_valid_document(os.path.basename(abs_path)):
+        return None
+
+    return abs_path
+
+
+# ─── Upload / Store ───────────────────────────────────────────────────────────
+
+def get_client_folder(client_name: str) -> str:
+    """Get (or create) the folder for a client under CLIENTS_DIR."""
+    safe_client = _sanitize_folder_name(client_name)
+    folder = os.path.join(CLIENTS_DIR, safe_client)
+    os.makedirs(folder, exist_ok=True)
+    return folder
+
+
+def store_document(
+    source_path: str,
+    client_name: str,
+    document_type: str,
+    original_filename: str,
+) -> DocumentInfo:
+    """Store an uploaded document in the client folder with a timestamped name."""
+    folder = get_client_folder(client_name)
+    _, ext = os.path.splitext(original_filename)
+    ext = ext.lower()
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    safe_client = _sanitize_folder_name(client_name).lower()
+    safe_type = re.sub(r"[^a-z0-9]+", "_", document_type.lower()).strip("_")
+    new_filename = f"{safe_client}_{safe_type}_{timestamp}{ext}"
+    dest_path = os.path.join(folder, new_filename)
+    shutil.move(source_path, dest_path)
+    size_kb = round(os.path.getsize(dest_path) / 1024, 2)
+    rel = os.path.relpath(dest_path, PROJECT_ROOT).replace("\\", "/")
+    return DocumentInfo(
+        filename=new_filename,
+        display_name=_display_name_from_filename(new_filename),
+        client_name=client_name,
+        document_type=document_type,
+        extension=ext,
+        file_path=dest_path,
+        uploaded_at=datetime.now().isoformat(),
+        size_kb=size_kb,
+        download_url=f"/api/documents/client-file?path={quote(rel)}",
+    )
+
+
+# ─── Search ───────────────────────────────────────────────────────────────────
+
+def search_documents(query: str) -> List[DocumentInfo]:
+    """Search all client documents by filename or client name."""
+    q = query.lower().strip()
+    results: List[DocumentInfo] = []
+    for client in list_all_clients():
+        for doc in client.documents:
+            if (q in doc.filename.lower()
+                    or q in doc.client_name.lower()
+                    or q in (doc.document_type or "").lower()):
+                results.append(doc)
+    return results
+
+
+def list_client_documents(client_name: Optional[str] = None) -> List[DocumentInfo]:
+    """Legacy helper: list documents optionally filtered by client."""
+    all_clients = list_all_clients()
+    docs: List[DocumentInfo] = []
+    for c in all_clients:
+        if client_name and c.client_name.lower() != client_name.lower():
+            continue
+        docs.extend(c.documents)
+    return docs
 
 
 def detect_doc_type_from_content_or_filename(
-    filename: str,
-    content_text: str = "",
-) -> DocumentType:
-    result = _detect_doc_type_from_filename(filename)
-
-    if result:
-        return result
-
-    text_upper = content_text.upper()
-
-    keyword_map = {
-        DocumentType.FRD: [
-            "FUNCTIONAL REQUIREMENT",
-            "FUNCTIONAL SPECIFICATION",
-            "FRD",
-        ],
-        DocumentType.HLD: [
-            "HIGH LEVEL DESIGN",
-            "HIGH-LEVEL DESIGN",
-            "HLD",
-        ],
-        DocumentType.LLD: [
-            "LOW LEVEL DESIGN",
-            "LOW-LEVEL DESIGN",
-            "LLD",
-        ],
-        DocumentType.DATA_MANAGEMENT_PLAN: [
-            "DATA MANAGEMENT PLAN",
-            "DMP",
-        ],
-        DocumentType.SOFTWARE_REQUIREMENTS: [
-            "SOFTWARE REQUIREMENTS",
-            "SRS",
-        ],
-    }
-
-    for doc_type, keywords in keyword_map.items():
-        if any(keyword in text_upper for keyword in keywords):
-            return doc_type
-
-    return DocumentType.OTHER
+    filename: str, content_text: str = ""
+) -> str:
+    return _display_name_from_filename(filename) or "Document"
