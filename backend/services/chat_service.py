@@ -79,13 +79,13 @@ def _rule_based_response(intent: IntentResult, outcome: Optional[str]) -> str:
     match intent.intent:
         case IntentType.GREETING:
             return (
-                "👋 Hello! I'm **MarBot**, your PM document assistant.\n\n"
+                "Hello! I'm **MarBot**, your PM document assistant.\n\n"
                 "I can help you:\n"
-                "• 📄 **Fetch templates** — FRD, Data Management Plan, HLD, LLD, Software Requirements\n"
-                "• 📤 **Upload completed documents** to client folders\n"
-                "• 👥 **List clients** with stored documents\n"
-                "• 📁 **Get client documents** — browse completed files per client\n"
-                "• 🔍 **Search** your stored documents\n\n"
+                "• **Fetch templates** — FRD, Data Management Plan, HLD, LLD, Software Requirements\n"
+                "• **Upload completed documents** to client folders\n"
+                "• **List clients** with stored documents\n"
+                "• **Get client documents** — browse completed files per client\n"
+                "• **Search** your stored documents\n\n"
                 "What would you like to do today?"
             )
 
@@ -97,24 +97,24 @@ def _rule_based_response(intent: IntentResult, outcome: Optional[str]) -> str:
             if outcome and "not found" in outcome.lower():
                 doc = intent.document_type or "requested"
                 return (
-                    f"⚠️ I couldn't find a template matching **{doc}**.\n\n"
+                    f"I couldn't find a template matching **{doc}**.\n\n"
                     "Here are the available templates:"
                 )
             doc = intent.document_type or intent.matched_filename or "the"
             return (
-                f"✅ Here's your **{doc}** template! "
+                f"Here's your **{doc}** template! "
                 "Click the download button below to get your copy.\n\n"
                 "Once you've filled it out, come back and upload the completed document."
             )
 
         case IntentType.LIST_TEMPLATES:
-            return "📋 Here are all available templates. Click any to download:"
+            return "Here are all available templates. Click any to download:"
 
         case IntentType.UPLOAD_DOCUMENT | IntentType.STORE_DOCUMENT:
             if outcome and "stored" in outcome.lower():
-                return f"✅ Document stored successfully!\n\n{outcome}\n\nIs there anything else you need?"
+                return f"Document stored successfully!\n\n{outcome}\n\nIs there anything else you need?"
             return (
-                "📤 Please use the upload button below to attach your completed document.\n\n"
+                "Please use the upload button below to attach your completed document.\n\n"
                 "I'll store it in the correct client folder."
             )
 
@@ -124,24 +124,24 @@ def _rule_based_response(intent: IntentResult, outcome: Optional[str]) -> str:
                     "No client folders with stored documents were found yet.\n\n"
                     "Upload completed documents to create client folders."
                 )
-            return "👥 Here are your active clients with stored documents:"
+            return "Here are your active clients with stored documents:"
 
         case IntentType.FETCH_CLIENT_DOCUMENTS:
             client = intent.client_name or "the client"
             if outcome and "not found" in outcome.lower():
                 return (
-                    f"❌ I couldn't find any documents for client **{client}**.\n\n"
+                    f"I couldn't find any documents for client **{client}**.\n\n"
                     "Please check the client name, or upload documents for this client first."
                 )
             if outcome and "found 0" in outcome.lower():
                 return (
-                    f"📂 The folder for **{client}** exists but has no documents yet.\n\n"
+                    f"The folder for **{client}** exists but has no documents yet.\n\n"
                     "Upload completed documents to populate it."
                 )
-            return f"📁 Here are the completed documents for **{client}**:"
+            return f"Here are the completed documents for **{client}**:"
 
         case IntentType.SEARCH_DOCUMENTS:
-            return "🔍 Here are the documents matching your search:"
+            return "Here are the documents matching your search:"
 
         case IntentType.CLARIFY_INTENT:
             return (
