@@ -165,8 +165,6 @@
     }
     .pill:hover { border-color: var(--sky); color: var(--sky); background: rgba(0,174,239,0.08); }
 
-    .sb-spacer { flex: 1; }
-
     .sb-foot {
       padding: 10px 14px;
       border-top: 1px solid rgba(255,255,255,0.06);
@@ -523,55 +521,57 @@
 
     .no-docs { font-size: 12px; color: var(--text-3); padding: 6px 0; font-style: italic; }
 
-    /* ─── Welcome ─────────────────────────────────────────────── */
-    .welcome {
-      display: flex; flex-direction: column; align-items: center;
-      justify-content: center; flex: 1;
-      text-align: center; padding: 32px 20px; gap: 18px;
+    /* ─── Chat History ───────────────────────────────────────── */
+    .history-section {
+      flex: 1; overflow-y: auto; min-height: 0;
+      display: flex; flex-direction: column;
     }
+    .history-section::-webkit-scrollbar { width: 3px; }
+    .history-section::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
 
-    .welcome-mark {
-      width: 56px; height: 56px;
-      background: var(--ink); border-radius: 14px;
+    .history-list { display: flex; flex-direction: column; gap: 1px; padding: 0 6px 8px; }
+
+    .history-item {
+      display: flex; align-items: center;
+      border-radius: var(--r-sm); overflow: hidden;
+    }
+    .history-item:hover .history-del { opacity: 1; }
+
+    .history-btn {
+      flex: 1; display: flex; flex-direction: column;
+      padding: 6px 8px; gap: 1px;
+      background: transparent; border: none;
+      color: var(--sidebar-text); cursor: pointer;
+      border-radius: var(--r-sm); text-align: left; min-width: 0;
+      transition: background 0.12s;
+    }
+    .history-btn:hover { background: var(--sidebar-hover); }
+    .history-item.active .history-btn { background: var(--sidebar-active); }
+
+    .history-title {
+      font-size: 11.5px; font-weight: 400;
+      color: var(--sidebar-text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      display: block;
+    }
+    .history-item.active .history-title { color: var(--sky); font-weight: 500; }
+
+    .history-time { font-size: 9.5px; color: var(--sidebar-muted); display: block; }
+
+    .history-del {
+      width: 20px; height: 20px; flex-shrink: 0;
       display: flex; align-items: center; justify-content: center;
-      color: var(--sky); box-shadow: 0 8px 24px rgba(11,31,91,0.2);
+      background: transparent; border: none;
+      color: var(--sidebar-muted); cursor: pointer;
+      border-radius: 3px; margin-right: 4px;
+      opacity: 0; transition: opacity 0.13s, color 0.13s, background 0.13s;
     }
+    .history-del:hover { color: var(--red); background: rgba(239,68,68,0.1); }
 
-    .welcome-title {
-      font-size: 20px; font-weight: 700; color: var(--ink);
-      letter-spacing: -0.4px; text-wrap: balance;
+    .history-empty {
+      font-size: 10.5px; color: var(--sidebar-muted);
+      padding: 6px 14px; font-style: italic;
     }
-
-    .welcome-sub {
-      font-size: 13px; color: var(--text-2);
-      max-width: 380px; line-height: 1.7;
-    }
-
-    .quick-grid {
-      display: grid; grid-template-columns: repeat(2, 1fr);
-      gap: 8px; width: 100%; max-width: 400px;
-    }
-
-    .quick-btn {
-      padding: 11px 13px;
-      border: 1.5px solid var(--border); border-radius: var(--r);
-      background: var(--white); color: var(--text-2);
-      font: 400 12.5px var(--font); cursor: pointer;
-      transition: all 0.14s; text-align: left;
-      display: flex; flex-direction: column; gap: 3px;
-      box-shadow: var(--shadow);
-    }
-    .quick-btn:hover { border-color: var(--sky); background: var(--sky-tint); }
-    .quick-btn-icon {
-      width: 26px; height: 26px;
-      background: var(--fog); border-radius: 5px;
-      display: flex; align-items: center; justify-content: center;
-      color: var(--sky); margin-bottom: 2px;
-      transition: background 0.14s;
-    }
-    .quick-btn:hover .quick-btn-icon { background: rgba(0,174,239,0.14); }
-    .quick-btn-label { font-weight: 600; font-size: 12.5px; color: var(--ink); }
-    .quick-btn-desc  { font-size: 10.5px; color: var(--text-3); }
 
     /* ─── Input ───────────────────────────────────────────────── */
     .input-area {
@@ -743,7 +743,23 @@
     user:     (s=13) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
     check:    (s=13) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
     alert:    (s=13) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+    msg:      (s=12) => html`<svg width=${s} height=${s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
   };
+
+  // ── localStorage helpers ───────────────────────────────────────────────────
+  const HIST_KEY = "marbot_chat_history";
+  function loadHistory()  { try { return JSON.parse(localStorage.getItem(HIST_KEY) || "[]"); } catch { return []; } }
+  function saveHistory(h) { try { localStorage.setItem(HIST_KEY, JSON.stringify(h.slice(0, 30))); } catch {} }
+
+  function relTime(iso) {
+    const m = Math.floor((Date.now() - new Date(iso)) / 60000);
+    if (m < 1)   return "just now";
+    if (m < 60)  return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24)  return `${h}h ago`;
+    const d = Math.floor(h / 24);
+    return d === 1 ? "yesterday" : `${d}d ago`;
+  }
 
   // ── API ────────────────────────────────────────────────────────────────────
   const api = {
@@ -947,6 +963,27 @@
             ${I.upload(13)} Upload Document
           </button>
         </div>
+      </div>`;
+  }
+
+  // ── Sidebar History ────────────────────────────────────────────────────────
+  function SidebarHistory({ history, activeId, onLoad, onDelete }) {
+    return html`
+      <div className="history-list">
+        ${history.length === 0
+          ? html`<div className="history-empty">No recent chats</div>`
+          : history.map(entry => html`
+              <div key=${entry.id} className=${"history-item"+(entry.id===activeId?" active":"")}>
+                <button className="history-btn" onClick=${() => onLoad(entry)}>
+                  <span className="history-title">${entry.title}</span>
+                  <span className="history-time">${relTime(entry.timestamp)}</span>
+                </button>
+                <button className="history-del" title="Delete" onClick=${e => { e.stopPropagation(); onDelete(entry.id); }}>
+                  ${I.x(9)}
+                </button>
+              </div>
+            `)
+        }
       </div>`;
   }
 
@@ -1210,8 +1247,16 @@
   }
 
   // ── App ────────────────────────────────────────────────────────────────────
+  function makeGreeting() {
+    return {
+      role: "assistant",
+      content: "Hi there! I'm **MarBot**, your PM Document Assistant.\n\nI can help you fetch document templates, manage client files, and upload completed documents.\n\nWhat would you like to do today?",
+      timestamp: new Date().toISOString(),
+    };
+  }
+
   function App() {
-    const [messages, setMessages]   = useState([]);
+    const [messages, setMessages]   = useState([makeGreeting()]);
     const [input, setInput]         = useState("");
     const [typing, setTyping]       = useState(false);
     const [sessionId, setSess]      = useState(null);
@@ -1221,9 +1266,12 @@
     const [templates, setTemplates] = useState([]);
     const [tplLoading, setTplLoad]  = useState(false);
     const [recent, setRecent]       = useState([]);
+    const [chatHistory, setChatHistory] = useState(loadHistory);
+    const [chatId, setChatId]           = useState(null);
 
     const scrollRef = useRef(null);
     const inputRef  = useRef(null);
+    const chatIdRef = useRef(null);
 
     useEffect(() => {
       if (scrollRef.current)
@@ -1231,6 +1279,25 @@
     }, [messages, typing]);
 
     useEffect(() => { loadTemplates(); }, []);
+
+    // Auto-save conversation to localStorage after every exchange that has user content
+    useEffect(() => {
+      const userMsgs = messages.filter(m => m.role === "user");
+      if (userMsgs.length === 0) return;
+      if (!chatIdRef.current) {
+        const newId = Date.now();
+        chatIdRef.current = newId;
+        setChatId(newId);
+      }
+      const id = chatIdRef.current;
+      const title = userMsgs[0].content.slice(0, 60);
+      const entry = { id, title, messages, timestamp: new Date().toISOString() };
+      setChatHistory(prev => {
+        const updated = [entry, ...prev.filter(h => h.id !== id)].slice(0, 30);
+        saveHistory(updated);
+        return updated;
+      });
+    }, [messages]);
 
     useEffect(() => {
       function onKey(e) {
@@ -1248,7 +1315,6 @@
         setTemplates(list);
       } catch (err) {
         console.error("Failed to load templates:", err);
-        notify("Could not load templates from backend", "error");
       } finally { setTplLoad(false); }
     }
 
@@ -1256,7 +1322,6 @@
       () => [...new Set(templates.map(t => t.document_type).filter(Boolean))],
       [templates]
     );
-    const quickTpls = useMemo(() => typeOpts.slice(0, 3), [typeOpts]);
 
     function notify(msg, type="success") { setToast({ msg, type }); }
 
@@ -1318,9 +1383,34 @@
       sendMessage(msg);
     }
 
-    function clearChat() { setMessages([]); setSess(null); }
+    function clearChat() {
+      chatIdRef.current = null;
+      setChatId(null);
+      setMessages([makeGreeting()]);
+      setSess(null);
+    }
 
-    const hasMsgs = messages.length > 0;
+    function loadChat(entry) {
+      if (chatIdRef.current === entry.id) return;
+      chatIdRef.current = entry.id;
+      setChatId(entry.id);
+      setMessages(entry.messages);
+      setSess(null);
+    }
+
+    function deleteChat(id) {
+      setChatHistory(prev => {
+        const updated = prev.filter(h => h.id !== id);
+        saveHistory(updated);
+        return updated;
+      });
+      if (chatIdRef.current === id) {
+        chatIdRef.current = null;
+        setChatId(null);
+        setMessages([makeGreeting()]);
+        setSess(null);
+      }
+    }
 
     return html`
       <div className="app">
@@ -1352,7 +1442,15 @@
             }
           </div>
 
-          <div className="sb-spacer"></div>
+          <div className="history-section">
+            <div className="sb-label">Recents</div>
+            <${SidebarHistory}
+              history=${chatHistory}
+              activeId=${chatId}
+              onLoad=${loadChat}
+              onDelete=${deleteChat}
+            />
+          </div>
 
           <div className="sb-foot">
             <button className="sb-foot-btn" onClick=${clearChat}>
@@ -1387,36 +1485,6 @@
           </div>
 
           <div className="msgs" ref=${scrollRef}>
-            ${!hasMsgs && html`
-              <div className="welcome">
-                <div className="welcome-mark">${I.doc(26)}</div>
-                <h1 className="welcome-title">MarBot PM Assistant</h1>
-                <p className="welcome-sub">
-                  Manage project documents in one place. Fetch templates,
-                  upload completed docs, and browse client files — all through chat.
-                </p>
-                <div className="quick-grid">
-                  ${quickTpls.map(t => html`
-                    <button key=${t} className="quick-btn" onClick=${() => sendMessage(dispType(t))}>
-                      <div className="quick-btn-icon">${docIcon(t, 14)}</div>
-                      <span className="quick-btn-label">Fetch ${dispType(t)}</span>
-                      <span className="quick-btn-desc">Download template</span>
-                    </button>
-                  `)}
-                  <button className="quick-btn" onClick=${() => sendMessage("list clients")}>
-                    <div className="quick-btn-icon">${I.users(14)}</div>
-                    <span className="quick-btn-label">List Clients</span>
-                    <span className="quick-btn-desc">View stored documents</span>
-                  </button>
-                  <button className="quick-btn" onClick=${() => setUpload(true)}>
-                    <div className="quick-btn-icon">${I.upload(14)}</div>
-                    <span className="quick-btn-label">Upload Document</span>
-                    <span className="quick-btn-desc">Store a completed doc</span>
-                  </button>
-                </div>
-              </div>
-            `}
-
             ${messages.map((m,i) => html`
               <${MsgBubble}
                 key=${i} msg=${m}
