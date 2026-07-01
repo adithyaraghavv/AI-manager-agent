@@ -26,6 +26,61 @@ PROJECT_ROOT = os.path.abspath(os.path.join(_backend_dir, ".."))
 TEMPLATES_DIR = os.path.join(PROJECT_ROOT, "Templates")
 CLIENTS_DIR = os.path.join(PROJECT_ROOT, "Clients")
 
+# ─── Phase Subfolder Structure ─────────────────────────────────────────────────
+
+CLIENT_SUBFOLDERS = [
+    "1. Pre-requisites",
+    "2. Requirement Analysis",
+    "3. System Design",
+    "4. Implementation (Coding)",
+    "5. Testing (STLC integrated)",
+    "6. Deployment",
+    "7. Maintenance",
+]
+
+# Keyword lists → subfolder. Checked top-to-bottom; first match wins.
+# More specific phrases must come before generic ones (e.g. "test summary" before "test").
+_TYPE_TO_SUBFOLDER: List[Tuple[List[str], str]] = [
+    (["kickoff", "kick off", "kick-off", "pre-req", "prerequisite", "pre requisite"],
+     "1. Pre-requisites"),
+    (["frd", "functional req", "brd", "business req"],
+     "2. Requirement Analysis"),
+    (["srs", "software req", "software requirement"],
+     "3. System Design"),
+    (["hld", "high level design", "high level", "lld", "low level design", "low level"],
+     "4. Implementation (Coding)"),
+    (["test summary", "test summary report"],
+     "6. Deployment"),
+    (["release note", "deployment", "go live", "go-live"],
+     "6. Deployment"),
+    (["test case", "test plan", "stlc", "defect log", "bug report", "qa plan", "uat"],
+     "5. Testing (STLC integrated)"),
+    (["data management", "dmp", "maintenance"],
+     "7. Maintenance"),
+]
+
+
+# ─── Phase Routing Helpers ────────────────────────────────────────────────────
+
+def _create_client_subfolders(client_folder: str) -> None:
+    """Create all 7 standard phase subfolders inside a client folder."""
+    for name in CLIENT_SUBFOLDERS:
+        os.makedirs(os.path.join(client_folder, name), exist_ok=True)
+
+
+def _detect_phase_folder(document_type: str, filename: str = "") -> str:
+    """
+    Determine which phase subfolder a document belongs to based on its
+    document_type field and/or filename. Returns the subfolder name string.
+    Falls back to "1. Pre-requisites" for unrecognised types.
+    """
+    combined = re.sub(r"[_\-]+", " ", (document_type + " " + filename).lower())
+    for keywords, subfolder in _TYPE_TO_SUBFOLDER:
+        for kw in keywords:
+            if kw in combined:
+                return subfolder
+    return "1. Pre-requisites"
+
 
 # ─── Utilities ────────────────────────────────────────────────────────────────
 
@@ -344,10 +399,14 @@ def get_client_file_path(rel_path: str) -> Optional[str]:
 # ─── Upload / Store ───────────────────────────────────────────────────────────
 
 def get_client_folder(client_name: str) -> str:
-    """Get (or create) the folder for a client under CLIENTS_DIR."""
+    """
+    Get (or create) the top-level folder for a client under CLIENTS_DIR.
+    Always ensures all 7 phase subfolders exist — safe to call on existing clients.
+    """
     safe_client = _sanitize_folder_name(client_name)
     folder = os.path.join(CLIENTS_DIR, safe_client)
     os.makedirs(folder, exist_ok=True)
+    _create_client_subfolders(folder)
     return folder
 
 
@@ -357,16 +416,32 @@ def store_document(
     document_type: str,
     original_filename: str,
 ) -> DocumentInfo:
-    """Store an uploaded document in the client folder with a timestamped name."""
-    folder = get_client_folder(client_name)
+    """
+    Store an uploaded document in the correct phase subfolder.
+
+    Routing:
+      FRD / BRD          → 2. Requirement Analysis
+      SRS                → 3. System Design
+      HLD / LLD          → 4. Implementation (Coding)
+      Test cases / plans → 5. Testing (STLC integrated)
+      Test Summary       → 6. Deployment
+      Data Mgmt / DMP    → 7. Maintenance
+      Everything else    → 1. Pre-requisites  (default)
+    """
+    client_folder = get_client_folder(client_name)
+    phase_subfolder = _detect_phase_folder(document_type, original_filename)
+    target_dir = os.path.join(client_folder, phase_subfolder)
+    os.makedirs(target_dir, exist_ok=True)  # safety net for legacy/external folders
+
     _, ext = os.path.splitext(original_filename)
     ext = ext.lower()
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     safe_client = _sanitize_folder_name(client_name).lower()
     safe_type = re.sub(r"[^a-z0-9]+", "_", document_type.lower()).strip("_")
     new_filename = f"{safe_client}_{safe_type}_{timestamp}{ext}"
-    dest_path = os.path.join(folder, new_filename)
+    dest_path = os.path.join(target_dir, new_filename)
     shutil.move(source_path, dest_path)
+
     size_kb = round(os.path.getsize(dest_path) / 1024, 2)
     rel = os.path.relpath(dest_path, PROJECT_ROOT).replace("\\", "/")
     return DocumentInfo(
@@ -411,4 +486,28 @@ def list_client_documents(client_name: Optional[str] = None) -> List[DocumentInf
 def detect_doc_type_from_content_or_filename(
     filename: str, content_text: str = ""
 ) -> str:
+    """
+    Return a canonical document type name detected from filename (and optional
+    extracted text). Used by the /upload/detect-type endpoint to pre-fill the
+    document type field in the UI.
+    """
+    combined = re.sub(r"[_\-]+", " ", (filename + " " + content_text).lower())
+    if any(kw in combined for kw in ["kickoff", "kick off", "kick-off"]):
+        return "Kickoff Template"
+    if any(kw in combined for kw in ["frd", "functional req"]):
+        return "FRD"
+    if any(kw in combined for kw in ["brd", "business req"]):
+        return "BRD"
+    if any(kw in combined for kw in ["srs", "software req"]):
+        return "SRS"
+    if any(kw in combined for kw in ["hld", "high level design", "high level"]):
+        return "HLD"
+    if any(kw in combined for kw in ["lld", "low level design", "low level"]):
+        return "LLD"
+    if any(kw in combined for kw in ["data management", "dmp"]):
+        return "Data Management Plan"
+    if any(kw in combined for kw in ["test summary"]):
+        return "Test Summary Report"
+    if any(kw in combined for kw in ["test case", "test plan", "uat", "defect"]):
+        return "Test Document"
     return _display_name_from_filename(filename) or "Document"
