@@ -148,6 +148,67 @@ def detect_intent_rules(message: str) -> IntentResult:
             ),
         )
 
+    # FETCH_CLIENT_DOCUMENT: doc-type keyword + client name in same message
+    # e.g. "give me the LLD doc for Hillenbrand", "fetch ABCD FRD",
+    #      "download HLD of Alpha", "share Hillenbrand's LLD"
+    _DOC_TYPE_TOKENS = {
+        "frd": "FRD", "hld": "HLD", "lld": "LLD", "srs": "SRS",
+        "dmp": "DMP", "brd": "BRD",
+    }
+    _DOC_TYPE_PHRASES = [
+        ("high level design", "HLD"),
+        ("low level design", "LLD"),
+        ("functional requirement", "FRD"),
+        ("business requirement", "BRD"),
+        ("software requirement", "SRS"),
+        ("data management", "DMP"),
+        ("kickoff", "Kickoff"),
+        ("kick off", "Kickoff"),
+        ("test summary", "Test Summary"),
+        ("test plan", "Test Plan"),
+        ("test case", "Test Case"),
+        ("release note", "Release Note"),
+    ]
+
+    msg_norm = _norm(msg)
+    found_type: Optional[str] = None
+    for phrase, label in _DOC_TYPE_PHRASES:
+        if phrase in msg_norm:
+            found_type = label
+            break
+    if not found_type:
+        for tok, label in _DOC_TYPE_TOKENS.items():
+            if re.search(rf"\b{tok}\b", msg_norm):
+                found_type = label
+                break
+
+    if found_type:
+        client = _extract_client_name_from_message(msg)
+        # Also try patterns like "<Client> FRD", "<Client>'s LLD", "<Client> HLD doc"
+        if not client:
+            m = re.search(
+                r"\b([A-Za-z][A-Za-z0-9&.\-]{1,40})(?:'s|s')?\s+"
+                r"(?:frd|hld|lld|srs|dmp|brd|high level|low level|"
+                r"functional|business|software|data management|kickoff|"
+                r"kick off|test|release)\b",
+                msg, re.IGNORECASE,
+            )
+            if m:
+                candidate = m.group(1).strip()
+                if (candidate.lower() not in _CLIENT_STOPWORDS
+                        and candidate.lower() not in {"the", "a", "an", "my", "our",
+                                                       "give", "get", "fetch",
+                                                       "download", "show", "send",
+                                                       "share", "provide"}):
+                    client = candidate
+        if client:
+            return IntentResult(
+                intent=IntentType.FETCH_CLIENT_DOCUMENT,
+                client_name=client,
+                document_type=found_type,
+                confidence=0.9,
+            )
+
     # FETCH_CLIENT_DOCUMENTS: "docs for XYZ", "get XYZ files", etc.
     for pattern in _CLIENT_DOC_PATTERNS:
         m = re.search(pattern, msg, re.IGNORECASE)
@@ -231,7 +292,8 @@ Classify the user message into exactly one intent:
 - STORE_DOCUMENT     : User wants to save/archive a document.
 - LIST_TEMPLATES     : User wants to see all available templates.
 - LIST_CLIENTS       : User wants to see all clients/projects. Triggered by: "list clients", "show clients", "fetch clients", "active clients", "list projects".
-- FETCH_CLIENT_DOCUMENTS : User wants to see or download completed docs for a specific client. Triggered by: "documents for XYZ", "files for XYZ", "get XYZ files".
+- FETCH_CLIENT_DOCUMENTS : User wants to see or download ALL completed docs for a specific client. Triggered by: "documents for XYZ", "files for XYZ", "get XYZ files".
+- FETCH_CLIENT_DOCUMENT  : User wants ONE specific document type for a specific client. Triggered by phrases that combine a document type (FRD/HLD/LLD/SRS/DMP/BRD/etc.) AND a client name, e.g. "give me the LLD doc for Hillenbrand", "fetch ABCD FRD", "download HLD of Alpha", "share Hillenbrand's LLD". Set BOTH client_name and document_type.
 - SEARCH_DOCUMENTS   : User wants to search stored documents.
 - GREETING           : Hello, hi, good morning, etc.
 - CLARIFY_INTENT     : Too vague to determine.
@@ -239,11 +301,12 @@ Classify the user message into exactly one intent:
 
 CRITICAL RULES:
 1. "fetch clients", "list clients", "show clients", "get clients" → LIST_CLIENTS. NEVER FETCH_TEMPLATE.
-2. "documents for <name>", "files for <name>", "get <name> docs" → FETCH_CLIENT_DOCUMENTS with client_name extracted.
-3. FETCH_TEMPLATE: match matched_filename to ONE of the available template files listed above. If no file matches, set matched_filename to null and needs_clarification to true.
-4. Do NOT invent template filenames. Only use filenames from the list above.
-5. client_name is only relevant for FETCH_CLIENT_DOCUMENTS and UPLOAD_DOCUMENT.
-6. Single abbreviations "FRD", "HLD", "LLD", "SRS", "DMP" alone or in short phrases ALWAYS mean FETCH_TEMPLATE. Match the corresponding file and set needs_clarification to false.
+2. "documents for <name>", "files for <name>", "get <name> docs" (WITHOUT a specific doc type) → FETCH_CLIENT_DOCUMENTS with client_name extracted.
+3. If the message contains BOTH a doc-type keyword (FRD/HLD/LLD/SRS/DMP/BRD/kickoff/test/release) AND a client/project name → FETCH_CLIENT_DOCUMENT. Populate client_name AND document_type. Examples: "give me the LLD doc for Hillenbrand" → {{intent:"FETCH_CLIENT_DOCUMENT", client_name:"Hillenbrand", document_type:"LLD"}}; "fetch ABCD FRD" → {{client_name:"ABCD", document_type:"FRD"}}. NEVER classify these as FETCH_TEMPLATE.
+4. FETCH_TEMPLATE (blank template): user wants a fresh template with NO client mentioned. Match matched_filename to ONE of the available template files listed above. If no file matches, set matched_filename to null and needs_clarification to true.
+5. Do NOT invent template filenames. Only use filenames from the list above.
+6. client_name is only relevant for FETCH_CLIENT_DOCUMENTS, FETCH_CLIENT_DOCUMENT, and UPLOAD_DOCUMENT.
+7. Single abbreviations "FRD", "HLD", "LLD", "SRS", "DMP" alone or in short phrases with no client name ALWAYS mean FETCH_TEMPLATE. Match the corresponding file and set needs_clarification to false.
 
 Respond ONLY with valid JSON:
 {{

@@ -14,6 +14,7 @@ from services.storage_service import (
     list_templates,
     list_all_clients,
     find_client_documents,
+    find_client_document_by_type,
     search_documents,
     get_template_path,
     find_best_template,
@@ -99,6 +100,40 @@ async def chat(request: ChatRequest):
             available_clients = [c.model_dump() for c in clients]
             action = "list_clients"
             action_outcome = f"Found {len(clients)} clients"
+
+        case IntentType.FETCH_CLIENT_DOCUMENT:
+            # Specific doc type for a specific client
+            if intent.client_name and intent.document_type:
+                doc = find_client_document_by_type(
+                    intent.client_name, intent.document_type
+                )
+                if doc:
+                    download_url = doc.download_url
+                    action = "download"
+                    action_outcome = (
+                        f"Found {intent.document_type} for "
+                        f"{intent.client_name}: {doc.filename}"
+                    )
+                else:
+                    # Fall back to showing the client's whole folder if it exists
+                    client_info = find_client_documents(intent.client_name)
+                    if client_info:
+                        available_clients = [client_info.model_dump()]
+                        action = "client_documents"
+                        action_outcome = (
+                            f"No {intent.document_type} found for "
+                            f"{intent.client_name}. Showing all "
+                            f"{client_info.document_count} documents."
+                        )
+                    else:
+                        all_clients = list_all_clients()
+                        available_clients = [c.model_dump() for c in all_clients]
+                        action = "list_clients"
+                        action_outcome = (
+                            f"Client '{intent.client_name}' not found."
+                        )
+            else:
+                action_outcome = "needs both client name and document type"
 
         case IntentType.FETCH_CLIENT_DOCUMENTS:
             if intent.client_name:

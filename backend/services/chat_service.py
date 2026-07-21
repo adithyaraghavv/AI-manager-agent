@@ -126,6 +126,29 @@ def _rule_based_response(intent: IntentResult, outcome: Optional[str]) -> str:
                 )
             return "Here are your active clients with stored documents:"
 
+        case IntentType.FETCH_CLIENT_DOCUMENT:
+            client = intent.client_name or "the client"
+            doc = intent.document_type or "the document"
+            if outcome and "not found" in outcome.lower():
+                return (
+                    f"I couldn't find client **{client}** in the system.\n\n"
+                    "Here are the available clients:"
+                )
+            if outcome and "no " in outcome.lower() and "found" in outcome.lower():
+                return (
+                    f"I couldn't find a **{doc}** document for **{client}**.\n\n"
+                    f"Here are all documents stored for {client}:"
+                )
+            if outcome and "found" in outcome.lower():
+                return (
+                    f"Here's the **{doc}** for **{client}**. "
+                    "Click the download button below to get it."
+                )
+            return (
+                f"I need both a client name and a document type. "
+                f"Try: *'Give me the LLD doc for {client}'*."
+            )
+
         case IntentType.FETCH_CLIENT_DOCUMENTS:
             client = intent.client_name or "the client"
             if outcome and "not found" in outcome.lower():

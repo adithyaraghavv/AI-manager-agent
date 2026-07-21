@@ -359,6 +359,77 @@ def find_client_documents(query_client: str) -> Optional[ClientInfo]:
     return None
 
 
+# Keywords for scoring a stored document against a requested type
+_DOC_TYPE_KEYWORDS: dict[str, list[str]] = {
+    "frd": ["frd", "functional requirement", "functional req"],
+    "brd": ["brd", "business requirement"],
+    "srs": ["srs", "software requirement", "software req"],
+    "hld": ["hld", "high level design", "high level"],
+    "lld": ["lld", "low level design", "low level"],
+    "dmp": ["dmp", "data management"],
+    "kickoff": ["kickoff", "kick off", "kick-off", "project kick"],
+    "test": ["test case", "test plan", "uat", "stlc", "defect"],
+    "test summary": ["test summary"],
+    "release": ["release note", "deployment", "go live", "go-live"],
+}
+
+
+def _canonical_doc_type(doc_type: str) -> str:
+    """Map a free-text document type to a canonical bucket key."""
+    n = re.sub(r"[^a-z0-9]+", " ", (doc_type or "").lower()).strip()
+    if not n:
+        return ""
+    # Direct abbreviation
+    for key in ("frd", "brd", "srs", "hld", "lld", "dmp"):
+        if key in n.split():
+            return key
+    # Phrase match
+    for key, kws in _DOC_TYPE_KEYWORDS.items():
+        for kw in kws:
+            if kw in n:
+                return key
+    return n  # fall back to raw normalised text
+
+
+def find_client_document_by_type(
+    client_name: str, document_type: str
+) -> Optional[DocumentInfo]:
+    """
+    Find the best matching stored document for a given client + doc type.
+    e.g. client='Hillenbrand', document_type='LLD' → returns that client's LLD file.
+    Returns None if the client is unknown or nothing matches.
+    """
+    client = find_client_documents(client_name)
+    if not client or not client.documents:
+        return None
+
+    canon = _canonical_doc_type(document_type)
+    keywords = _DOC_TYPE_KEYWORDS.get(canon, [canon]) if canon else []
+    if not keywords:
+        return None
+
+    best: Optional[DocumentInfo] = None
+    best_score = 0
+    for doc in client.documents:
+        haystack = re.sub(
+            r"[_\-]+", " ",
+            f"{doc.filename} {doc.display_name} {doc.document_type or ''}".lower(),
+        )
+        score = 0
+        for kw in keywords:
+            if kw in haystack:
+                # Longer, more specific keywords score higher
+                score += 2 if " " in kw else 1
+        # Exact abbreviation as a whole token wins
+        if canon and re.search(rf"\b{re.escape(canon)}\b", haystack):
+            score += 3
+        if score > best_score:
+            best_score = score
+            best = doc
+
+    return best if best_score > 0 else None
+
+
 def get_client_file_path(rel_path: str) -> Optional[str]:
     """
     Resolve a relative path and validate it is within an allowed client directory.
