@@ -7,7 +7,7 @@ Greenfield build. See `/docs/tech_stack_and_structure.md` for the design rationa
 ```bash
 cd backend
 pip install -r requirements.txt
-cp .env.example .env   # fill in ANTHROPIC_API_KEY and DATABASE_URL
+cp .env.example .env   # fill in GROQ_API_KEY and DATABASE_URL
 
 # create the Postgres database (adjust to your local setup)
 createdb delivery_agent

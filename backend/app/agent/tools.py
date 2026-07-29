@@ -1,4 +1,5 @@
-"""Claude tool definitions for the conversational layer.
+"""Tool definitions for the conversational layer (OpenAI-style function-calling
+schema, used by the Groq API).
 
 These tools only ever call into app.services / app.core — never storage or
 the DB directly — so the same hard-block gating guarantees apply whether a
@@ -22,39 +23,51 @@ from app.storage.base import StorageBackend
 
 TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
-        "name": "list_phases",
-        "description": (
-            "List all project phases in sequence, with the documents required to complete each one. "
-            "Use this when the PM asks what documents are needed, or what phase something belongs to."
-        ),
-        "input_schema": {"type": "object", "properties": {}},
-    },
-    {
-        "name": "get_client_status",
-        "description": (
-            "Get a client's document status: which documents exist, which are missing, and which phase "
-            "they are currently blocked on. Use this before telling a PM what they can request or upload next."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {"client_name": {"type": "string", "description": "The client's name."}},
-            "required": ["client_name"],
+        "type": "function",
+        "function": {
+            "name": "list_phases",
+            "description": (
+                "List all project phases in sequence, with the documents required to complete each one. "
+                "Use this when the PM asks what documents are needed, or what phase something belongs to."
+            ),
+            "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
     {
-        "name": "request_template",
-        "description": (
-            "Request the master template for a document type on behalf of a client. Enforces hard-block "
-            "phase-gating: if the client is missing required documents from the previous phase, this will "
-            "refuse and report exactly what's missing instead of returning a template."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "doc_type": {"type": "string", "description": "Exact document type, e.g. 'Pricing', 'Approved HLD'."},
-                "client_name": {"type": "string", "description": "The client's name."},
+        "type": "function",
+        "function": {
+            "name": "get_client_status",
+            "description": (
+                "Get a client's document status: which documents exist, which are missing, and which phase "
+                "they are currently blocked on. Use this before telling a PM what they can request or upload next."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {"client_name": {"type": "string", "description": "The client's name."}},
+                "required": ["client_name"],
             },
-            "required": ["doc_type", "client_name"],
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "request_template",
+            "description": (
+                "Request the master template for a document type on behalf of a client. Enforces hard-block "
+                "phase-gating: if the client is missing required documents from the previous phase, this will "
+                "refuse and report exactly what's missing instead of returning a template."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "doc_type": {
+                        "type": "string",
+                        "description": "Exact document type, e.g. 'Pricing', 'Approved HLD'.",
+                    },
+                    "client_name": {"type": "string", "description": "The client's name."},
+                },
+                "required": ["doc_type", "client_name"],
+            },
         },
     },
 ]

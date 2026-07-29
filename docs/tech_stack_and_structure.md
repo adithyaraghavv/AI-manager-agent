@@ -2,14 +2,14 @@
 
 ## Decisions
 
-- **Retrieval:** structured lookup, not RAG. Claude is used only for conversational intent parsing (tool-calling), resolved against DB queries seeded from `sdlc_phase_config.json`.
+- **Retrieval:** structured lookup, not RAG. The LLM is used only for conversational intent parsing (tool-calling), resolved against DB queries seeded from `sdlc_phase_config.json`.
 - **Database:** PostgreSQL via SQLAlchemy + Alembic. `config/sdlc_phase_config.json` is the canonical source; the DB is a seeded projection of it, never hand-edited out of sync.
 - **Storage:** abstracted behind a `StorageBackend` interface from day one. `LocalFilesystemStorage` for the POC; a `SharePointStorage`/Azure Blob implementation can be dropped in later with zero changes to agent/gating logic.
 
 ## Stack
 
 - Backend: Python + FastAPI
-- LLM: Claude via Anthropic API, tool-calling for intent parsing
+- LLM: Groq API (Llama 3.3 70B), tool-calling for intent parsing
 - DB: PostgreSQL + SQLAlchemy + Alembic
 - Frontend: React + Vite (minimal chat UI, polish deferred)
 - Tests: pytest
@@ -34,8 +34,8 @@
       seed.py                     # seeds phases/required_docs from config json
       migrations/                 # alembic
     /agent
-      tools.py                    # Claude tool defs: request_template, upload_document, check_status
-      orchestrator.py             # conversation loop
+      tools.py                    # tool defs: request_template, upload_document, check_status
+      orchestrator.py             # conversation loop (Groq)
     /api
       routes_chat.py
       routes_templates.py
@@ -47,7 +47,13 @@
     test_storage_local.py
 
 /frontend
-  /src                            # React chat UI
+  /src
+    App.jsx                      # page shell, backend health indicator
+    api.js                       # fetch wrapper for backend API
+    /components
+      ChatPanel.jsx               # conversational UI, POST /api/chat
+      ToolActivity.jsx            # inline rendering of agent tool-call results
+      UploadPanel.jsx             # completed-document upload form
 
 /templates                        # master template store (local POC)
 /clients                          # per-client phase folders (local POC, gitignored)

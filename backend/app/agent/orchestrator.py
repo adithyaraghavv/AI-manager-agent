@@ -1,6 +1,7 @@
+import json
 from typing import Any
 
-import anthropic
+from groq import Groq
 from sqlalchemy.orm import Session
 
 from app.agent.tools import TOOL_DEFINITIONS, dispatch_tool
@@ -19,7 +20,8 @@ Rules:
 help them get those first.
 - Be concise and practical. This is a working tool for busy PMs, not a chatty assistant."""
 
-MODEL = "claude-sonnet-5"
+MODEL = "llama-3.3-70b-versatile"
+MAX_TOOL_ROUNDS = 6
 
 
 def run_turn(
@@ -31,31 +33,46 @@ def run_turn(
 ) -> list[dict[str, Any]]:
     """Run one assistant turn (including any tool-call round trips) and
     return the updated message list with the assistant's reply appended."""
-    client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+    client = Groq(api_key=settings.groq_api_key)
 
-    while True:
-        response = client.messages.create(
+    api_messages = [{"role": "system", "content": SYSTEM_PROMPT}, *messages]
+
+    for _ in range(MAX_TOOL_ROUNDS):
+        response = client.chat.completions.create(
             model=MODEL,
             max_tokens=1024,
-            system=SYSTEM_PROMPT,
             tools=TOOL_DEFINITIONS,
-            messages=messages,
+            tool_choice="auto",
+            messages=api_messages,
         )
+        choice = response.choices[0].message
 
-        content_blocks = [block.model_dump() for block in response.content]
-        messages.append({"role": "assistant", "content": content_blocks})
+        assistant_message: dict[str, Any] = {"role": "assistant", "content": choice.content or ""}
+        if choice.tool_calls:
+            assistant_message["tool_calls"] = [
+                {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {"name": tc.function.name, "arguments": tc.function.arguments},
+                }
+                for tc in choice.tool_calls
+            ]
+        messages.append(assistant_message)
+        api_messages.append(assistant_message)
 
-        if response.stop_reason != "tool_use":
+        if not choice.tool_calls:
             break
 
-        tool_results = []
-        for block in response.content:
-            if block.type != "tool_use":
-                continue
-            result = dispatch_tool(db, client_storage, template_storage, config, block.name, block.input)
-            tool_results.append(
-                {"type": "tool_result", "tool_use_id": block.id, "content": str(result)}
-            )
-        messages.append({"role": "user", "content": tool_results})
+        for tc in choice.tool_calls:
+            tool_input = json.loads(tc.function.arguments or "{}")
+            result = dispatch_tool(db, client_storage, template_storage, config, tc.function.name, tool_input)
+            tool_message = {
+                "role": "tool",
+                "tool_call_id": tc.id,
+                "name": tc.function.name,
+                "content": json.dumps(result),
+            }
+            messages.append(tool_message)
+            api_messages.append(tool_message)
 
     return messages
