@@ -1,0 +1,45 @@
+"""Local filesystem implementation of StorageBackend. Used for the POC;
+swapped for SharePoint/Blob storage once cloud access is available."""
+from pathlib import Path
+
+from app.storage.base import StorageBackend
+
+
+class LocalFilesystemStorage(StorageBackend):
+    def __init__(self, root: Path | str):
+        self.root = Path(root).resolve()
+        self.root.mkdir(parents=True, exist_ok=True)
+
+    def _resolve(self, path: str) -> Path:
+        full = (self.root / path).resolve()
+        if self.root not in full.parents and full != self.root:
+            raise ValueError(f"Path {path!r} escapes storage root")
+        return full
+
+    def save(self, path: str, content: bytes) -> None:
+        target = self._resolve(path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(content)
+
+    def get(self, path: str) -> bytes:
+        target = self._resolve(path)
+        if not target.is_file():
+            raise FileNotFoundError(path)
+        return target.read_bytes()
+
+    def exists(self, path: str) -> bool:
+        return self._resolve(path).exists()
+
+    def list(self, prefix: str) -> list[str]:
+        target = self._resolve(prefix)
+        if not target.is_dir():
+            return []
+        return sorted(str(p.relative_to(self.root)) for p in target.iterdir())
+
+    def delete(self, path: str) -> None:
+        target = self._resolve(path)
+        if target.is_file():
+            target.unlink()
+
+    def make_dir(self, path: str) -> None:
+        self._resolve(path).mkdir(parents=True, exist_ok=True)
