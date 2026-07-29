@@ -39,3 +39,7 @@ python -m pytest tests/ -q
   script) pointing at files under `/templates` as they become available.
 - Phase-gating is enforced as a hard block in `app/services/document_service.py`, independent
   of the conversational agent — the agent can only ask for the same checks the REST API enforces.
+- DB driver is `psycopg` (v3, not `psycopg2`) so the `DATABASE_URL` scheme is
+  `postgresql+psycopg://...`. This was picked specifically because `psycopg[binary]` ships
+  prebuilt wheels for newer Python releases (e.g. 3.14) well before `psycopg2-binary` does —
+  if you hit a build error mentioning `psycopg2`, you're on the wrong package/URL scheme.
