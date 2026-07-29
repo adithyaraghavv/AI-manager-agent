@@ -2,7 +2,7 @@ fastapi==0.140.13
 uvicorn[standard]==0.52.0
 sqlalchemy==2.0.51
 alembic==1.18.5
-psycopg[binary]==3.2.3
+psycopg[binary]==3.3.4
 python-dotenv==1.2.2
 groq==1.6.0
 pydantic==2.13.4
