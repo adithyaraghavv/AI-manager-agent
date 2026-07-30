@@ -54,7 +54,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "name": "request_template",
             "description": (
                 "Request the master template for a document type on behalf of a client. Enforces hard-block "
-                "phase-gating: if the client is missing required documents from the previous phase, this will "
+                "phase-gating: if the client is missing required documents from any earlier phase, this will "
                 "refuse and report exactly what's missing instead of returning a template."
             ),
             "parameters": {

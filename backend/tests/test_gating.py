@@ -39,9 +39,19 @@ def test_phase_2_allowed_when_phase_1_complete():
     assert decision.allowed
 
 
-def test_phase_3_blocked_only_checks_immediate_previous_phase():
-    # Phase 1 incomplete but phase 2 (immediate previous) complete -> allowed per spec
+def test_phase_3_blocked_on_earliest_incomplete_phase_not_just_immediate_previous():
+    # Phase 2 (immediate previous) is complete, but phase 1 is not -> must still block,
+    # and block on phase 1 specifically since that's the earliest gap in the hierarchy.
     decision = check_gate(CONFIG, "System Design", existing_documents={"BRD"})
+    assert not decision.allowed
+    assert decision.blocking_phase == "Pre-requisites"
+    assert set(decision.missing_documents) == {"MSA", "SOW", "Pricing"}
+
+
+def test_phase_3_allowed_only_when_both_earlier_phases_complete():
+    decision = check_gate(
+        CONFIG, "System Design", existing_documents={"MSA", "SOW", "Pricing", "BRD"}
+    )
     assert decision.allowed
 
 

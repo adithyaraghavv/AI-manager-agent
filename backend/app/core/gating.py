@@ -2,8 +2,9 @@
 
 Rule (per discovery doc, section 4): a document belonging to phase N cannot be
 served (template request) or accepted (upload) until every required document
-for phase N-1 already exists for that client. This is a hard block, not a
-warning — callers must refuse the action outright when `allowed` is False.
+for ALL earlier phases (1 through N-1) already exists for that client — not
+just the immediately preceding phase. This is a hard block, not a warning —
+callers must refuse the action outright when `allowed` is False.
 
 Pure functions only — no DB/storage/IO here, so this is trivially testable.
 """
@@ -34,18 +35,19 @@ def missing_documents(phase: Phase, existing_documents: set[str]) -> tuple[str, 
 def check_gate(config: PhaseConfig, target_phase_name: str, existing_documents: set[str]) -> GatingDecision:
     """Can a document belonging to `target_phase_name` be requested/uploaded?
 
-    Checks that the immediately preceding phase's required documents are all
-    present for this client. Phase 1 (no previous phase) is always allowed.
+    Walks every earlier phase in sequence order (1, 2, ... up to the one right
+    before the target) and blocks on the first one that isn't fully complete.
+    This means a gap in an early phase is always caught, even if a later
+    phase happens to look complete — the whole hierarchy must be satisfied in
+    order, not just the single phase immediately before the target.
     """
     target_phase = config.get(target_phase_name)
-    previous_phase = config.previous(target_phase)
+    earlier_phases = [p for p in config.phases if p.sequence < target_phase.sequence]
 
-    if previous_phase is None:
-        return GatingDecision(allowed=True)
-
-    missing = missing_documents(previous_phase, existing_documents)
-    if missing:
-        return GatingDecision(allowed=False, blocking_phase=previous_phase.name, missing_documents=missing)
+    for phase in earlier_phases:
+        missing = missing_documents(phase, existing_documents)
+        if missing:
+            return GatingDecision(allowed=False, blocking_phase=phase.name, missing_documents=missing)
 
     return GatingDecision(allowed=True)
 

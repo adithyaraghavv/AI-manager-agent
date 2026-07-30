@@ -31,7 +31,7 @@ export default function UploadPanel() {
       <h2>File a completed document</h2>
       <p className="upload-panel__hint">
         Filled in a template outside the tool? Upload it here. Blocked if required documents from
-        the previous phase are missing for this client.
+        any earlier phase are missing for this client.
       </p>
       <form onSubmit={handleSubmit}>
         <label>
