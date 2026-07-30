@@ -1,7 +1,7 @@
 import json
 from typing import Any
 
-from groq import Groq
+from groq import BadRequestError, Groq
 from sqlalchemy.orm import Session
 
 from app.agent.tools import TOOL_DEFINITIONS, dispatch_tool
@@ -20,6 +20,12 @@ request, a status check, or an explicit question about phases/requirements.
 ask how you can help. Do NOT call list_phases or any other tool for this — wait until the PM \
 asks something that needs one.
 - Always check a client's status before claiming a document is or isn't available.
+- get_client_status tells you which documents haven't been FILED yet for each phase — that is \
+NOT the same as whether a template can be REQUESTED. Only request_template's "allowed" field \
+decides that. A phase-1 document's template is always requestable (phase 1 has no prerequisite), \
+even if get_client_status shows phase-1 documents as missing/not-yet-filed. Never contradict what \
+request_template just told you — if it says allowed=true, hand over the download link; don't also \
+say you can't provide it.
 - Phase-gating is a HARD BLOCK you must respect and explain, never override or argue around it.
 - If a template request is blocked, tell the PM exactly which documents are missing and offer to \
 help them get those first.
@@ -27,6 +33,15 @@ help them get those first.
 
 MODEL = "llama-3.3-70b-versatile"
 MAX_TOOL_ROUNDS = 6
+FALLBACK_REPLY = (
+    "Sorry, I had trouble processing that. Could you rephrase, or tell me the client name "
+    "and document type you're asking about directly?"
+)
+
+
+def _is_tool_use_failed(error: BadRequestError) -> bool:
+    body = error.body
+    return isinstance(body, dict) and body.get("error", {}).get("code") == "tool_use_failed"
 
 
 def run_turn(
@@ -43,13 +58,32 @@ def run_turn(
     api_messages = [{"role": "system", "content": SYSTEM_PROMPT}, *messages]
 
     for _ in range(MAX_TOOL_ROUNDS):
-        response = client.chat.completions.create(
-            model=MODEL,
-            max_tokens=1024,
-            tools=TOOL_DEFINITIONS,
-            tool_choice="auto",
-            messages=api_messages,
-        )
+        try:
+            response = client.chat.completions.create(
+                model=MODEL,
+                max_tokens=1024,
+                tools=TOOL_DEFINITIONS,
+                tool_choice="auto",
+                messages=api_messages,
+            )
+        except BadRequestError as e:
+            # Llama on Groq occasionally emits a malformed tool-call (e.g. "<function=..."
+            # instead of proper JSON) and Groq rejects it with tool_use_failed. Rather than
+            # surfacing that as a crash, retry once with tools disabled so the model is forced
+            # to just answer in plain text — degraded, but never a dead end for the PM.
+            if not _is_tool_use_failed(e):
+                raise
+            response = client.chat.completions.create(
+                model=MODEL,
+                max_tokens=1024,
+                tool_choice="none",
+                messages=api_messages,
+            )
+            choice = response.choices[0].message
+            assistant_message = {"role": "assistant", "content": choice.content or FALLBACK_REPLY}
+            messages.append(assistant_message)
+            return messages
+
         choice = response.choices[0].message
 
         assistant_message: dict[str, Any] = {"role": "assistant", "content": choice.content or ""}
