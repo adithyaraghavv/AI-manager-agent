@@ -125,5 +125,7 @@ def dispatch_tool(
             }
         except TemplateNotFound:
             return {"allowed": False, "reason": f"No master template is on file yet for '{doc_type}'."}
+        except ValueError as e:
+            return {"allowed": False, "reason": str(e)}
 
     raise ValueError(f"Unknown tool: {tool_name}")
