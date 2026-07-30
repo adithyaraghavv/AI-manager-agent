@@ -18,6 +18,10 @@ alembic upgrade head
 # seed phases/required documents from config/sdlc_phase_config.json
 python -m app.db.seed
 
+# seed a mock template library (placeholder files) until real SharePoint
+# templates are available — see docs/mock_template_library.md
+python -m app.db.seed_templates
+
 # run
 uvicorn app.main:app --reload --port 8000
 ```
@@ -35,8 +39,11 @@ python -m pytest tests/ -q
 - Storage is abstracted behind `app/storage/base.py::StorageBackend`. `LocalFilesystemStorage`
   is used for the POC; a SharePoint/Azure Blob implementation can be swapped in later with no
   changes to gating or service logic.
-- Master templates are not yet seeded — add rows to the `templates` table (or a small seed
-  script) pointing at files under `/templates` as they become available.
+- Master templates: until real SharePoint access is available, `app/db/seed_templates.py`
+  seeds a mock template library (placeholder files + DB rows) so the full request/gate/
+  download/upload flow can be tested end-to-end. See `docs/mock_template_library.md` for
+  the structure and exactly what changes when real templates are available (no code changes,
+  only a new `StorageBackend` implementation + re-pointing config).
 - Phase-gating is enforced as a hard block in `app/services/document_service.py`, independent
   of the conversational agent — the agent can only ask for the same checks the REST API enforces.
 - DB driver is `psycopg` (v3, not `psycopg2`) so the `DATABASE_URL` scheme is
