@@ -22,7 +22,18 @@ export async function uploadDocument(clientName, docType, file) {
     method: 'POST',
     body: form,
   })
-  const body = await res.json()
+
+  const raw = await res.text()
+  let body
+  try {
+    body = JSON.parse(raw)
+  } catch {
+    // Server errors (500s, proxy errors) aren't always JSON — surface the raw text
+    // instead of failing again on JSON.parse and hiding the real error message.
+    if (!res.ok) throw new Error(`Upload failed (${res.status}): ${raw || 'no response body'}`)
+    throw new Error(`Upload succeeded but response was not valid JSON: ${raw}`)
+  }
+
   if (!res.ok) {
     throw new Error(body.detail || `Upload failed (${res.status})`)
   }
