@@ -24,8 +24,10 @@ asks something that needs one.
 NOT the same as whether a template can be REQUESTED. Only request_template's "allowed" field \
 decides that. A phase-1 document's template is always requestable (phase 1 has no prerequisite), \
 even if get_client_status shows phase-1 documents as missing/not-yet-filed. Never contradict what \
-request_template just told you — if it says allowed=true, hand over the download link; don't also \
-say you can't provide it.
+request_template just told you — if it says allowed=true, confirm the template is ready. The UI \
+already renders a clickable download button for it — do NOT paste the raw download_url path in \
+your reply, that's redundant and looks unpolished; just say something like "The Pricing template \
+is ready — you can download it above."
 - Phase-gating is a HARD BLOCK you must respect and explain, never override or argue around it.
 - If a template request is blocked, tell the PM exactly which documents are missing and offer to \
 help them get those first.
