@@ -2,11 +2,11 @@ import json
 from typing import Any
 
 from groq import BadRequestError, Groq
-from sqlalchemy.orm import Session
 
 from app.agent.tools import TOOL_DEFINITIONS, dispatch_tool
 from app.config import settings
 from app.core.phase_config import PhaseConfig
+from app.db.rest_client import SupabaseRestClient
 from app.storage.base import StorageBackend
 
 SYSTEM_PROMPT = """You are the Marlabs Delivery Assistant, a conversational agent that helps \
@@ -45,7 +45,7 @@ def _is_tool_use_failed(error: BadRequestError) -> bool:
 
 
 def run_turn(
-    db: Session,
+    rest: SupabaseRestClient,
     client_storage: StorageBackend,
     template_storage: StorageBackend,
     config: PhaseConfig,
@@ -104,7 +104,7 @@ def run_turn(
 
         for tc in choice.tool_calls:
             tool_input = json.loads(tc.function.arguments or "{}")
-            result = dispatch_tool(db, client_storage, template_storage, config, tc.function.name, tool_input)
+            result = dispatch_tool(rest, client_storage, template_storage, config, tc.function.name, tool_input)
             tool_message = {
                 "role": "tool",
                 "tool_call_id": tc.id,

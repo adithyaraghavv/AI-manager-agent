@@ -13,10 +13,9 @@ the actual write always goes through app.services.document_service directly.
 """
 from typing import Any
 
-from sqlalchemy.orm import Session
-
 from app.core.gating import missing_documents
 from app.core.phase_config import PhaseConfig
+from app.db.rest_client import SupabaseRestClient
 from app.services.client_service import existing_document_types, get_or_create_client
 from app.services.document_service import GatingBlocked, TemplateNotFound, request_template
 from app.storage.base import StorageBackend
@@ -74,7 +73,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
 
 
 def dispatch_tool(
-    db: Session,
+    rest: SupabaseRestClient,
     client_storage: StorageBackend,
     template_storage: StorageBackend,
     config: PhaseConfig,
@@ -91,8 +90,8 @@ def dispatch_tool(
 
     if tool_name == "get_client_status":
         client_name = tool_input["client_name"]
-        client = get_or_create_client(db, client_storage, config, client_name)
-        existing = existing_document_types(db, client)
+        client = get_or_create_client(rest, client_storage, config, client_name)
+        existing = existing_document_types(rest, client)
         status = []
         for phase in config.phases:
             missing = missing_documents(phase, existing)
@@ -110,7 +109,7 @@ def dispatch_tool(
         doc_type = tool_input["doc_type"]
         client_name = tool_input["client_name"]
         try:
-            result = request_template(db, client_storage, template_storage, config, doc_type, client_name)
+            result = request_template(rest, client_storage, template_storage, config, doc_type, client_name)
             return {
                 "allowed": True,
                 "filename": result.filename,

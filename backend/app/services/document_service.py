@@ -6,12 +6,10 @@ calling storage directly.
 """
 from dataclasses import dataclass
 
-from sqlalchemy.orm import Session
-
 from app.core.file_naming import build_filename
 from app.core.gating import GatingDecision, check_gate, resolve_phase_for_document
 from app.core.phase_config import PhaseConfig
-from app.db.models import Client, ClientDocument, Template
+from app.db.rest_client import SupabaseRestClient
 from app.services.client_service import existing_document_types, get_or_create_client
 from app.storage.base import StorageBackend
 
@@ -33,7 +31,7 @@ class TemplateResult:
 
 
 def request_template(
-    db: Session,
+    rest: SupabaseRestClient,
     client_storage: StorageBackend,
     template_storage: StorageBackend,
     config: PhaseConfig,
@@ -41,19 +39,19 @@ def request_template(
     client_name: str,
 ) -> TemplateResult:
     phase = resolve_phase_for_document(config, doc_type)
-    client = get_or_create_client(db, client_storage, config, client_name)
-    existing = existing_document_types(db, client)
+    client = get_or_create_client(rest, client_storage, config, client_name)
+    existing = existing_document_types(rest, client)
 
     decision = check_gate(config, phase.name, existing)
     if not decision.allowed:
         raise GatingBlocked(decision)
 
-    template = db.query(Template).filter_by(doc_type=doc_type).one_or_none()
+    template = rest.select_one("templates", doc_type=doc_type)
     if template is None:
         raise TemplateNotFound(doc_type)
 
-    content = template_storage.get(template.storage_path)
-    return TemplateResult(filename=template.filename, content=content)
+    content = template_storage.get(template["storage_path"])
+    return TemplateResult(filename=template["filename"], content=content)
 
 
 @dataclass
@@ -64,7 +62,7 @@ class UploadResult:
 
 
 def upload_document(
-    db: Session,
+    rest: SupabaseRestClient,
     storage: StorageBackend,
     config: PhaseConfig,
     doc_type: str,
@@ -73,8 +71,8 @@ def upload_document(
     extension: str,
 ) -> UploadResult:
     phase = resolve_phase_for_document(config, doc_type)
-    client = get_or_create_client(db, storage, config, client_name)
-    existing = existing_document_types(db, client)
+    client = get_or_create_client(rest, storage, config, client_name)
+    existing = existing_document_types(rest, client)
 
     decision = check_gate(config, phase.name, existing)
     if not decision.allowed:
@@ -85,19 +83,23 @@ def upload_document(
     stored_path = f"{folder}/{filename}"
     storage.save(stored_path, content)
 
-    record = db.query(ClientDocument).filter_by(client_id=client.id, doc_type=doc_type).one_or_none()
+    record = rest.select_one("client_documents", client_id=client["id"], doc_type=doc_type)
     if record is None:
-        record = ClientDocument(
-            client_id=client.id,
-            phase_name=phase.name,
-            doc_type=doc_type,
-            storage_path=stored_path,
-            filename=filename,
+        rest.insert(
+            "client_documents",
+            {
+                "client_id": client["id"],
+                "phase_name": phase.name,
+                "doc_type": doc_type,
+                "storage_path": stored_path,
+                "filename": filename,
+            },
         )
-        db.add(record)
     else:
-        record.storage_path = stored_path
-        record.filename = filename
-    db.commit()
+        rest.update(
+            "client_documents",
+            {"id": record["id"]},
+            {"storage_path": stored_path, "filename": filename},
+        )
 
     return UploadResult(stored_path=stored_path, filename=filename, phase_name=phase.name)

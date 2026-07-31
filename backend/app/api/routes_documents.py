@@ -1,10 +1,9 @@
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
-from sqlalchemy.orm import Session
 
 from app.core.phase_config import PhaseConfig
-from app.db.session import get_db
-from app.deps import get_client_storage, get_config, get_template_storage
+from app.db.rest_client import SupabaseRestClient
+from app.deps import get_client_storage, get_config, get_rest_client, get_template_storage
 from app.services.document_service import (
     GatingBlocked,
     TemplateNotFound,
@@ -20,13 +19,13 @@ router = APIRouter(prefix="/api", tags=["documents"])
 def download_template(
     doc_type: str,
     client_name: str,
-    db: Session = Depends(get_db),
+    rest: SupabaseRestClient = Depends(get_rest_client),
     template_storage: StorageBackend = Depends(get_template_storage),
     client_storage: StorageBackend = Depends(get_client_storage),
     config: PhaseConfig = Depends(get_config),
 ):
     try:
-        result = request_template(db, client_storage, template_storage, config, doc_type, client_name)
+        result = request_template(rest, client_storage, template_storage, config, doc_type, client_name)
     except GatingBlocked as e:
         raise HTTPException(status_code=409, detail=e.decision.reason) from e
     except TemplateNotFound as e:
@@ -46,7 +45,7 @@ async def upload_client_document(
     client_name: str,
     doc_type: str = Form(...),
     file: UploadFile = File(...),
-    db: Session = Depends(get_db),
+    rest: SupabaseRestClient = Depends(get_rest_client),
     client_storage: StorageBackend = Depends(get_client_storage),
     config: PhaseConfig = Depends(get_config),
 ):
@@ -54,7 +53,7 @@ async def upload_client_document(
     content = await file.read()
 
     try:
-        result = upload_document(db, client_storage, config, doc_type, client_name, content, extension)
+        result = upload_document(rest, client_storage, config, doc_type, client_name, content, extension)
     except GatingBlocked as e:
         raise HTTPException(status_code=409, detail=e.decision.reason) from e
     except ValueError as e:

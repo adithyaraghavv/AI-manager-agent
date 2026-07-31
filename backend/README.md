@@ -7,22 +7,18 @@ Greenfield build. See `/docs/tech_stack_and_structure.md` for the design rationa
 ```bash
 cd backend
 pip install -r requirements.txt
-cp .env.example .env   # fill in GROQ_API_KEY and DATABASE_URL
+cp .env.example .env   # fill in GROQ_API_KEY, DATABASE_URL, SUPABASE_URL, SUPABASE_KEY
 
-# create the Postgres database (adjust to your local setup)
-createdb delivery_agent
-
-# apply schema
+# schema setup + seeding: needs DATABASE_URL, a direct-ish connection to
+# Supabase. If your network blocks direct Postgres ports (some corporate
+# networks do — see "Two ways to reach Supabase" below), run these three
+# from a network that doesn't, e.g. a phone hotspot. This is a one-off step.
 alembic upgrade head
-
-# seed phases/required documents from config/sdlc_phase_config.json
 python -m app.db.seed
+python -m app.db.seed_templates   # mock template library, see docs/mock_template_library.md
 
-# seed a mock template library (placeholder files) until real SharePoint
-# templates are available — see docs/mock_template_library.md
-python -m app.db.seed_templates
-
-# run
+# run — this only needs SUPABASE_URL/SUPABASE_KEY, works on any network
+# including ones that block direct database ports
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -31,6 +27,30 @@ uvicorn app.main:app --reload --port 8000
 ```bash
 python -m pytest tests/ -q
 ```
+
+## Two ways to reach Supabase, and why both exist
+
+This project talks to Supabase two different ways, deliberately:
+
+1. **Direct Postgres connection** (`DATABASE_URL`, via SQLAlchemy) — used only by Alembic
+   migrations and the two seed scripts (`app/db/seed.py`, `app/db/seed_templates.py`). Rare,
+   occasional operations.
+2. **Supabase's REST API** (`SUPABASE_URL` + `SUPABASE_KEY`, via `app/db/rest_client.py`, plain
+   HTTPS) — used by everything the running app does at request time: every chat message,
+   template request, and document upload goes through `app/services/*.py`, which talks to the
+   REST client, never SQLAlchemy.
+
+Why the split: a direct Postgres connection is a raw TCP connection to port 5432 or 6543, which
+some corporate network firewalls block outright — confirmed on this project, not hypothetical.
+The REST API is plain HTTPS (port 443), which those same firewalls essentially never block. Since
+the *running app* needs to work reliably on whatever network a PM happens to be on, it uses the
+REST path. Schema changes and seeding are rare enough that requiring an occasional hotspot/
+different-network session for those specifically is an acceptable tradeoff, in exchange for the
+app itself never being network-blocked during actual use.
+
+If you hit `OperationalError: ... failed to resolve host` or a connection that just hangs forever
+on `alembic upgrade head` or a seed script, that's this exact issue — switch networks for that one
+command, it doesn't affect the running app.
 
 ## Notes
 
@@ -46,7 +66,11 @@ python -m pytest tests/ -q
   only a new `StorageBackend` implementation + re-pointing config).
 - Phase-gating is enforced as a hard block in `app/services/document_service.py`, independent
   of the conversational agent — the agent can only ask for the same checks the REST API enforces.
-- DB driver is `psycopg` (v3, not `psycopg2`) so the `DATABASE_URL` scheme is
-  `postgresql+psycopg://...`. This was picked specifically because `psycopg[binary]` ships
-  prebuilt wheels for newer Python releases (e.g. 3.14) well before `psycopg2-binary` does —
-  if you hit a build error mentioning `psycopg2`, you're on the wrong package/URL scheme.
+- DB driver for the migration/seed path is `psycopg` (v3, not `psycopg2`) so `DATABASE_URL`'s
+  scheme is `postgresql+psycopg://...`. Picked because `psycopg[binary]` ships prebuilt wheels
+  for newer Python releases (e.g. 3.14) well before `psycopg2-binary` does — if you hit a build
+  error mentioning `psycopg2`, you're on the wrong package/URL scheme.
+- `SUPABASE_KEY` must be the **service_role** key (Project Settings → API), not the anon/public
+  key — service_role bypasses Row Level Security, which is correct here since this backend is the
+  only trusted access point (the frontend never talks to Supabase directly). Never send this key
+  to a browser/frontend.

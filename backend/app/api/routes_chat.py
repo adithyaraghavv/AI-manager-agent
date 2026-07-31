@@ -2,12 +2,11 @@ from typing import Any
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy.orm import Session
 
 from app.agent.orchestrator import run_turn
 from app.core.phase_config import PhaseConfig
-from app.db.session import get_db
-from app.deps import get_client_storage, get_config, get_template_storage
+from app.db.rest_client import SupabaseRestClient
+from app.deps import get_client_storage, get_config, get_rest_client, get_template_storage
 from app.storage.base import StorageBackend
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
@@ -40,11 +39,11 @@ class ChatResponse(BaseModel):
 @router.post("", response_model=ChatResponse)
 def chat(
     request: ChatRequest,
-    db: Session = Depends(get_db),
+    rest: SupabaseRestClient = Depends(get_rest_client),
     client_storage: StorageBackend = Depends(get_client_storage),
     template_storage: StorageBackend = Depends(get_template_storage),
     config: PhaseConfig = Depends(get_config),
 ):
     messages = [m.model_dump() for m in request.messages]
-    updated = run_turn(db, client_storage, template_storage, config, messages)
+    updated = run_turn(rest, client_storage, template_storage, config, messages)
     return ChatResponse(messages=updated)

@@ -1,20 +1,17 @@
 """Client folder lifecycle: creation of the client row + full phase sub-structure
 on first contact, and lookup of which documents already exist for a client."""
-from sqlalchemy.orm import Session
-
 from app.core.phase_config import PhaseConfig
-from app.db.models import Client, ClientDocument
+from app.db.rest_client import SupabaseRestClient
 from app.storage.base import StorageBackend
 
 
-def get_or_create_client(db: Session, storage: StorageBackend, config: PhaseConfig, client_name: str) -> Client:
-    client = db.query(Client).filter_by(name=client_name).one_or_none()
+def get_or_create_client(
+    rest: SupabaseRestClient, storage: StorageBackend, config: PhaseConfig, client_name: str
+) -> dict:
+    client = rest.select_one("clients", name=client_name)
     is_new = client is None
     if client is None:
-        client = Client(name=client_name)
-        db.add(client)
-        db.commit()
-        db.refresh(client)
+        client = rest.insert("clients", {"name": client_name})
 
     if is_new or not storage.exists(client_name):
         storage.make_dir(client_name)
@@ -24,5 +21,6 @@ def get_or_create_client(db: Session, storage: StorageBackend, config: PhaseConf
     return client
 
 
-def existing_document_types(db: Session, client: Client) -> set[str]:
-    return {doc.doc_type for doc in db.query(ClientDocument).filter_by(client_id=client.id).all()}
+def existing_document_types(rest: SupabaseRestClient, client: dict) -> set[str]:
+    rows = rest.select("client_documents", client_id=client["id"])
+    return {row["doc_type"] for row in rows}
