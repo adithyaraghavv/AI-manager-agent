@@ -46,6 +46,16 @@ def _is_tool_use_failed(error: BadRequestError) -> bool:
     return isinstance(body, dict) and body.get("error", {}).get("code") == "tool_use_failed"
 
 
+def _complete_with_tools(client: Groq, api_messages: list[dict[str, Any]]):
+    return client.chat.completions.create(
+        model=MODEL,
+        max_tokens=1024,
+        tools=TOOL_DEFINITIONS,
+        tool_choice="auto",
+        messages=api_messages,
+    )
+
+
 def run_turn(
     rest: SupabaseRestClient,
     client_storage: StorageBackend,
@@ -61,30 +71,26 @@ def run_turn(
 
     for _ in range(MAX_TOOL_ROUNDS):
         try:
-            response = client.chat.completions.create(
-                model=MODEL,
-                max_tokens=1024,
-                tools=TOOL_DEFINITIONS,
-                tool_choice="auto",
-                messages=api_messages,
-            )
+            response = _complete_with_tools(client, api_messages)
         except BadRequestError as e:
             # Llama on Groq occasionally emits a malformed tool-call (e.g. "<function=..."
-            # instead of proper JSON) and Groq rejects it with tool_use_failed. Rather than
-            # surfacing that as a crash, retry once with tools disabled so the model is forced
-            # to just answer in plain text — degraded, but never a dead end for the PM.
+            # instead of proper JSON) and Groq rejects it with tool_use_failed. Usually a
+            # transient flake — retry the same tool-enabled request once so the PM has a
+            # real chance at getting an actual answer, not just an apology.
             if not _is_tool_use_failed(e):
                 raise
-            response = client.chat.completions.create(
-                model=MODEL,
-                max_tokens=1024,
-                tool_choice="none",
-                messages=api_messages,
-            )
-            choice = response.choices[0].message
-            assistant_message = {"role": "assistant", "content": choice.content or FALLBACK_REPLY}
-            messages.append(assistant_message)
-            return messages
+            try:
+                response = _complete_with_tools(client, api_messages)
+            except BadRequestError as e2:
+                if not _is_tool_use_failed(e2):
+                    raise
+                # Failed twice — give up on tools for this turn. Don't bother asking the model
+                # for a tool-free explanation: observed live that when suddenly stripped of
+                # tools it invents confused text (e.g. offering to "simulate" data) instead of
+                # a clean answer, so just show our own canned message.
+                assistant_message = {"role": "assistant", "content": FALLBACK_REPLY}
+                messages.append(assistant_message)
+                return messages
 
         choice = response.choices[0].message
 
