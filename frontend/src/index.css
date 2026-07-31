@@ -204,6 +204,108 @@ body {
   text-decoration: underline;
 }
 
+.tool-activity--success {
+  border-style: solid;
+  border-color: var(--ok);
+  color: var(--ok);
+}
+
+.tool-activity--error {
+  border-style: solid;
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.upload-card {
+  align-self: center;
+  width: 90%;
+  max-width: 420px;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.upload-card__file {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.upload-card__row {
+  display: flex;
+  gap: 10px;
+}
+
+.upload-card__row label {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.upload-card__row input {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 9px;
+  font: inherit;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.upload-card__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.upload-card__confirm {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.upload-card__confirm:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.upload-card__cancel {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.chat-panel__attach {
+  align-self: flex-end;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  font-size: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.chat-panel__attach:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .chat-panel__typing {
   align-self: flex-start;
   font-size: 13px;
