@@ -40,6 +40,13 @@ export async function uploadDocument(clientName, docType, file) {
   return body
 }
 
+export async function getPhases() {
+  const res = await fetch(`${BASE}/phases`)
+  if (!res.ok) throw new Error(`Failed to load phases (${res.status})`)
+  const body = await res.json()
+  return body.phases
+}
+
 export function templateDownloadUrl(docType, clientName) {
   return `${BASE}/templates/${encodeURIComponent(docType)}/download?client_name=${encodeURIComponent(clientName)}`
 }

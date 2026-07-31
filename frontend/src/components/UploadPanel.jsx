@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { uploadDocument } from '../api'
+import DocTypeSelect from './DocTypeSelect'
 
 export default function UploadPanel() {
   const [clientName, setClientName] = useState('')
@@ -17,6 +18,9 @@ export default function UploadPanel() {
     try {
       const result = await uploadDocument(clientName, docType, file)
       setStatus({ ok: true, message: `Filed under "${result.phase}" as ${result.filename}` })
+      // Clear doc type + file (each upload needs a fresh pick), but keep the client name —
+      // uploading several documents for the same client back-to-back is the common case.
+      setDocType('')
       setFile(null)
       e.target.reset()
     } catch (err) {
@@ -40,7 +44,7 @@ export default function UploadPanel() {
         </label>
         <label>
           Document type
-          <input value={docType} onChange={(e) => setDocType(e.target.value)} placeholder="e.g. Pricing, Approved HLD" />
+          <DocTypeSelect value={docType} onChange={setDocType} />
         </label>
         <label>
           File

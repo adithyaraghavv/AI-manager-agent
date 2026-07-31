@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import DocTypeSelect from './DocTypeSelect'
 
 export default function AttachUploadCard({ file, initialClientName, initialDocType, onConfirm, onCancel }) {
   const [clientName, setClientName] = useState(initialClientName || '')
@@ -27,12 +28,7 @@ export default function AttachUploadCard({ file, initialClientName, initialDocTy
         </label>
         <label>
           Document type
-          <input
-            value={docType}
-            onChange={(e) => setDocType(e.target.value)}
-            placeholder="e.g. Pricing, Approved HLD"
-            disabled={submitting}
-          />
+          <DocTypeSelect value={docType} onChange={setDocType} disabled={submitting} />
         </label>
       </div>
       <div className="upload-card__actions">

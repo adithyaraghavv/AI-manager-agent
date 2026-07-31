@@ -15,6 +15,19 @@ from app.storage.base import StorageBackend
 router = APIRouter(prefix="/api", tags=["documents"])
 
 
+@router.get("/phases")
+def list_phases(config: PhaseConfig = Depends(get_config)):
+    """Plain lookup of phases/required documents for the frontend — e.g. to populate a
+    document-type picker with exact valid values instead of asking a PM to type one from
+    memory, which is guaranteed to drift from the config eventually."""
+    return {
+        "phases": [
+            {"sequence": p.sequence, "name": p.name, "required_documents": list(p.required_documents)}
+            for p in config.phases
+        ]
+    }
+
+
 @router.get("/templates/{doc_type}/download")
 def download_template(
     doc_type: str,

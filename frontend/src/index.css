@@ -249,7 +249,8 @@ body {
   color: var(--text-muted);
 }
 
-.upload-card__row input {
+.upload-card__row input,
+.upload-card__row select {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 7px 9px;
@@ -394,7 +395,8 @@ body {
 }
 
 .upload-panel input[type='text'],
-.upload-panel input:not([type]) {
+.upload-panel input:not([type]),
+.upload-panel select {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 8px 10px;
