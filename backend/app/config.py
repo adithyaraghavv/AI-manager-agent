@@ -23,5 +23,9 @@ class Settings(BaseSettings):
     client_store_path: Path = Path("../clients")
     phase_config_path: Path = Path("../config/sdlc_phase_config.json")
 
+    # A client is flagged "stale" on the manager dashboard if it's been this
+    # many days since any document was filed while it's still mid-phase.
+    stale_after_days: int = 3
+
 
 settings = Settings()

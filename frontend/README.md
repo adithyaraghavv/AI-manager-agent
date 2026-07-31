@@ -15,7 +15,13 @@ The backend must be running on port 8000 (see `/backend/README.md`) — start it
 
 ## Structure
 
-- `src/App.jsx` — page shell, backend health indicator
+- `src/App.jsx` — page shell, backend health indicator, tab switcher between Chat and Dashboard
+- `src/components/Dashboard.jsx` — manager/PM-lead view: every client's phase progress, current
+  blocking phase, and a stale flag (⚠, icon+label — status color is never used alone) for clients
+  with no activity in `stale_after_days` (backend config, default 3). Calls `GET /api/clients/status`.
+- `src/hooks/usePhases.js` + `src/components/DocTypeSelect.jsx` — shared dropdown of exact valid
+  document types (grouped by phase), used by both upload paths so a PM never has to type/guess
+  the exact config string.
 - `src/components/ChatPanel.jsx` — conversational interface, calls `POST /api/chat`. Also has a
   📎 attach button so a PM can hand over a completed document without leaving the conversation —
   see below.

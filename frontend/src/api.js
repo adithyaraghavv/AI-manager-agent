@@ -47,6 +47,13 @@ export async function getPhases() {
   return body.phases
 }
 
+export async function getClientStatuses() {
+  const res = await fetch(`${BASE}/clients/status`)
+  if (!res.ok) throw new Error(`Failed to load client statuses (${res.status})`)
+  const body = await res.json()
+  return body.clients
+}
+
 export function templateDownloadUrl(docType, clientName) {
   return `${BASE}/templates/${encodeURIComponent(docType)}/download?client_name=${encodeURIComponent(clientName)}`
 }

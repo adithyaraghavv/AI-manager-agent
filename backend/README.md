@@ -74,3 +74,6 @@ command, it doesn't affect the running app.
   key — service_role bypasses Row Level Security, which is correct here since this backend is the
   only trusted access point (the frontend never talks to Supabase directly). Never send this key
   to a browser/frontend.
+- `GET /api/clients/status` (`app/services/dashboard_service.py`) powers the manager dashboard —
+  aggregates every client's phase progress and flags anyone stuck mid-phase with no activity in
+  `stale_after_days` (`.env`, default 3). No gating logic here, read-only aggregation.

@@ -11,10 +11,19 @@
   --user-bubble-text: #ffffff;
   --agent-bubble: #f0eff7;
   --agent-bubble-text: #221f2b;
-  --danger: #c0392b;
+  /* Status colors — fixed, validated for CVD-safety and contrast against both
+     surfaces (see dataviz skill palette). Mode-invariant: same hex in light
+     and dark. Never used as color alone — always paired with an icon/label. */
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-serious: #ec835a;
+  --status-critical: #d03b3b;
+
+  --danger: var(--status-critical);
   --danger-bg: #fdecea;
-  --ok: #1e8e5a;
+  --ok: var(--status-good);
   --ok-bg: #e8f7f0;
+  --warning-bg: #fef3da;
 
   font: 16px/150% system-ui, 'Segoe UI', Roboto, sans-serif;
   color-scheme: light dark;
@@ -37,10 +46,9 @@
     --user-bubble-text: #ffffff;
     --agent-bubble: #24232e;
     --agent-bubble-text: #e7e6ee;
-    --danger: #f28b7f;
     --danger-bg: #3a2020;
-    --ok: #6fd9a8;
     --ok-bg: #16302a;
+    --warning-bg: #3a2f10;
   }
 }
 
@@ -75,11 +83,40 @@ body {
   margin: 0;
 }
 
+.app__tabs {
+  display: flex;
+  gap: 4px;
+  margin-left: 24px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 3px;
+}
+
+.app__tab {
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  padding: 6px 14px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.app__tab--active {
+  background: var(--panel-bg);
+  color: var(--text-h);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
 .status-dot {
   width: 9px;
   height: 9px;
   border-radius: 50%;
   background: var(--text-muted);
+  margin-left: auto;
 }
 .status-dot--up {
   background: var(--ok);
@@ -439,4 +476,165 @@ body {
 .upload-panel__status--error {
   background: var(--danger-bg);
   color: var(--danger);
+}
+
+/* Dashboard */
+
+.dashboard {
+  grid-column: 1 / -1;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.dashboard__header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.dashboard__header h2 {
+  font-size: 17px;
+  margin: 0;
+  color: var(--text-h);
+}
+
+.dashboard__summary {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.dashboard__summary-stale {
+  color: var(--status-warning);
+  font-weight: 600;
+}
+
+.dashboard__empty {
+  color: var(--text-muted);
+  font-size: 14px;
+  padding: 20px 0;
+}
+
+.dashboard__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.dashboard__table th {
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  font-weight: 600;
+  padding: 0 12px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dashboard__table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.dashboard__table tr:last-child td {
+  border-bottom: none;
+}
+
+.dashboard__client-name {
+  font-weight: 600;
+  color: var(--text-h);
+  white-space: nowrap;
+}
+
+.dashboard__muted {
+  color: var(--text-muted);
+}
+
+.dashboard__missing {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Progress meter — thin bar, ≤24px thick (well under: 8px), 4px rounded,
+   fill color carries severity (warning if stale, accent otherwise), the
+   unfilled track is a lighter neutral step so state reads across the bar. */
+
+.progress-meter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 160px;
+}
+
+.progress-meter__track {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.progress-meter__fill {
+  height: 100%;
+  border-radius: 4px;
+}
+
+.progress-meter__fill--accent {
+  background: var(--accent);
+}
+
+.progress-meter__fill--warning {
+  background: var(--status-warning);
+}
+
+.progress-meter__label {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Status badge — icon + label always together, never color alone */
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Text stays in readable ink (the status hue itself can fail contrast — the
+   validator flagged this for warning/serious by design); the icon alone
+   carries the status color, so identity is never lost, but the label is
+   always legible regardless of the underlying hue's contrast. */
+
+.status-badge--good {
+  background: var(--ok-bg);
+  color: var(--text-h);
+}
+.status-badge--good .status-badge__icon {
+  color: var(--status-good);
+}
+
+.status-badge--warning {
+  background: var(--warning-bg);
+  color: var(--text-h);
+}
+.status-badge--warning .status-badge__icon {
+  color: var(--status-warning);
+}
+
+.status-badge--neutral {
+  background: var(--bg);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
 }
