@@ -1,15 +1,11 @@
-from datetime import datetime, timezone
+from datetime import datetime
 
-from sqlalchemy import ForeignKey, String, UniqueConstraint
+from sqlalchemy import ForeignKey, String, UniqueConstraint, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 class Base(DeclarativeBase):
     pass
-
-
-def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
 
 
 class Phase(Base):
@@ -46,7 +42,7 @@ class Template(Base):
     doc_type: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     storage_path: Mapped[str] = mapped_column(String, nullable=False)
     filename: Mapped[str] = mapped_column(String, nullable=False)
-    uploaded_at: Mapped[datetime] = mapped_column(default=_utcnow)
+    uploaded_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
 
 class Client(Base):
@@ -54,7 +50,7 @@ class Client(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(default=_utcnow)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     documents: Mapped[list["ClientDocument"]] = relationship(back_populates="client")
 
@@ -71,6 +67,6 @@ class ClientDocument(Base):
     doc_type: Mapped[str] = mapped_column(String, nullable=False)
     storage_path: Mapped[str] = mapped_column(String, nullable=False)
     filename: Mapped[str] = mapped_column(String, nullable=False)
-    uploaded_at: Mapped[datetime] = mapped_column(default=_utcnow)
+    uploaded_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     client: Mapped["Client"] = relationship(back_populates="documents")
