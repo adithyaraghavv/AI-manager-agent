@@ -62,15 +62,21 @@ export default function ChatPanel() {
     const text = input.trim()
     if (!text || sending) return
 
-    const nextMessages = [...messages, { role: 'user', content: text }]
-    setMessages(nextMessages)
+    const userMsg = { role: 'user', content: text }
+    setMessages((prev) => [...prev, userMsg])
     setInput('')
     setSending(true)
     setError(null)
 
     try {
-      const response = await sendChat(nextMessages)
-      setMessages(response.messages)
+      // upload-result entries are local-only display items (see handleUploadConfirm) — Groq
+      // rejects any role it doesn't recognize, so they must never be sent to the backend.
+      // Only the newly-appended backend messages get merged back in; local entries already
+      // shown stay exactly where they are, in their correct chronological position.
+      const outgoing = [...messages, userMsg].filter((m) => m.role !== 'upload-result')
+      const response = await sendChat(outgoing)
+      const newlyAdded = response.messages.slice(outgoing.length)
+      setMessages((prev) => [...prev, ...newlyAdded])
     } catch (err) {
       setError(err.message)
     } finally {
