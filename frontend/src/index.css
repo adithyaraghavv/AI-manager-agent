@@ -1,13 +1,22 @@
 :root {
+  /* Marlabs brand — sampled from the real logo file (frontend/src/assets/marlabs-logo.png):
+     navy from the "marlabs" wordmark, bright blue from the tagline/icon swirl.
+     --accent is a slightly deepened version of the sampled blue (#0EA5E9 measured
+     2.7:1 contrast on white, below the 3:1 floor for text use) so it stays legible
+     as button/link text; --accent-bright keeps the true sampled tone for fills,
+     icons, and other non-text uses where contrast-as-text doesn't apply. */
+  --brand-navy: #283b91;
+  --accent-bright: #0ea5e9;
+
   --text: #3f3d45;
   --text-h: #08060d;
   --text-muted: #767485;
-  --bg: #f7f7fa;
+  --bg: #eef1f6;
   --panel-bg: #ffffff;
   --border: #e3e2e8;
-  --accent: #5b3df0;
+  --accent: #0284c7;
   --accent-contrast: #ffffff;
-  --user-bubble: #5b3df0;
+  --user-bubble: #0284c7;
   --user-bubble-text: #ffffff;
   --agent-bubble: #f0eff7;
   --agent-bubble-text: #221f2b;
@@ -37,14 +46,15 @@
     --text: #cfced8;
     --text-h: #f5f4f8;
     --text-muted: #92909d;
-    --bg: #121218;
-    --panel-bg: #1a1a22;
-    --border: #2c2b35;
-    --accent: #8b7bf7;
-    --accent-contrast: #16151d;
-    --user-bubble: #6f5bf5;
+    --bg: #10121c;
+    --panel-bg: #1a1c28;
+    --border: #2c2e3d;
+    --accent: #38bdf8;
+    --accent-bright: #38bdf8;
+    --accent-contrast: #0a1520;
+    --user-bubble: #0ea5e9;
     --user-bubble-text: #ffffff;
-    --agent-bubble: #24232e;
+    --agent-bubble: #242635;
     --agent-bubble-text: #e7e6ee;
     --danger-bg: #3a2020;
     --ok-bg: #16302a;
@@ -72,15 +82,50 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 20px 24px;
+  padding: 14px 24px;
+  background: var(--panel-bg);
   border-bottom: 1px solid var(--border);
 }
 
-.app__header h1 {
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--text-h);
+.app__logo {
+  height: 30px;
+  width: auto;
+  display: block;
+  /* The source PNG has a white background baked in (not transparent) —
+     screen-blending it out lets it sit cleanly on both light and dark
+     header backgrounds without a visible white box around the wordmark. */
+  mix-blend-mode: multiply;
+}
+
+@media (prefers-color-scheme: dark) {
+  .app__logo {
+    /* multiply darkens against a dark surface (white areas of the PNG stay
+       white and clash) — invert first so the white background becomes black
+       and blends away, then multiply restores the logo's true colors. */
+    filter: invert(1) hue-rotate(180deg);
+    mix-blend-mode: screen;
+  }
+}
+
+.app__hero {
+  padding: 34px 24px;
+  text-align: center;
+  background: linear-gradient(135deg, var(--brand-navy) 0%, #0a0e2e 60%, #000000 100%);
+}
+
+.app__hero h1 {
+  margin: 0 0 8px;
+  font-size: 26px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.app__hero p {
   margin: 0;
+  font-size: 14px;
+  color: #c3cae8;
+  max-width: 560px;
+  margin: 0 auto;
 }
 
 .app__tabs {
