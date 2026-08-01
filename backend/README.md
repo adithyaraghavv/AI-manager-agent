@@ -77,3 +77,8 @@ command, it doesn't affect the running app.
 - `GET /api/clients/status` (`app/services/dashboard_service.py`) powers the manager dashboard —
   aggregates every client's phase progress and flags anyone stuck mid-phase with no activity in
   `stale_after_days` (`.env`, default 3). No gating logic here, read-only aggregation.
+- `python -m app.db.seed_demo_dashboard` seeds/refreshes one realistic-looking stale demo client
+  ("Globex Industries", stuck on Requirement Analysis) for demoing the stale-flag + copy-reminder
+  dashboard feature without waiting days for a real client to go stale. Doesn't touch any real
+  client data. Safe to re-run right before a demo — resets the timestamps back to "N days ago"
+  from now (`--days-stale`, default 5).
