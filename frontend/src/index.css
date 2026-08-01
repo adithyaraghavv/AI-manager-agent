@@ -71,8 +71,7 @@ body {
 }
 
 .app {
-  max-width: 1100px;
-  margin: 0 auto;
+  width: 100%;
   min-height: 100svh;
   display: flex;
   flex-direction: column;
@@ -88,7 +87,7 @@ body {
 }
 
 .app__logo {
-  height: 30px;
+  height: 42px;
   width: auto;
   display: block;
   /* The source PNG has a white background baked in (not transparent) —
@@ -177,6 +176,9 @@ body {
   gap: 20px;
   padding: 20px;
   min-height: 0;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
 @media (max-width: 800px) {
