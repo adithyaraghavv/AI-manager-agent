@@ -33,6 +33,7 @@
   --ok: var(--status-good);
   --ok-bg: #e8f7f0;
   --warning-bg: #fef3da;
+  --font-display: 'Poppins', system-ui, 'Segoe UI', Roboto, sans-serif;
 
   font: 16px/150% system-ui, 'Segoe UI', Roboto, sans-serif;
   color-scheme: light dark;
@@ -114,6 +115,7 @@ body {
 
 .app__hero h1 {
   margin: 0 0 8px;
+  font-family: var(--font-display);
   font-size: 26px;
   font-weight: 700;
   color: #ffffff;
@@ -538,6 +540,8 @@ body {
 }
 
 .upload-panel h2 {
+  font-family: var(--font-display);
+  font-weight: 600;
   font-size: 15px;
   margin: 0 0 6px;
   color: var(--text-h);
@@ -664,6 +668,8 @@ body {
 }
 
 .dashboard__header h2 {
+  font-family: var(--font-display);
+  font-weight: 600;
   font-size: 17px;
   margin: 0;
   color: var(--text-h);
