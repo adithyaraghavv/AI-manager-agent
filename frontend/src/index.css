@@ -638,3 +638,21 @@ body {
   color: var(--text-muted);
   border: 1px solid var(--border);
 }
+
+.dashboard__copy-btn {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--panel-bg);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dashboard__copy-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}

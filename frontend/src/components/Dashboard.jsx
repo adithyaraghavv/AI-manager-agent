@@ -1,6 +1,40 @@
 import { useEffect, useState } from 'react'
 import { getClientStatuses } from '../api'
 
+function buildReminderMessage(client) {
+  const days = client.days_since_activity !== null ? Math.floor(client.days_since_activity) : '?'
+  return (
+    `Hi ${client.client_name} team,\n\n` +
+    `Following up on the ${client.current_phase} phase — we're still waiting on: ` +
+    `${client.missing_documents.join(', ')}.\n\n` +
+    `It's been ${days} day${days === 1 ? '' : 's'} since we last received an update. ` +
+    `Please let us know if you need anything from our side to move this forward.\n\n` +
+    `Thanks,`
+  )
+}
+
+function CopyReminderButton({ client }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleClick = async () => {
+    const message = buildReminderMessage(client)
+    try {
+      await navigator.clipboard.writeText(message)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // Clipboard API can be unavailable (older browsers, non-HTTPS) — fail
+      // quietly rather than throwing in the manager's face over a copy button.
+    }
+  }
+
+  return (
+    <button type="button" className="dashboard__copy-btn" onClick={handleClick}>
+      {copied ? 'Copied ✓' : 'Copy reminder'}
+    </button>
+  )
+}
+
 function ProgressMeter({ complete, total, isStale }) {
   const pct = total > 0 ? Math.round((complete / total) * 100) : 0
   // Meter fill carries severity: warning color if the client is stuck, accent otherwise.
@@ -91,6 +125,7 @@ export default function Dashboard() {
               <th>Progress</th>
               <th>Current phase</th>
               <th>Status</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -115,6 +150,7 @@ export default function Dashboard() {
                     currentPhase={c.current_phase}
                   />
                 </td>
+                <td>{c.is_stale && <CopyReminderButton client={c} />}</td>
               </tr>
             ))}
           </tbody>
