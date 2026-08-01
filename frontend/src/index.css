@@ -195,11 +195,20 @@ body {
   background: var(--panel-bg);
   color: var(--text);
   cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .chat-panel__suggestion:hover {
   border-color: var(--accent);
   color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-panel__suggestion {
+    transition: none;
+  }
 }
 
 .bubble {
@@ -671,6 +680,38 @@ body {
   border-bottom: none;
 }
 
+.dashboard__table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.dashboard__table tbody tr:hover {
+  background-color: var(--bg);
+}
+
+@keyframes dashboard-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dashboard__row-enter {
+  animation: dashboard-row-in 0.4s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard__row-enter {
+    animation: none;
+  }
+  .progress-meter__fill {
+    transition: none;
+  }
+}
+
 .dashboard__client-name {
   font-weight: 600;
   color: var(--text-h);
@@ -709,6 +750,7 @@ body {
 .progress-meter__fill {
   height: 100%;
   border-radius: 4px;
+  transition: width 0.7s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .progress-meter__fill--accent {

@@ -39,10 +39,20 @@ function ProgressMeter({ complete, total, isStale }) {
   const pct = total > 0 ? Math.round((complete / total) * 100) : 0
   // Meter fill carries severity: warning color if the client is stuck, accent otherwise.
   const fillClass = isStale ? 'progress-meter__fill--warning' : 'progress-meter__fill--accent'
+
+  // Starts at 0 and animates up to the real value on mount (CSS transition on
+  // width) instead of snapping straight to it — purely cosmetic, no effect
+  // on the underlying data.
+  const [displayPct, setDisplayPct] = useState(0)
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setDisplayPct(pct))
+    return () => cancelAnimationFrame(id)
+  }, [pct])
+
   return (
     <div className="progress-meter">
       <div className="progress-meter__track">
-        <div className={`progress-meter__fill ${fillClass}`} style={{ width: `${pct}%` }} />
+        <div className={`progress-meter__fill ${fillClass}`} style={{ width: `${displayPct}%` }} />
       </div>
       <span className="progress-meter__label">
         {complete}/{total} phases
@@ -138,8 +148,8 @@ export default function Dashboard() {
             </tr>
           </thead>
           <tbody>
-            {clients.map((c) => (
-              <tr key={c.client_name}>
+            {clients.map((c, i) => (
+              <tr key={c.client_name} className="dashboard__row-enter" style={{ animationDelay: `${i * 60}ms` }}>
                 <td className="dashboard__client-name">{c.client_name}</td>
                 <td>
                   <ProgressMeter complete={c.phases_complete} total={c.total_phases} isStale={c.is_stale} />
