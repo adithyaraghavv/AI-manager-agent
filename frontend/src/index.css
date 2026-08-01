@@ -164,10 +164,42 @@ body {
 
 .chat-panel__empty {
   margin: auto;
-  max-width: 360px;
+  max-width: 420px;
   text-align: center;
   color: var(--text-muted);
   font-size: 14px;
+}
+
+.chat-panel__empty-lead {
+  margin: 0 0 14px;
+}
+
+.chat-panel__empty-hint {
+  margin: 16px 0 0;
+  font-size: 12.5px;
+}
+
+.chat-panel__suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chat-panel__suggestion {
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel-bg);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.chat-panel__suggestion:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .bubble {
@@ -294,6 +326,21 @@ body {
   font: inherit;
   background: var(--bg);
   color: var(--text);
+}
+
+.upload-card__row select {
+  appearance: none;
+  padding-right: 28px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23767485' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  cursor: pointer;
+}
+
+.upload-card__row input:focus,
+.upload-card__row select:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 
 .upload-card__actions {
@@ -442,8 +489,43 @@ body {
   color: var(--text);
 }
 
+.upload-panel select {
+  appearance: none;
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23767485' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  cursor: pointer;
+}
+
+.upload-panel input[type='text']:focus,
+.upload-panel input:not([type]):focus,
+.upload-panel select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 .upload-panel input[type='file'] {
   font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.upload-panel input[type='file']::file-selector-button {
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 7px 12px;
+  margin-right: 10px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.upload-panel input[type='file']::file-selector-button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .upload-panel button {
@@ -515,6 +597,21 @@ body {
   color: var(--text-muted);
   font-size: 14px;
   padding: 20px 0;
+}
+
+.dashboard__error {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--danger-bg);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.dashboard__error p {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--text);
 }
 
 .dashboard__table {

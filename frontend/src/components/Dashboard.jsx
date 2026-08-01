@@ -77,9 +77,11 @@ function StatusBadge({ isStale, daysSinceActivity, currentPhase }) {
 export default function Dashboard() {
   const [clients, setClients] = useState(null)
   const [error, setError] = useState(null)
+  const [retryCount, setRetryCount] = useState(0)
 
   useEffect(() => {
     let cancelled = false
+    setError(null)
     getClientStatuses()
       .then((data) => {
         if (!cancelled) setClients(data)
@@ -90,7 +92,7 @@ export default function Dashboard() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [retryCount])
 
   const staleCount = clients?.filter((c) => c.is_stale).length ?? 0
 
@@ -111,7 +113,14 @@ export default function Dashboard() {
         )}
       </div>
 
-      {error && <div className="chat-panel__error">{error}</div>}
+      {error && (
+        <div className="dashboard__error">
+          <p>Couldn't load the client portfolio right now — the backend may be unreachable.</p>
+          <button type="button" className="dashboard__copy-btn" onClick={() => setRetryCount((n) => n + 1)}>
+            Retry
+          </button>
+        </div>
+      )}
       {!error && clients === null && <div className="dashboard__empty">Loading…</div>}
       {clients?.length === 0 && (
         <div className="dashboard__empty">No clients yet — ask the assistant for a template to get started.</div>

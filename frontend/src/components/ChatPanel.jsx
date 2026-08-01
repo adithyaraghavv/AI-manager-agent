@@ -4,6 +4,12 @@ import AttachUploadCard from './AttachUploadCard'
 import ToolActivity from './ToolActivity'
 import UploadResult from './UploadResult'
 
+const SUGGESTED_PROMPTS = [
+  'What documents do I need for each phase?',
+  "What's Hillenbrand's status right now?",
+  'Can I get the Pricing template for Hillenbrand?',
+]
+
 function extractText(content) {
   if (typeof content === 'string') return content
   if (Array.isArray(content)) {
@@ -58,8 +64,8 @@ export default function ChatPanel() {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages, pendingFile])
 
-  async function handleSend() {
-    const text = input.trim()
+  async function handleSend(textOverride) {
+    const text = (textOverride ?? input).trim()
     if (!text || sending) return
 
     const userMsg = { role: 'user', content: text }
@@ -118,9 +124,20 @@ export default function ChatPanel() {
       <div className="chat-panel__messages" ref={scrollRef}>
         {messages.length === 0 && !pendingFile && (
           <div className="chat-panel__empty">
-            Ask for a template, e.g. "I'm starting a new project with Hillenbrand, can I get the pricing template?"
-            <br />
-            Or attach a completed document directly with the 📎 button below.
+            <p className="chat-panel__empty-lead">Ask the delivery assistant anything about a client's document status, or try:</p>
+            <div className="chat-panel__suggestions">
+              {SUGGESTED_PROMPTS.map((prompt) => (
+                <button
+                  key={prompt}
+                  type="button"
+                  className="chat-panel__suggestion"
+                  onClick={() => handleSend(prompt)}
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
+            <p className="chat-panel__empty-hint">Or attach a completed document directly with the 📎 button below.</p>
           </div>
         )}
         {messages.map((msg, i) => {
