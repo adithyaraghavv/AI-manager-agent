@@ -22,6 +22,11 @@ python -m app.db.seed_templates   # mock template library, see docs/mock_templat
 uvicorn app.main:app --reload --port 8000
 ```
 
+Day-to-day, prefer running `npm run dev` from `/frontend` instead — it starts this backend and the
+frontend together in one terminal (see `/frontend/README.md`). Run the command above directly only
+when you want the backend on its own (e.g. `npm run dev:backend` from `/frontend` does the same
+thing).
+
 ## Tests
 
 ```bash

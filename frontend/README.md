@@ -5,13 +5,28 @@ backend in `/backend` (proxied at `/api` and `/health` during dev, see `vite.con
 
 ## Setup
 
+One-time: install both sides' dependencies, and set up `backend/.env` per `/backend/README.md`
+(GROQ_API_KEY, SUPABASE_URL, SUPABASE_KEY — the backend won't boot without these).
+
 ```bash
 cd frontend
 npm install
-npm run dev   # http://localhost:5173, proxies /api and /health to http://localhost:8000
+cd ../backend
+pip install -r requirements.txt
 ```
 
-The backend must be running on port 8000 (see `/backend/README.md`) — start it first.
+Then, every time you want to run it:
+
+```bash
+cd frontend
+npm run dev   # starts BOTH backend (port 8000) and frontend (port 5173) together
+```
+
+`npm run dev` runs the backend and frontend concurrently in one terminal (labeled `[backend]`/
+`[frontend]`, color-coded) via the `concurrently` package — no need to open two terminals or start
+the backend separately. Ctrl+C (or either process crashing) stops both, no orphaned server left
+running. If you want just one side running on its own — e.g. iterating on the backend without
+restarting Vite — use `npm run dev:backend` or `npm run dev:frontend` instead.
 
 ## Structure
 
