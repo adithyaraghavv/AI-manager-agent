@@ -144,6 +144,11 @@ export default function ChatPanel() {
     }
   }
 
+  function handleDeleteCancel() {
+    setMessages((prev) => [...prev, { role: 'delete-result', content: { cancelled: true, clientName: pendingDelete.client_name } }])
+    setPendingDelete(null)
+  }
+
   const uploadContext = pendingFile ? inferUploadContext(messages) : null
 
   return (
@@ -183,7 +188,14 @@ export default function ChatPanel() {
           }
 
           if (msg.role === 'delete-result') {
-            return <DeleteResult key={i} clientName={msg.content.clientName} error={msg.content.error} />
+            return (
+              <DeleteResult
+                key={i}
+                clientName={msg.content.clientName}
+                error={msg.content.error}
+                cancelled={msg.content.cancelled}
+              />
+            )
           }
 
           const text = extractText(msg.content)
@@ -207,11 +219,7 @@ export default function ChatPanel() {
           />
         )}
         {pendingDelete && (
-          <DeleteConfirmCard
-            proposal={pendingDelete}
-            onConfirm={handleDeleteConfirm}
-            onCancel={() => setPendingDelete(null)}
-          />
+          <DeleteConfirmCard proposal={pendingDelete} onConfirm={handleDeleteConfirm} onCancel={handleDeleteCancel} />
         )}
       </div>
 
