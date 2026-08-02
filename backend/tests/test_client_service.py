@@ -50,3 +50,31 @@ def test_delete_client_does_not_affect_other_clients(rest, storage):
 
     assert find_client(rest, "Globex") is not None
     assert storage.exists("Globex")
+
+
+def test_get_or_create_client_is_case_insensitive(rest, storage):
+    # The exact bug this guards against: typing "hillenbrand" for an existing
+    # "Hillenbrand" must resolve to the SAME client, not create a second one.
+    created = get_or_create_client(rest, storage, CONFIG, "Hillenbrand")
+    found_lowercase = get_or_create_client(rest, storage, CONFIG, "hillenbrand")
+
+    assert found_lowercase["id"] == created["id"]
+    assert len(rest.select("clients")) == 1
+
+
+def test_get_or_create_client_uses_canonical_casing_for_storage_folder(rest, storage):
+    # Even when looked up under different casing, the folder created/reused
+    # must be the one matching the ORIGINAL stored name — otherwise a
+    # case-sensitive filesystem (Linux) would end up with two folders for
+    # what the database considers one client.
+    get_or_create_client(rest, storage, CONFIG, "Hillenbrand")
+    get_or_create_client(rest, storage, CONFIG, "HILLENBRAND")
+
+    assert storage.exists("Hillenbrand")
+    assert not storage.exists("HILLENBRAND")
+
+
+def test_find_client_is_case_insensitive(rest, storage):
+    get_or_create_client(rest, storage, CONFIG, "Hillenbrand")
+    assert find_client(rest, "hillenbrand") is not None
+    assert find_client(rest, "HILLENBRAND") is not None

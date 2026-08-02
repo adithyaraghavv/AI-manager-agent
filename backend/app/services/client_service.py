@@ -8,15 +8,24 @@ from app.storage.base import StorageBackend
 def get_or_create_client(
     rest: SupabaseRestClient, storage: StorageBackend, config: PhaseConfig, client_name: str
 ) -> dict:
-    client = rest.select_one("clients", name=client_name)
+    """Case-insensitive lookup — "Hillenbrand" and "hillenbrand" resolve to the
+    same client, never two different ones. Callers must use the returned dict's
+    `name` (the canonical stored casing) for any storage path they build
+    afterward, not the raw `client_name` argument — see upload_document, which
+    does exactly that. Using whatever casing happened to be typed this time
+    would file documents under a different folder on a case-sensitive
+    filesystem (Linux), even though the DB record correctly points to the same
+    client either way."""
+    client = rest.select_one_ci("clients", "name", client_name)
     is_new = client is None
     if client is None:
         client = rest.insert("clients", {"name": client_name})
 
-    if is_new or not storage.exists(client_name):
-        storage.make_dir(client_name)
+    canonical_name = client["name"]
+    if is_new or not storage.exists(canonical_name):
+        storage.make_dir(canonical_name)
         for phase in config.phases:
-            storage.make_dir(f"{client_name}/{phase.sequence:02d}_{phase.name}")
+            storage.make_dir(f"{canonical_name}/{phase.sequence:02d}_{phase.name}")
 
     return client
 
@@ -27,10 +36,11 @@ def existing_document_types(rest: SupabaseRestClient, client: dict) -> set[str]:
 
 
 def find_client(rest: SupabaseRestClient, client_name: str) -> dict | None:
-    """Look up a client by name WITHOUT creating one — unlike get_or_create_client.
-    Used anywhere that must not have the side effect of materializing a client
-    that doesn't exist yet (e.g. proposing/performing a deletion)."""
-    return rest.select_one("clients", name=client_name)
+    """Look up a client by name (case-insensitively — see get_or_create_client)
+    WITHOUT creating one. Used anywhere that must not have the side effect of
+    materializing a client that doesn't exist yet (e.g. proposing/performing
+    a deletion)."""
+    return rest.select_one_ci("clients", "name", client_name)
 
 
 def delete_client(rest: SupabaseRestClient, storage: StorageBackend, client: dict) -> None:

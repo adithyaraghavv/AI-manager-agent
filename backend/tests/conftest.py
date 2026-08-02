@@ -25,6 +25,12 @@ class FakeSupabaseRestClient:
         rows = self.select(table, **filters)
         return rows[0] if rows else None
 
+    def select_one_ci(self, table: str, column: str, value: str) -> dict | None:
+        for row in self._tables.get(table, []):
+            if str(row.get(column, "")).lower() == value.lower():
+                return row
+        return None
+
     def insert(self, table: str, data: dict) -> dict:
         row = {"id": self._next_id, **data}
         self._next_id += 1

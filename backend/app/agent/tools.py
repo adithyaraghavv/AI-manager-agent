@@ -122,7 +122,7 @@ def dispatch_tool(
                     "missing_documents": list(missing),
                 }
             )
-        return {"client_name": client_name, "phases": status}
+        return {"client_name": client["name"], "phases": status}
 
     if tool_name == "request_template":
         doc_type = tool_input["doc_type"]

@@ -69,6 +69,40 @@ def test_update_filters_by_match_and_returns_first_row():
     assert "id=eq.5" in captured["url"]
 
 
+def test_select_one_ci_uses_ilike_for_case_insensitive_match():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        return httpx.Response(200, json=[{"id": 1, "name": "Hillenbrand"}])
+
+    client = _client_with_transport(handler)
+    row = client.select_one_ci("clients", "name", "hillenbrand")
+
+    assert row == {"id": 1, "name": "Hillenbrand"}
+    assert "name=ilike.hillenbrand" in captured["url"]
+
+
+def test_select_one_ci_escapes_wildcard_characters():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["value"] = request.url.params["name"]
+        return httpx.Response(200, json=[])
+
+    client = _client_with_transport(handler)
+    client.select_one_ci("clients", "name", "100%_Corp")
+
+    # Raw % and _ would otherwise act as SQL LIKE wildcards, turning an exact
+    # lookup into an accidental pattern search — must be escaped.
+    assert captured["value"] == "ilike.100\\%\\_Corp"
+
+
+def test_select_one_ci_returns_none_when_no_match():
+    client = _client_with_transport(lambda request: httpx.Response(200, json=[]))
+    assert client.select_one_ci("clients", "name", "Nobody") is None
+
+
 def test_delete_sends_delete_method_with_eq_filters():
     captured = {}
 

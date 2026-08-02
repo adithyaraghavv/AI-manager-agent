@@ -72,14 +72,18 @@ def upload_document(
 ) -> UploadResult:
     phase = resolve_phase_for_document(config, doc_type)
     client = get_or_create_client(rest, storage, config, client_name)
+    # Canonical stored casing, not whatever was typed this time — see
+    # get_or_create_client's docstring for why this matters on a
+    # case-sensitive filesystem.
+    canonical_name = client["name"]
     existing = existing_document_types(rest, client)
 
     decision = check_gate(config, phase.name, existing)
     if not decision.allowed:
         raise GatingBlocked(decision)
 
-    filename = build_filename(doc_type=doc_type, client_name=client_name, extension=extension)
-    folder = f"{client_name}/{phase.sequence:02d}_{phase.name}"
+    filename = build_filename(doc_type=doc_type, client_name=canonical_name, extension=extension)
+    folder = f"{canonical_name}/{phase.sequence:02d}_{phase.name}"
     stored_path = f"{folder}/{filename}"
     storage.save(stored_path, content)
 

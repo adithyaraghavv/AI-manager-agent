@@ -79,3 +79,16 @@ def test_reupload_same_doc_type_updates_existing_record_not_duplicate(rest, clie
     client = rest.select_one("clients", name="Acme")
     records = rest.select("client_documents", client_id=client["id"], doc_type="MSA")
     assert len(records) == 1
+
+
+def test_upload_with_different_casing_files_under_the_same_client_and_folder(rest, client_storage, template_storage):
+    # The exact bug this guards against: uploading as "Acme" then "acme" must
+    # be treated as the SAME client and land in the SAME storage folder — not
+    # a second client record with a second, differently-cased folder.
+    upload_document(rest, client_storage, CONFIG, "MSA", "Acme", b"v1", "pdf")
+    result = upload_document(rest, client_storage, CONFIG, "SOW", "acme", b"v2", "pdf")
+
+    assert len(rest.select("clients")) == 1
+    assert result.stored_path.startswith("Acme/")  # canonical casing, not "acme/"
+    assert client_storage.exists("Acme/01_Pre-requisites")
+    assert not client_storage.exists("acme")

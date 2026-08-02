@@ -40,6 +40,17 @@ class SupabaseRestClient:
         rows = self.select(table, **filters)
         return rows[0] if rows else None
 
+    def select_one_ci(self, table: str, column: str, value: str) -> dict | None:
+        """Case-insensitive exact-match lookup — "Hillenbrand" and "hillenbrand"
+        resolve to the same row. Escapes ILIKE's wildcard characters (%, _, \\)
+        so this stays an exact match, not a pattern search."""
+        escaped = value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        params = {column: f"ilike.{escaped}"}
+        response = self._client.get(f"/{table}", params=params)
+        response.raise_for_status()
+        rows = response.json()
+        return rows[0] if rows else None
+
     def insert(self, table: str, data: dict) -> dict:
         response = self._client.post(
             f"/{table}", json=data, headers={"Prefer": "return=representation"}

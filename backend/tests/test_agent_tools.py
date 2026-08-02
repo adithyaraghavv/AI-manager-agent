@@ -55,6 +55,14 @@ def test_get_or_create_client_is_idempotent_across_calls(rest, storage):
     assert first == second
 
 
+def test_get_client_status_returns_canonical_casing_regardless_of_input(rest, storage):
+    dispatch_tool(rest, storage, storage, CONFIG, "get_client_status", {"client_name": "Hillenbrand"})
+    result = dispatch_tool(rest, storage, storage, CONFIG, "get_client_status", {"client_name": "hillenbrand"})
+
+    assert result["client_name"] == "Hillenbrand"  # not the lowercase input
+    assert len(rest.select("clients")) == 1  # still just the one client
+
+
 def test_propose_delete_client_never_creates_the_client(rest, storage):
     # The whole point of "propose" is look-without-touch — a PM asking to delete
     # a client that doesn't exist must not accidentally materialize one.
@@ -74,6 +82,17 @@ def test_propose_delete_client_never_deletes_anything_itself(rest, storage):
     assert result["phases_complete"] == 0
     assert result["total_phases"] == 2
     assert result["document_count"] == 0
+
+
+def test_propose_delete_client_finds_client_regardless_of_casing(rest, storage):
+    # This is the exact bug that was reported: typing "hillenbrand" to delete
+    # an existing "Hillenbrand" incorrectly came back found=false.
+    dispatch_tool(rest, storage, storage, CONFIG, "get_client_status", {"client_name": "Hillenbrand"})
+
+    result = dispatch_tool(rest, storage, storage, CONFIG, "propose_delete_client", {"client_name": "hillenbrand"})
+
+    assert result["found"] is True
+    assert result["client_name"] == "Hillenbrand"  # canonical casing in the response
     # Still there — proposing is not deleting
-    assert rest.select("clients", name="Acme") != []
-    assert storage.exists("Acme")
+    assert rest.select("clients", name="Hillenbrand") != []
+    assert storage.exists("Hillenbrand")
