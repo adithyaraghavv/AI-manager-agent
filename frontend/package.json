@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -n backend,frontend -c blue,green --kill-others \"npm:dev:backend\" \"npm:dev:frontend\"",
+    "dev": "concurrently -n backend,frontend -c blue,green --kill-others-on-fail \"npm:dev:backend\" \"npm:dev:frontend\"",
     "dev:frontend": "vite",
     "dev:backend": "cd ../backend && uvicorn app.main:app --reload --port 8000",
     "build": "vite build",
