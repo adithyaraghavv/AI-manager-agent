@@ -432,6 +432,70 @@ body {
   cursor: pointer;
 }
 
+/* Delete confirm card — deliberately styled distinct from upload-card (danger
+   red, not accent blue) so an irreversible action never looks like a routine
+   one. The AI never triggers the actual delete; only clicking Confirm here
+   hits the real DELETE endpoint. */
+
+.delete-card {
+  align-self: center;
+  width: 90%;
+  max-width: 420px;
+  background: var(--panel-bg);
+  border: 1px solid var(--danger);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.delete-card__warning {
+  font-size: 13px;
+  color: var(--text-h);
+  line-height: 1.5;
+}
+
+.delete-card__warning span {
+  color: var(--danger);
+}
+
+.delete-card__stats {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.delete-card__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.delete-card__confirm {
+  background: var(--danger);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.delete-card__confirm:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.delete-card__cancel {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
 .chat-panel__typing {
   align-self: flex-start;
   font-size: 13px;

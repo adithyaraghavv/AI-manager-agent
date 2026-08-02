@@ -4,6 +4,7 @@ from fastapi.responses import Response
 from app.core.phase_config import PhaseConfig
 from app.db.rest_client import SupabaseRestClient
 from app.deps import get_client_storage, get_config, get_rest_client, get_template_storage
+from app.services.client_service import delete_client, find_client
 from app.services.document_service import (
     GatingBlocked,
     TemplateNotFound,
@@ -78,3 +79,20 @@ async def upload_client_document(
         "filename": result.filename,
         "stored_path": result.stored_path,
     }
+
+
+@router.delete("/clients/{client_name}")
+def delete_client_route(
+    client_name: str,
+    rest: SupabaseRestClient = Depends(get_rest_client),
+    client_storage: StorageBackend = Depends(get_client_storage),
+):
+    """Permanently deletes a client. This is the ONLY path that actually performs a
+    deletion — the chat agent's propose_delete_client tool never calls this itself,
+    it only surfaces a confirm card in the UI that hits this endpoint on click."""
+    client = find_client(rest, client_name)
+    if client is None:
+        raise HTTPException(status_code=404, detail=f"No client named '{client_name}'")
+
+    delete_client(rest, client_storage, client)
+    return {"deleted": True, "client_name": client_name}

@@ -1,5 +1,6 @@
 """Local filesystem implementation of StorageBackend. Used for the POC;
 swapped for SharePoint/Blob storage once cloud access is available."""
+import shutil
 from pathlib import Path
 
 from app.storage.base import StorageBackend
@@ -43,3 +44,12 @@ class LocalFilesystemStorage(StorageBackend):
 
     def make_dir(self, path: str) -> None:
         self._resolve(path).mkdir(parents=True, exist_ok=True)
+
+    def delete_dir(self, path: str) -> None:
+        target = self._resolve(path)
+        # Refuse to wipe the storage root itself — a blank/"." path would
+        # otherwise resolve to `root` and delete every client's data at once.
+        if target == self.root:
+            raise ValueError("Refusing to delete the storage root itself")
+        if target.is_dir():
+            shutil.rmtree(target)

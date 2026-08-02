@@ -34,3 +34,24 @@ def test_make_dir_and_list(storage):
 def test_path_escape_blocked(storage):
     with pytest.raises(ValueError):
         storage.save("../escape.txt", b"x")
+
+
+def test_delete_dir_removes_everything_under_it(storage):
+    storage.save("Client1/01_Pre-requisites/file.txt", b"hello")
+    storage.save("Client1/02_Requirement Analysis/other.txt", b"world")
+
+    storage.delete_dir("Client1")
+
+    assert not storage.exists("Client1")
+
+
+def test_delete_dir_missing_is_a_noop(storage):
+    storage.delete_dir("NeverExisted")  # should not raise
+
+
+def test_delete_dir_refuses_to_wipe_storage_root(storage):
+    storage.save("Client1/file.txt", b"x")
+    with pytest.raises(ValueError):
+        storage.delete_dir("")
+    # Confirm nothing was actually touched
+    assert storage.exists("Client1/file.txt")

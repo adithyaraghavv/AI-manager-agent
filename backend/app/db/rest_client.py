@@ -55,5 +55,12 @@ class SupabaseRestClient:
         response.raise_for_status()
         return response.json()[0]
 
+    def delete(self, table: str, **filters: object) -> None:
+        """Delete rows in `table` matching all filters (AND-combined equality).
+        No-op (not an error) if nothing matches."""
+        params = {k: f"eq.{v}" for k, v in filters.items()}
+        response = self._client.delete(f"/{table}", params=params)
+        response.raise_for_status()
+
     def close(self) -> None:
         self._client.close()

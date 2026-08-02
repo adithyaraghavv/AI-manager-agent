@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { sendChat, uploadDocument } from '../api'
+import { deleteClient, sendChat, uploadDocument } from '../api'
 import AttachUploadCard from './AttachUploadCard'
+import DeleteConfirmCard from './DeleteConfirmCard'
+import DeleteResult from './DeleteResult'
 import ToolActivity from './ToolActivity'
 import UploadResult from './UploadResult'
 
@@ -57,6 +59,7 @@ export default function ChatPanel() {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState(null)
   const [pendingFile, setPendingFile] = useState(null)
+  const [pendingDelete, setPendingDelete] = useState(null)
   const scrollRef = useRef(null)
   const fileInputRef = useRef(null)
 
@@ -75,14 +78,27 @@ export default function ChatPanel() {
     setError(null)
 
     try {
-      // upload-result entries are local-only display items (see handleUploadConfirm) — Groq
-      // rejects any role it doesn't recognize, so they must never be sent to the backend.
-      // Only the newly-appended backend messages get merged back in; local entries already
-      // shown stay exactly where they are, in their correct chronological position.
-      const outgoing = [...messages, userMsg].filter((m) => m.role !== 'upload-result')
+      // upload-result/delete-result entries are local-only display items — Groq rejects any
+      // role it doesn't recognize, so they must never be sent to the backend. Only the
+      // newly-appended backend messages get merged back in; local entries already shown stay
+      // exactly where they are, in their correct chronological position.
+      const outgoing = [...messages, userMsg].filter((m) => m.role !== 'upload-result' && m.role !== 'delete-result')
       const response = await sendChat(outgoing)
       const newlyAdded = response.messages.slice(outgoing.length)
       setMessages((prev) => [...prev, ...newlyAdded])
+
+      // The agent never deletes anything itself — propose_delete_client only looks a client
+      // up. If it did, surface a confirm/cancel card; the actual delete only happens if the
+      // PM clicks confirm, which hits DELETE /api/clients/{name} directly.
+      for (const msg of newlyAdded) {
+        if (msg.role !== 'tool' || msg.name !== 'propose_delete_client') continue
+        try {
+          const result = JSON.parse(msg.content)
+          if (result.found && result.needs_confirmation) setPendingDelete(result)
+        } catch {
+          // ignore malformed tool content — nothing to confirm
+        }
+      }
     } catch (err) {
       setError(err.message)
     } finally {
@@ -114,6 +130,17 @@ export default function ChatPanel() {
       setMessages((prev) => [...prev, { role: 'upload-result', content: { ok: false, error: err.message } }])
     } finally {
       setPendingFile(null)
+    }
+  }
+
+  async function handleDeleteConfirm(clientName) {
+    try {
+      await deleteClient(clientName)
+      setMessages((prev) => [...prev, { role: 'delete-result', content: { ok: true, clientName } }])
+    } catch (err) {
+      setMessages((prev) => [...prev, { role: 'delete-result', content: { ok: false, error: err.message } }])
+    } finally {
+      setPendingDelete(null)
     }
   }
 
@@ -155,6 +182,10 @@ export default function ChatPanel() {
             return <UploadResult key={i} result={msg.content.result} error={msg.content.error} />
           }
 
+          if (msg.role === 'delete-result') {
+            return <DeleteResult key={i} clientName={msg.content.clientName} error={msg.content.error} />
+          }
+
           const text = extractText(msg.content)
           if (msg.role === 'assistant' && !text) return null
 
@@ -173,6 +204,13 @@ export default function ChatPanel() {
             initialDocType={uploadContext?.docType}
             onConfirm={handleUploadConfirm}
             onCancel={() => setPendingFile(null)}
+          />
+        )}
+        {pendingDelete && (
+          <DeleteConfirmCard
+            proposal={pendingDelete}
+            onConfirm={handleDeleteConfirm}
+            onCancel={() => setPendingDelete(null)}
           />
         )}
       </div>

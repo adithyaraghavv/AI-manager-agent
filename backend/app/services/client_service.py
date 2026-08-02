@@ -24,3 +24,19 @@ def get_or_create_client(
 def existing_document_types(rest: SupabaseRestClient, client: dict) -> set[str]:
     rows = rest.select("client_documents", client_id=client["id"])
     return {row["doc_type"] for row in rows}
+
+
+def find_client(rest: SupabaseRestClient, client_name: str) -> dict | None:
+    """Look up a client by name WITHOUT creating one — unlike get_or_create_client.
+    Used anywhere that must not have the side effect of materializing a client
+    that doesn't exist yet (e.g. proposing/performing a deletion)."""
+    return rest.select_one("clients", name=client_name)
+
+
+def delete_client(rest: SupabaseRestClient, storage: StorageBackend, client: dict) -> None:
+    """Permanently remove a client: its document records, its DB row, and its
+    storage folder. Irreversible — callers are responsible for confirming
+    with a human first; this function just does the deletion."""
+    rest.delete("client_documents", client_id=client["id"])
+    rest.delete("clients", id=client["id"])
+    storage.delete_dir(client["name"])

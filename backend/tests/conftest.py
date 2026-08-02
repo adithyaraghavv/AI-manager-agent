@@ -37,6 +37,10 @@ class FakeSupabaseRestClient:
             row.update(data)
         return rows[0]
 
+    def delete(self, table: str, **filters) -> None:
+        rows = self._tables.get(table, [])
+        self._tables[table] = [r for r in rows if not all(r.get(k) == v for k, v in filters.items())]
+
 
 @pytest.fixture
 def rest():

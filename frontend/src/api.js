@@ -54,6 +54,24 @@ export async function getClientStatuses() {
   return body.clients
 }
 
+export async function deleteClient(clientName) {
+  const res = await fetch(`${BASE}/clients/${encodeURIComponent(clientName)}`, {
+    method: 'DELETE',
+  })
+  const raw = await res.text()
+  let body
+  try {
+    body = JSON.parse(raw)
+  } catch {
+    if (!res.ok) throw new Error(`Delete failed (${res.status}): ${raw || 'no response body'}`)
+    throw new Error(`Delete succeeded but response was not valid JSON: ${raw}`)
+  }
+  if (!res.ok) {
+    throw new Error(body.detail || `Delete failed (${res.status})`)
+  }
+  return body
+}
+
 export function templateDownloadUrl(docType, clientName) {
   return `${BASE}/templates/${encodeURIComponent(docType)}/download?client_name=${encodeURIComponent(clientName)}`
 }

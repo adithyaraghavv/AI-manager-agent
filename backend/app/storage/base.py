@@ -32,3 +32,7 @@ class StorageBackend(ABC):
     @abstractmethod
     def make_dir(self, path: str) -> None:
         """Ensure a directory exists at `path` (and any parents)."""
+
+    @abstractmethod
+    def delete_dir(self, path: str) -> None:
+        """Delete `path` and everything under it. No-op if it doesn't exist."""

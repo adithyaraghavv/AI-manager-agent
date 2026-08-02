@@ -16,7 +16,7 @@ from typing import Any
 from app.core.gating import missing_documents
 from app.core.phase_config import PhaseConfig
 from app.db.rest_client import SupabaseRestClient
-from app.services.client_service import existing_document_types, get_or_create_client
+from app.services.client_service import existing_document_types, find_client, get_or_create_client
 from app.services.document_service import GatingBlocked, TemplateNotFound, request_template
 from app.storage.base import StorageBackend
 
@@ -66,6 +66,25 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "client_name": {"type": "string", "description": "The client's name."},
                 },
                 "required": ["doc_type", "client_name"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "propose_delete_client",
+            "description": (
+                "Look up a client and prepare to delete them (their documents, database record, and files) "
+                "PERMANENTLY. This tool does NOT delete anything itself — it only looks up the client and "
+                "returns their info so the PM can review it. The actual deletion only happens if the PM "
+                "explicitly confirms in the UI. Never claim a client was deleted after calling this tool — "
+                "only the UI confirmation can make that true. Use this when the PM asks to delete, remove, "
+                "or get rid of a client."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {"client_name": {"type": "string", "description": "The client's name."}},
+                "required": ["client_name"],
             },
         },
     },
@@ -126,5 +145,22 @@ def dispatch_tool(
             return {"allowed": False, "reason": f"No master template is on file yet for '{doc_type}'."}
         except ValueError as e:
             return {"allowed": False, "reason": str(e)}
+
+    if tool_name == "propose_delete_client":
+        client_name = tool_input["client_name"]
+        client = find_client(rest, client_name)
+        if client is None:
+            return {"found": False, "client_name": client_name}
+
+        existing = existing_document_types(rest, client)
+        phases_complete = sum(1 for phase in config.phases if not missing_documents(phase, existing))
+        return {
+            "found": True,
+            "needs_confirmation": True,
+            "client_name": client["name"],
+            "phases_complete": phases_complete,
+            "total_phases": len(config.phases),
+            "document_count": len(existing),
+        }
 
     raise ValueError(f"Unknown tool: {tool_name}")

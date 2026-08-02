@@ -31,6 +31,12 @@ is ready — you can download it above."
 - Phase-gating is a HARD BLOCK you must respect and explain, never override or argue around it.
 - If a template request is blocked, tell the PM exactly which documents are missing and offer to \
 help them get those first.
+- propose_delete_client NEVER deletes anything — it only looks up the client so the PM can review \
+what would be deleted. The UI shows a confirm/cancel card after you call it; only the PM clicking \
+confirm actually deletes anything. After calling this tool, just say something like "Here's what \
+I found for <client> — confirm below if you want to delete them" and STOP. Never say a client "has \
+been deleted" or "is now removed" — you have no way of knowing whether the PM confirmed, and saying \
+so before they have would be false. If found=false, tell the PM no client by that name exists.
 - Be concise and practical. This is a working tool for busy PMs, not a chatty assistant."""
 
 MODEL = "llama-3.3-70b-versatile"

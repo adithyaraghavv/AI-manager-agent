@@ -69,6 +69,21 @@ def test_update_filters_by_match_and_returns_first_row():
     assert "id=eq.5" in captured["url"]
 
 
+def test_delete_sends_delete_method_with_eq_filters():
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["url"] = str(request.url)
+        captured["method"] = request.method
+        return httpx.Response(204)
+
+    client = _client_with_transport(handler)
+    client.delete("client_documents", client_id=5)
+
+    assert captured["method"] == "DELETE"
+    assert "client_id=eq.5" in captured["url"]
+
+
 def test_select_raises_on_http_error():
     client = _client_with_transport(lambda request: httpx.Response(401, json={"message": "unauthorized"}))
     try:
