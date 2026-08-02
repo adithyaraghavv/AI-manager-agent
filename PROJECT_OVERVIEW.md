@@ -44,10 +44,44 @@ what the AI says.
 
 ## Features (what's built and working today)
 
-- **Chat assistant** (Groq-hosted Llama 3.3 70B) that can:
-  - List all 7 phases and their required documents
-  - Check a client's document status phase-by-phase
-  - Request a master template for a document type (hard-gated)
+### Chatbot capabilities
+
+The assistant (Groq-hosted Llama 3.3 70B) has four tools it can call — it can
+only ever do what these tools allow, nothing else, so it can't be talked into
+doing something the system doesn't actually support:
+
+1. **List phases** — all 7 phases and the exact documents required for each.
+2. **Check a client's status** — which documents exist, which are missing,
+   and which phase they're currently blocked on. Client name matching is
+   case-insensitive ("Hillenbrand" and "hillenbrand" are the same client,
+   never treated as two).
+3. **Request a master template** — hard-gated: refuses and explains exactly
+   what's missing if any earlier phase is incomplete, rather than handing
+   over a template out of order.
+4. **Delete a client** — looks the client up and shows their info, but
+   **never deletes anything itself**. It hands off to a confirm/cancel card
+   in the UI; only a human clicking "Confirm & delete" actually removes
+   anything (their documents, database record, and storage folder). The AI
+   is not allowed to claim a deletion happened — it has no way of knowing
+   whether the human confirmed.
+
+On top of the tools themselves:
+- **Attach-to-upload** — drop a completed file directly into the chat
+  (paperclip button) instead of switching to the upload panel; shows an
+  inline confirm-before-upload card that pre-fills client/doc-type guesses
+  from the conversation, editable before anything is sent.
+- **Clickable suggested prompts** on the empty chat screen — one click sends
+  a real example question instead of typing from scratch.
+- **Knows what it doesn't know** — for portfolio-wide questions it has no
+  tool for (e.g. "how many clients do we have"), it points to the Dashboard
+  tab instead of just declining, since that tab already answers it better
+  than a bare number would.
+- Every tool call renders inline in the chat as a visible activity line (⚙
+  icon + summary), so gating decisions and lookups are never hidden inside
+  the model's prose — what the system actually did is always visible.
+
+### Everything else
+
 - **Document upload** — file a completed document for a client, either
   through the standalone upload panel or by attaching a file directly in the
   chat thread (with an inline confirm-before-upload card).
@@ -74,8 +108,13 @@ what the AI says.
 - Chat agent wired to Groq
 - Document upload/download flow, tested end-to-end
 - Manager dashboard + stale flagging + copy-reminder feature
+- Client deletion via chat, gated behind a mandatory human confirm/cancel
+  card — the AI can propose, only a human click actually deletes
+- Case-insensitive client-name matching everywhere (status, upload, template
+  requests, deletion) — fixed after a real bug where differently-cased
+  lookups of the same client were treated as two different clients
 - Marlabs rebrand (logo, colors, typography)
-- 46 backend tests passing, no known dependency CVEs (checked via `pip-audit`
+- 67 backend tests passing, no known dependency CVEs (checked via `pip-audit`
   / `npm audit`)
 
 ### Pending
@@ -110,7 +149,7 @@ what the AI says.
 - SQLAlchemy + Alembic — used only for schema migrations and one-off seed
   scripts, not the running app
 - Pydantic / pydantic-settings — request/response models, config
-- pytest — 46 tests covering gating logic, services, routes, and the seed
+- pytest — 67 tests covering gating logic, services, routes, and the seed
   scripts
 
 **Frontend**
