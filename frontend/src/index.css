@@ -440,29 +440,64 @@ body {
 .delete-card {
   align-self: center;
   width: 90%;
-  max-width: 420px;
+  max-width: 440px;
   background: var(--panel-bg);
   border: 1px solid var(--danger);
-  border-radius: 12px;
-  padding: 14px;
+  border-radius: 14px;
+  padding: 18px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
+  box-shadow: 0 8px 24px rgba(208, 59, 59, 0.12);
 }
 
-.delete-card__warning {
-  font-size: 13px;
-  color: var(--text-h);
-  line-height: 1.5;
+.delete-card__header {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
 }
 
-.delete-card__warning span {
+.delete-card__icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--danger-bg);
   color: var(--danger);
 }
 
-.delete-card__stats {
-  font-size: 12px;
+.delete-card__title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text-h);
+  margin-bottom: 4px;
+}
+
+.delete-card__body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
   color: var(--text-muted);
+}
+
+.delete-card__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.delete-card__chip {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 12px;
 }
 
 .delete-card__actions {
@@ -475,10 +510,16 @@ body {
   color: #ffffff;
   border: none;
   border-radius: 8px;
-  padding: 8px 14px;
+  padding: 9px 16px;
   font-weight: 600;
   font-size: 13px;
   cursor: pointer;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.delete-card__confirm:hover:not(:disabled) {
+  background: #b52f2f;
+  box-shadow: 0 4px 10px rgba(208, 59, 59, 0.25);
 }
 
 .delete-card__confirm:disabled {
@@ -491,9 +532,15 @@ body {
   color: var(--text-muted);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 8px 14px;
+  padding: 9px 16px;
   font-size: 13px;
   cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.delete-card__cancel:hover:not(:disabled) {
+  border-color: var(--text-muted);
+  color: var(--text-h);
 }
 
 .chat-panel__typing {
