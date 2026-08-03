@@ -1,0 +1,1103 @@
+:root {
+  /* Marlabs brand — sampled from the real logo file (frontend/src/assets/marlabs-logo.png):
+     navy from the "marlabs" wordmark, bright blue from the tagline/icon swirl.
+     --accent is a slightly deepened version of the sampled blue (#0EA5E9 measured
+     2.7:1 contrast on white, below the 3:1 floor for text use) so it stays legible
+     as button/link text; --accent-bright keeps the true sampled tone for fills,
+     icons, and other non-text uses where contrast-as-text doesn't apply. */
+  --brand-navy: #283b91;
+  --accent-bright: #0ea5e9;
+
+  --text: #3f3d45;
+  --text-h: #08060d;
+  --text-muted: #767485;
+  --bg: #eef1f6;
+  --panel-bg: #ffffff;
+  --border: #e3e2e8;
+  --accent: #0284c7;
+  --accent-contrast: #ffffff;
+  --user-bubble: #0284c7;
+  --user-bubble-text: #ffffff;
+  --agent-bubble: #f0eff7;
+  --agent-bubble-text: #221f2b;
+  /* Status colors — fixed, validated for CVD-safety and contrast against both
+     surfaces (see dataviz skill palette). Mode-invariant: same hex in light
+     and dark. Never used as color alone — always paired with an icon/label. */
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-serious: #ec835a;
+  --status-critical: #d03b3b;
+
+  --danger: var(--status-critical);
+  --danger-bg: #fdecea;
+  --ok: var(--status-good);
+  --ok-bg: #e8f7f0;
+  --warning-bg: #fef3da;
+  --font-display: 'Poppins', system-ui, 'Segoe UI', Roboto, sans-serif;
+
+  font: 16px/150% system-ui, 'Segoe UI', Roboto, sans-serif;
+  color-scheme: light dark;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text: #cfced8;
+    --text-h: #f5f4f8;
+    --text-muted: #92909d;
+    --bg: #10121c;
+    --panel-bg: #1a1c28;
+    --border: #2c2e3d;
+    --accent: #38bdf8;
+    --accent-bright: #38bdf8;
+    --accent-contrast: #0a1520;
+    --user-bubble: #0ea5e9;
+    --user-bubble-text: #ffffff;
+    --agent-bubble: #242635;
+    --agent-bubble-text: #e7e6ee;
+    --danger-bg: #3a2020;
+    --ok-bg: #16302a;
+    --warning-bg: #3a2f10;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.app {
+  width: 100%;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 24px;
+  background: var(--panel-bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.app__logo {
+  height: 42px;
+  width: auto;
+  display: block;
+  /* The source PNG has a white background baked in (not transparent) —
+     screen-blending it out lets it sit cleanly on both light and dark
+     header backgrounds without a visible white box around the wordmark. */
+  mix-blend-mode: multiply;
+}
+
+@media (prefers-color-scheme: dark) {
+  .app__logo {
+    /* multiply darkens against a dark surface (white areas of the PNG stay
+       white and clash) — invert first so the white background becomes black
+       and blends away, then multiply restores the logo's true colors. */
+    filter: invert(1) hue-rotate(180deg);
+    mix-blend-mode: screen;
+  }
+}
+
+.app__hero {
+  padding: 34px 24px;
+  text-align: center;
+  background: linear-gradient(135deg, var(--brand-navy) 0%, #0a0e2e 60%, #000000 100%);
+}
+
+.app__hero h1 {
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.app__hero p {
+  margin: 0;
+  font-size: 14px;
+  color: #c3cae8;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.app__tabs {
+  display: flex;
+  gap: 4px;
+  margin-left: 24px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 3px;
+}
+
+.app__tab {
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  padding: 6px 14px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.app__tab--active {
+  background: var(--panel-bg);
+  color: var(--text-h);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  margin-left: auto;
+}
+.status-dot--up {
+  background: var(--ok);
+}
+.status-dot--down {
+  background: var(--danger);
+}
+
+.app__main {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 20px;
+  padding: 20px;
+  min-height: 0;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+@media (max-width: 800px) {
+  .app__main {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Chat panel */
+
+.chat-panel {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  min-height: 60vh;
+  max-height: 80vh;
+  overflow: hidden;
+}
+
+.chat-panel__topbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 10px 16px 0;
+}
+
+.chat-panel__new-chat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.chat-panel__new-chat:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.chat-panel__messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.chat-panel__empty {
+  margin: auto;
+  max-width: 420px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.chat-panel__empty-lead {
+  margin: 0 0 14px;
+}
+
+.chat-panel__empty-hint {
+  margin: 16px 0 0;
+  font-size: 12.5px;
+}
+
+.chat-panel__suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chat-panel__suggestion {
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel-bg);
+  color: var(--text);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.chat-panel__suggestion:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-panel__suggestion {
+    transition: none;
+  }
+}
+
+.bubble {
+  max-width: 75%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bubble--user {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.bubble--assistant {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+.bubble__label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.bubble__text {
+  white-space: pre-wrap;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 14.5px;
+}
+
+.bubble--user .bubble__text {
+  background: var(--user-bubble);
+  color: var(--user-bubble-text);
+  border-bottom-right-radius: 4px;
+}
+
+.bubble--assistant .bubble__text {
+  background: var(--agent-bubble);
+  color: var(--agent-bubble-text);
+  border-bottom-left-radius: 4px;
+}
+
+/* Tool/result lines — deliberately NOT chat bubbles or AI-authored text.
+   These report real system facts (what a tool actually did, whether an
+   upload/delete actually succeeded), generated from code, not the model —
+   the model is never allowed to claim an outcome it didn't verify itself.
+   Styled to sit quietly in the conversation's left column, like a system
+   aside, rather than as a boxed alert — a thin colored rule carries status,
+   no bordered pill/card around the whole line. */
+
+.tool-activity {
+  align-self: flex-start;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-left: 2px solid var(--border);
+  padding: 3px 0 3px 12px;
+  max-width: 75%;
+}
+
+.tool-activity__icon {
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.tool-activity__download {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.tool-activity__download:hover {
+  text-decoration: underline;
+}
+
+.tool-activity--success {
+  border-left-color: var(--ok);
+  color: var(--ok);
+}
+
+.tool-activity--error {
+  border-left-color: var(--danger);
+  color: var(--danger);
+}
+
+.upload-card {
+  align-self: center;
+  width: 90%;
+  max-width: 440px;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 8px 24px rgba(2, 132, 199, 0.08);
+}
+
+.upload-card__header {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.upload-card__icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--ok-bg);
+  color: var(--accent);
+}
+
+.upload-card__file {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-h);
+  overflow-wrap: anywhere;
+}
+
+.upload-card__subtitle {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.upload-card__row {
+  display: grid;
+  /* auto-fit + minmax responds to the CARD's own available width, not the
+     viewport — each field naturally wraps to its own row once there isn't
+     room for both at a sane minimum width, instead of being squeezed into
+     two columns no matter how narrow the card actually is. */
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.upload-card__row label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.upload-card__row input,
+.upload-card__row select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 10px;
+  font: inherit;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.upload-card__row select {
+  appearance: none;
+  padding-right: 28px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23767485' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  cursor: pointer;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.upload-card__row input:focus,
+.upload-card__row select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.upload-card__actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.upload-card__confirm {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border: none;
+  border-radius: 8px;
+  padding: 9px 16px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.upload-card__confirm:hover:not(:disabled) {
+  background: #026a9f;
+  box-shadow: 0 4px 10px rgba(2, 132, 199, 0.25);
+}
+
+.upload-card__confirm:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.upload-card__cancel {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 16px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.upload-card__cancel:hover:not(:disabled) {
+  border-color: var(--text-muted);
+  color: var(--text-h);
+}
+
+/* Delete confirm card — deliberately styled distinct from upload-card (danger
+   red, not accent blue) so an irreversible action never looks like a routine
+   one. The AI never triggers the actual delete; only clicking Confirm here
+   hits the real DELETE endpoint. */
+
+.delete-card {
+  align-self: center;
+  width: 90%;
+  max-width: 440px;
+  background: var(--panel-bg);
+  border: 1px solid var(--danger);
+  border-radius: 14px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 8px 24px rgba(208, 59, 59, 0.12);
+}
+
+.delete-card__header {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.delete-card__icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.delete-card__title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--text-h);
+  margin-bottom: 4px;
+}
+
+.delete-card__body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.delete-card__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.delete-card__chip {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+
+.delete-card__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.delete-card__confirm {
+  background: var(--danger);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 16px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.delete-card__confirm:hover:not(:disabled) {
+  background: #b52f2f;
+  box-shadow: 0 4px 10px rgba(208, 59, 59, 0.25);
+}
+
+.delete-card__confirm:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.delete-card__cancel {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 16px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.delete-card__cancel:hover:not(:disabled) {
+  border-color: var(--text-muted);
+  color: var(--text-h);
+}
+
+.chat-panel__typing {
+  align-self: flex-start;
+  font-size: 13px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.chat-panel__error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 20px 10px;
+  padding: 8px 8px 8px 12px;
+  background: var(--danger-bg);
+  color: var(--danger);
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.chat-panel__retry {
+  flex-shrink: 0;
+  background: var(--panel-bg);
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chat-panel__retry:hover {
+  background: var(--danger);
+  color: #ffffff;
+}
+
+.chat-panel__input {
+  display: flex;
+  flex-direction: column;
+  margin: 14px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  background: var(--panel-bg);
+}
+
+.chat-panel__textarea {
+  resize: none;
+  border: none;
+  outline: none;
+  padding: 8px 10px;
+  font: inherit;
+  background: transparent;
+  color: var(--text);
+  max-height: 160px;
+}
+
+.chat-panel__toolbar {
+  display: flex;
+  align-items: center;
+  padding: 2px 4px 4px;
+}
+
+.chat-panel__icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  font-size: 15px;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.chat-panel__icon-btn:hover:not(:disabled) {
+  background: var(--bg);
+}
+
+.chat-panel__icon-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.chat-panel__send-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-left: auto;
+  border-radius: 50%;
+  border: none;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  cursor: pointer;
+}
+
+.chat-panel__send-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Upload panel */
+
+.upload-panel {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 18px;
+  height: fit-content;
+}
+
+.upload-panel h2 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 15px;
+  margin: 0 0 6px;
+  color: var(--text-h);
+}
+
+.upload-panel__hint {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  margin: 0 0 16px;
+  line-height: 1.5;
+}
+
+.upload-panel form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.upload-panel label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.upload-panel input[type='text'],
+.upload-panel input:not([type]),
+.upload-panel select {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.upload-panel select {
+  appearance: none;
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%23767485' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  cursor: pointer;
+}
+
+.upload-panel input[type='text']:focus,
+.upload-panel input:not([type]):focus,
+.upload-panel select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.upload-panel input[type='file'] {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.upload-panel input[type='file']::file-selector-button {
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 7px 12px;
+  margin-right: 10px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.upload-panel input[type='file']::file-selector-button:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.upload-panel button {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border: none;
+  border-radius: 8px;
+  padding: 9px 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.upload-panel button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.upload-panel__status {
+  margin-top: 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12.5px;
+}
+
+.upload-panel__status--ok {
+  background: var(--ok-bg);
+  color: var(--ok);
+}
+
+.upload-panel__status--error {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+/* Dashboard */
+
+.dashboard {
+  grid-column: 1 / -1;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.dashboard__header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.dashboard__header h2 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 17px;
+  margin: 0;
+  color: var(--text-h);
+}
+
+.dashboard__summary {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.dashboard__summary-stale {
+  color: var(--status-warning);
+  font-weight: 600;
+}
+
+.dashboard__empty {
+  color: var(--text-muted);
+  font-size: 14px;
+  padding: 20px 0;
+}
+
+.dashboard__error {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--danger-bg);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.dashboard__error p {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--text);
+}
+
+.dashboard__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.dashboard__table th {
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  font-weight: 600;
+  padding: 0 12px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dashboard__table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+.dashboard__table tr:last-child td {
+  border-bottom: none;
+}
+
+.dashboard__table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.dashboard__table tbody tr:hover {
+  background-color: var(--bg);
+}
+
+@keyframes dashboard-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dashboard__row-enter {
+  animation: dashboard-row-in 0.4s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard__row-enter {
+    animation: none;
+  }
+  .progress-meter__fill {
+    transition: none;
+  }
+}
+
+.dashboard__client-name {
+  font-weight: 600;
+  color: var(--text-h);
+  white-space: nowrap;
+}
+
+.dashboard__muted {
+  color: var(--text-muted);
+}
+
+.dashboard__missing {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Progress meter — thin bar, ≤24px thick (well under: 8px), 4px rounded,
+   fill color carries severity (warning if stale, accent otherwise), the
+   unfilled track is a lighter neutral step so state reads across the bar. */
+
+.progress-meter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 160px;
+}
+
+.progress-meter__track {
+  flex: 1;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.progress-meter__fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.progress-meter__fill--accent {
+  background: var(--accent);
+}
+
+.progress-meter__fill--warning {
+  background: var(--status-warning);
+}
+
+.progress-meter__label {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Status badge — icon + label always together, never color alone */
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Text stays in readable ink (the status hue itself can fail contrast — the
+   validator flagged this for warning/serious by design); the icon alone
+   carries the status color, so identity is never lost, but the label is
+   always legible regardless of the underlying hue's contrast. */
+
+.status-badge--good {
+  background: var(--ok-bg);
+  color: var(--text-h);
+}
+.status-badge--good .status-badge__icon {
+  color: var(--status-good);
+}
+
+.status-badge--warning {
+  background: var(--warning-bg);
+  color: var(--text-h);
+}
+.status-badge--warning .status-badge__icon {
+  color: var(--status-warning);
+}
+
+.status-badge--neutral {
+  background: var(--bg);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.dashboard__copy-btn {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--panel-bg);
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dashboard__copy-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}

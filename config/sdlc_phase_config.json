@@ -1,0 +1,76 @@
+{
+  "project_phases": [
+    {
+      "name": "Pre-requisites",
+      "sequence": 1,
+      "required_documents": [
+        "MSA",
+        "SOW",
+        "Pricing",
+        "Kick-off Deck",
+        "Kick-off Meeting Invite"
+      ]
+    },
+    {
+      "name": "Requirement Analysis",
+      "sequence": 2,
+      "previous_phase": "Pre-requisites",
+      "required_documents": [
+        "Business Requirement Document (BRD)",
+        "Stakeholder Approvals",
+        "Clear Scope Definition"
+      ]
+    },
+    {
+      "name": "System Design",
+      "sequence": 3,
+      "previous_phase": "Requirement Analysis",
+      "required_documents": [
+        "Approved SRS",
+        "RTM Updated",
+        "Architecture Feasibility Study"
+      ]
+    },
+    {
+      "name": "Implementation (Coding)",
+      "sequence": 4,
+      "previous_phase": "System Design",
+      "required_documents": [
+        "Approved HLD",
+        "Approved LLD",
+        "Development Environment Setup",
+        "Coding Standards Defined"
+      ]
+    },
+    {
+      "name": "Testing (STLC Integrated)",
+      "sequence": 5,
+      "previous_phase": "Implementation (Coding)",
+      "required_documents": [
+        "Approved Test Plan",
+        "Test Environment Ready",
+        "Test Data Prepared"
+      ]
+    },
+    {
+      "name": "Deployment",
+      "sequence": 6,
+      "previous_phase": "Testing (STLC Integrated)",
+      "required_documents": [
+        "Signed-off Test Summary Report",
+        "Release Notes",
+        "Deployment Plan"
+      ]
+    },
+    {
+      "name": "Maintenance",
+      "sequence": 7,
+      "previous_phase": "Deployment",
+      "required_documents": [
+        "Deployed System in Production",
+        "SLA Agreements",
+        "Support Plan"
+      ]
+    }
+  ]
+}

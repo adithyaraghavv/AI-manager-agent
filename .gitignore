@@ -1,0 +1,19 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# local secrets — never commit
+backend/.env
+
+# local POC storage — real client documents/templates never go into git
+/clients/*
+!/clients/.gitkeep
+/templates/*
+!/templates/.gitkeep
+
+# node
+frontend/node_modules/
+frontend/dist/
+
+.DS_Store
