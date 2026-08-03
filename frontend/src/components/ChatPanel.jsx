@@ -1,0 +1,317 @@
+import { useEffect, useRef, useState } from 'react'
+import { deleteClient, sendChat, uploadDocument } from '../api'
+import AttachUploadCard from './AttachUploadCard'
+import DeleteConfirmCard from './DeleteConfirmCard'
+import DeleteResult from './DeleteResult'
+import ToolActivity from './ToolActivity'
+import UploadResult from './UploadResult'
+
+const SUGGESTED_PROMPTS = [
+  'What documents do I need for each phase?',
+  "What's Hillenbrand's status right now?",
+  'Can I get the Pricing template for Hillenbrand?',
+]
+
+function extractText(content) {
+  if (typeof content === 'string') return content
+  if (Array.isArray(content)) {
+    return content
+      .filter((block) => block.type === 'text')
+      .map((block) => block.text)
+      .join('\n')
+  }
+  return ''
+}
+
+// Scans backwards through the conversation for the most recent client_name /
+// doc_type the PM mentioned (read from the arguments of past tool calls, not
+// their results — the result JSON doesn't echo back what was asked for).
+// Purely a UX convenience — the user still confirms/edits before anything
+// uploads, so a wrong guess here can't cause a wrong upload.
+function inferUploadContext(messages) {
+  let clientName = ''
+  let docType = ''
+
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i]
+    if (msg.role !== 'assistant' || !msg.tool_calls) continue
+
+    for (const call of msg.tool_calls) {
+      let args
+      try {
+        args = JSON.parse(call.function.arguments)
+      } catch {
+        continue
+      }
+      if (!clientName && args.client_name) clientName = args.client_name
+      if (!docType && call.function.name === 'request_template' && args.doc_type) docType = args.doc_type
+    }
+
+    if (clientName && docType) break
+  }
+
+  return { clientName, docType }
+}
+
+export default function ChatPanel() {
+  const [messages, setMessages] = useState([])
+  const [input, setInput] = useState('')
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState(null)
+  const [pendingFile, setPendingFile] = useState(null)
+  const [pendingDelete, setPendingDelete] = useState(null)
+  const scrollRef = useRef(null)
+  const fileInputRef = useRef(null)
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
+  }, [messages, pendingFile])
+
+  // Shared by both a fresh send and a retry — `outgoing` already contains
+  // the user's message (appended by the caller), so this never duplicates
+  // it. Keeping this separate from handleSend is what lets retry resend the
+  // same request without adding a second copy of the failed message.
+  async function sendToBackend(outgoing) {
+    setSending(true)
+    setError(null)
+
+    try {
+      const response = await sendChat(outgoing)
+      const newlyAdded = response.messages.slice(outgoing.length)
+      setMessages((prev) => [...prev, ...newlyAdded])
+
+      // The agent never deletes anything itself — propose_delete_client only looks a client
+      // up. If it did, surface a confirm/cancel card; the actual delete only happens if the
+      // PM clicks confirm, which hits DELETE /api/clients/{name} directly.
+      for (const msg of newlyAdded) {
+        if (msg.role !== 'tool' || msg.name !== 'propose_delete_client') continue
+        try {
+          const result = JSON.parse(msg.content)
+          if (result.found && result.needs_confirmation) setPendingDelete(result)
+        } catch {
+          // ignore malformed tool content — nothing to confirm
+        }
+      }
+    } catch (err) {
+      // Show a human fallback in the UI; keep the real error only in the
+      // console, for debugging — a raw "Chat request failed (500): ..." string
+      // reads as broken, not helpful, to someone using this live.
+      console.error('Chat request failed:', err)
+      setError('Something went wrong reaching the assistant — check your connection and try again.')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  async function handleSend(textOverride) {
+    const text = (textOverride ?? input).trim()
+    if (!text || sending) return
+
+    const userMsg = { role: 'user', content: text }
+    const updated = [...messages, userMsg]
+    setMessages(updated)
+    setInput('')
+
+    // upload-result/delete-result entries are local-only display items — Groq rejects any
+    // role it doesn't recognize, so they must never be sent to the backend.
+    const outgoing = updated.filter((m) => m.role !== 'upload-result' && m.role !== 'delete-result')
+    await sendToBackend(outgoing)
+  }
+
+  function handleRetry() {
+    const outgoing = messages.filter((m) => m.role !== 'upload-result' && m.role !== 'delete-result')
+    sendToBackend(outgoing)
+  }
+
+  function handleNewChat() {
+    setMessages([])
+    setInput('')
+    setError(null)
+    setPendingFile(null)
+    setPendingDelete(null)
+  }
+
+  function handleKeyDown(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSend()
+    }
+  }
+
+  function handleFilePicked(e) {
+    const file = e.target.files[0]
+    if (file) setPendingFile(file)
+    e.target.value = '' // allow re-picking the same file later
+  }
+
+  async function handleUploadConfirm(clientName, docType) {
+    try {
+      const result = await uploadDocument(clientName, docType, pendingFile)
+      setMessages((prev) => [
+        ...prev,
+        { role: 'upload-result', content: { ok: true, result: { ...result, client_name: clientName } } },
+      ])
+    } catch (err) {
+      setMessages((prev) => [...prev, { role: 'upload-result', content: { ok: false, error: err.message } }])
+    } finally {
+      setPendingFile(null)
+    }
+  }
+
+  async function handleDeleteConfirm(clientName) {
+    try {
+      await deleteClient(clientName)
+      setMessages((prev) => [...prev, { role: 'delete-result', content: { ok: true, clientName } }])
+    } catch (err) {
+      setMessages((prev) => [...prev, { role: 'delete-result', content: { ok: false, error: err.message } }])
+    } finally {
+      setPendingDelete(null)
+    }
+  }
+
+  function handleDeleteCancel() {
+    setMessages((prev) => [...prev, { role: 'delete-result', content: { cancelled: true, clientName: pendingDelete.client_name } }])
+    setPendingDelete(null)
+  }
+
+  const uploadContext = pendingFile ? inferUploadContext(messages) : null
+  const hasConversation = messages.length > 0 || pendingFile || pendingDelete
+
+  return (
+    <div className="chat-panel">
+      {hasConversation && (
+        <div className="chat-panel__topbar">
+          <button type="button" className="chat-panel__new-chat" onClick={handleNewChat}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            </svg>
+            New chat
+          </button>
+        </div>
+      )}
+      <div className="chat-panel__messages" ref={scrollRef}>
+        {messages.length === 0 && !pendingFile && (
+          <div className="chat-panel__empty">
+            <p className="chat-panel__empty-lead">Ask the delivery assistant anything about a client's document status, or try:</p>
+            <div className="chat-panel__suggestions">
+              {SUGGESTED_PROMPTS.map((prompt) => (
+                <button
+                  key={prompt}
+                  type="button"
+                  className="chat-panel__suggestion"
+                  onClick={() => handleSend(prompt)}
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
+            <p className="chat-panel__empty-hint">Or attach a completed document directly with the 📎 button below.</p>
+          </div>
+        )}
+        {messages.map((msg, i) => {
+          if (msg.role === 'tool') {
+            let result
+            try {
+              result = JSON.parse(msg.content)
+            } catch {
+              return null
+            }
+            return <ToolActivity key={i} name={msg.name} result={result} />
+          }
+
+          if (msg.role === 'upload-result') {
+            return <UploadResult key={i} result={msg.content.result} error={msg.content.error} />
+          }
+
+          if (msg.role === 'delete-result') {
+            return (
+              <DeleteResult
+                key={i}
+                clientName={msg.content.clientName}
+                error={msg.content.error}
+                cancelled={msg.content.cancelled}
+              />
+            )
+          }
+
+          const text = extractText(msg.content)
+          if (msg.role === 'assistant' && !text) return null
+
+          return (
+            <div key={i} className={`bubble bubble--${msg.role}`}>
+              <div className="bubble__label">{msg.role === 'user' ? 'You' : 'Agent'}</div>
+              <div className="bubble__text">{text}</div>
+            </div>
+          )
+        })}
+        {sending && <div className="chat-panel__typing">Agent is thinking…</div>}
+        {pendingFile && (
+          <AttachUploadCard
+            file={pendingFile}
+            initialClientName={uploadContext?.clientName}
+            initialDocType={uploadContext?.docType}
+            onConfirm={handleUploadConfirm}
+            onCancel={() => setPendingFile(null)}
+          />
+        )}
+        {pendingDelete && (
+          <DeleteConfirmCard proposal={pendingDelete} onConfirm={handleDeleteConfirm} onCancel={handleDeleteCancel} />
+        )}
+      </div>
+
+      {error && (
+        <div className="chat-panel__error">
+          <span>{error}</span>
+          <button type="button" className="chat-panel__retry" onClick={handleRetry}>
+            Retry
+          </button>
+        </div>
+      )}
+
+      <div className="chat-panel__input">
+        <textarea
+          className="chat-panel__textarea"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Ask the delivery assistant…"
+          rows={1}
+          disabled={sending}
+        />
+        <div className="chat-panel__toolbar">
+          <button
+            type="button"
+            className="chat-panel__icon-btn"
+            title="Attach a completed document"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={sending}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M20.5 12.5L12.83 20.17a5 5 0 01-7.07-7.07L13.83 5a3.5 3.5 0 014.95 4.95l-7.78 7.78a2 2 0 01-2.83-2.83l7.07-7.07"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            <span className="sr-only">Attach a completed document</span>
+          </button>
+          <input ref={fileInputRef} type="file" hidden onChange={handleFilePicked} />
+          <button
+            type="button"
+            className="chat-panel__send-btn"
+            title="Send"
+            onClick={() => handleSend()}
+            disabled={sending || !input.trim()}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 19V5M12 5L6 11M12 5l6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span className="sr-only">Send</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
