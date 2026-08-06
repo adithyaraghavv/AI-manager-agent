@@ -18,6 +18,7 @@ Idempotent: safe to re-run. Existing placeholder files/rows are left as-is
 unless --force is passed, so it won't clobber real templates once they exist.
 """
 import argparse
+from pathlib import Path
 
 from sqlalchemy.orm import Session
 
@@ -29,6 +30,17 @@ from app.storage.local import LocalFilesystemStorage
 from app.config import settings
 
 PLACEHOLDER_EXTENSION = "txt"
+
+# Real Marlabs template files, sourced from the team's existing library
+# (Azure DevOps "RAG Agent" repo). Only doc types with a genuine matching
+# file are listed here — everything else still gets the placeholder text
+# until the real file is available.
+REAL_TEMPLATES_DIR = Path(__file__).parent / "seed_assets" / "real_templates"
+REAL_TEMPLATE_FILES: dict[str, str] = {
+    "Approved SRS": "srs.docx",
+    "Approved HLD": "hld.docx",
+    "Approved LLD": "lld.docx",
+}
 
 
 def _placeholder_content(doc_type: str, phase_name: str) -> bytes:
@@ -49,11 +61,17 @@ def seed_templates(db: Session, force: bool = False) -> None:
     for phase in config.phases:
         folder = f"{phase.sequence:02d}_{phase.name}"
         for doc_type in phase.required_documents:
-            filename = f"{slugify(doc_type)}.{PLACEHOLDER_EXTENSION}"
+            real_file = REAL_TEMPLATE_FILES.get(doc_type)
+            extension = real_file.rsplit(".", 1)[-1] if real_file else PLACEHOLDER_EXTENSION
+            filename = f"{slugify(doc_type)}.{extension}"
             storage_path = f"{folder}/{filename}"
 
             if force or not storage.exists(storage_path):
-                storage.save(storage_path, _placeholder_content(doc_type, phase.name))
+                if real_file:
+                    content = (REAL_TEMPLATES_DIR / real_file).read_bytes()
+                else:
+                    content = _placeholder_content(doc_type, phase.name)
+                storage.save(storage_path, content)
 
             template = db.query(Template).filter_by(doc_type=doc_type).one_or_none()
             if template is None:

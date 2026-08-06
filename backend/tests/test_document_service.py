@@ -1,6 +1,7 @@
 import pytest
 
 from app.core.phase_config import Phase, PhaseConfig
+from app.core.upload_validation import InvalidUpload, MAX_UPLOAD_SIZE_BYTES
 from app.services.document_service import (
     GatingBlocked,
     TemplateNotFound,
@@ -92,3 +93,19 @@ def test_upload_with_different_casing_files_under_the_same_client_and_folder(res
     assert result.stored_path.startswith("Acme/")  # canonical casing, not "acme/"
     assert client_storage.exists("Acme/01_Pre-requisites")
     assert not client_storage.exists("acme")
+
+
+def test_upload_rejects_disallowed_file_type(rest, client_storage, template_storage):
+    with pytest.raises(InvalidUpload, match="not allowed"):
+        upload_document(rest, client_storage, CONFIG, "MSA", "Acme", b"malicious", "exe")
+
+
+def test_upload_rejects_empty_file(rest, client_storage, template_storage):
+    with pytest.raises(InvalidUpload, match="empty"):
+        upload_document(rest, client_storage, CONFIG, "MSA", "Acme", b"", "pdf")
+
+
+def test_upload_rejects_oversized_file(rest, client_storage, template_storage):
+    oversized = b"x" * (MAX_UPLOAD_SIZE_BYTES + 1)
+    with pytest.raises(InvalidUpload, match="too large"):
+        upload_document(rest, client_storage, CONFIG, "MSA", "Acme", oversized, "pdf")

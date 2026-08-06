@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from app.core.file_naming import build_filename
 from app.core.gating import GatingDecision, check_gate, resolve_phase_for_document
 from app.core.phase_config import PhaseConfig
+from app.core.upload_validation import InvalidUpload, validate_upload
 from app.db.rest_client import SupabaseRestClient
 from app.services.client_service import existing_document_types, get_or_create_client
 from app.storage.base import StorageBackend
@@ -70,6 +71,7 @@ def upload_document(
     content: bytes,
     extension: str,
 ) -> UploadResult:
+    validate_upload(content, extension)
     phase = resolve_phase_for_document(config, doc_type)
     client = get_or_create_client(rest, storage, config, client_name)
     # Canonical stored casing, not whatever was typed this time — see

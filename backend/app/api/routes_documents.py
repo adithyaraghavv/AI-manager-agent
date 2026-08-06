@@ -4,6 +4,7 @@ from fastapi.responses import Response
 from app.core.phase_config import PhaseConfig
 from app.db.rest_client import SupabaseRestClient
 from app.deps import get_client_storage, get_config, get_rest_client, get_template_storage
+from app.core.upload_validation import InvalidUpload
 from app.services.client_service import delete_client, find_client
 from app.services.document_service import (
     GatingBlocked,
@@ -68,6 +69,9 @@ async def upload_client_document(
 
     try:
         result = upload_document(rest, client_storage, config, doc_type, client_name, content, extension)
+    except InvalidUpload as e:
+        status = 413 if "too large" in e.message.lower() else 400
+        raise HTTPException(status_code=status, detail=e.message) from e
     except GatingBlocked as e:
         raise HTTPException(status_code=409, detail=e.decision.reason) from e
     except ValueError as e:
