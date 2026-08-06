@@ -507,23 +507,23 @@ body {
    These report real system facts (what a tool actually did, whether an
    upload/delete actually succeeded), generated from code, not the model —
    the model is never allowed to claim an outcome it didn't verify itself.
-   Styled to sit quietly in the conversation's left column, like a system
-   aside, rather than as a boxed alert — a thin colored rule carries status,
-   no bordered pill/card around the whole line. */
+   Styled as a quiet system-note chip (subtle tinted background, rounded)
+   so it reads at a glance as "the system did something" rather than
+   blending into the surrounding conversational text. */
 
 .tool-activity {
   align-self: flex-start;
-  display: flex;
-  align-items: flex-start;
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   font-size: 12.5px;
-  line-height: 1.5;
+  line-height: 1.4;
   color: var(--text-muted);
-  background: transparent;
-  border: none;
-  border-left: 2px solid var(--border);
-  padding: 3px 0 3px 12px;
-  max-width: 75%;
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 6px 12px;
+  max-width: 85%;
 }
 
 .tool-activity__icon {
@@ -542,12 +542,12 @@ body {
 }
 
 .tool-activity--success {
-  border-left-color: var(--ok);
+  background: var(--ok-bg);
   color: var(--ok);
 }
 
 .tool-activity--error {
-  border-left-color: var(--danger);
+  background: var(--danger-bg);
   color: var(--danger);
 }
 
