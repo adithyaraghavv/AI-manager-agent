@@ -8,6 +8,36 @@ import DeleteResult from './DeleteResult'
 import ToolActivity from './ToolActivity'
 import UploadResult from './UploadResult'
 
+function BubbleAvatar({ role }) {
+  if (role === 'user') {
+    return (
+      <span className="bubble-avatar bubble-avatar--user" aria-hidden="true">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+          <path
+            d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="2" />
+        </svg>
+      </span>
+    )
+  }
+  return (
+    <span className="bubble-avatar bubble-avatar--assistant" aria-hidden="true">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+        <rect x="3" y="10" width="18" height="10" rx="3" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M12 10V6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <circle cx="12" cy="4" r="1.6" fill="currentColor" />
+        <circle cx="8.5" cy="15" r="1.3" fill="currentColor" />
+        <circle cx="15.5" cy="15" r="1.3" fill="currentColor" />
+      </svg>
+    </span>
+  )
+}
+
 function extractText(content) {
   if (typeof content === 'string') return content
   if (Array.isArray(content)) {
@@ -309,12 +339,15 @@ export default function ChatPanel() {
       )}
       <div className="chat-panel__messages" ref={scrollRef}>
         {messages.length === 0 && !pendingFile && (
-          <div className="bubble bubble--assistant">
-            <div className="bubble__label">Agent</div>
-            <div className="bubble__text">
-              Hi, I'm your delivery assistant. I can check a client's document status, hand over a
-              phase-appropriate template, or file a completed document for you — just ask, or
-              attach a file directly with the 📎 button below.
+          <div className="bubble-row bubble-row--assistant">
+            <BubbleAvatar role="assistant" />
+            <div className="bubble bubble--assistant">
+              <div className="bubble__label">Agent</div>
+              <div className="bubble__text">
+                Hi, I'm your delivery assistant. I can check a client's document status, hand over a
+                phase-appropriate template, or file a completed document for you — just ask, or
+                attach a file directly with the 📎 button below.
+              </div>
             </div>
           </div>
         )}
@@ -348,13 +381,25 @@ export default function ChatPanel() {
           if (msg.role === 'assistant' && !text) return null
 
           return (
-            <div key={i} className={`bubble bubble--${msg.role}`}>
-              <div className="bubble__label">{msg.role === 'user' ? 'You' : 'Agent'}</div>
-              <div className="bubble__text">{text}</div>
+            <div key={i} className={`bubble-row bubble-row--${msg.role}`}>
+              <BubbleAvatar role={msg.role} />
+              <div className={`bubble bubble--${msg.role}`}>
+                <div className="bubble__label">{msg.role === 'user' ? 'You' : 'Agent'}</div>
+                <div className="bubble__text">{text}</div>
+              </div>
             </div>
           )
         })}
-        {sending && <div className="chat-panel__typing">Agent is thinking…</div>}
+        {sending && (
+          <div className="bubble-row bubble-row--assistant">
+            <BubbleAvatar role="assistant" />
+            <div className="chat-panel__typing" aria-label="Agent is thinking">
+              <span className="chat-panel__typing-dot" />
+              <span className="chat-panel__typing-dot" />
+              <span className="chat-panel__typing-dot" />
+            </div>
+          </div>
+        )}
         {pendingFile && (
           <AttachUploadCard
             file={pendingFile}
