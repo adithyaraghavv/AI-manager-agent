@@ -1,18 +1,16 @@
-"""Seeds placeholder master template files + DB rows for local/dev testing.
+"""Seeds master template files + DB rows for local/dev testing.
 
-This exists because we don't yet have SharePoint access to the real template
-library (see docs/AI_Agent_Discovery_Documentation.md, section 8). It's a
-stand-in for that library, not a separate code path: it writes into the same
-`templates` table and the same `TEMPLATE_STORE_PATH` storage backend that
-production SharePoint-backed templates will use once that access lands.
+Some doc types (Approved SRS, Approved HLD, Approved LLD) get the real
+Marlabs template files, sourced from the team's existing library (Azure
+DevOps "RAG Agent" repo). Everything else still gets placeholder text until
+a real file is available — see docs/AI_Agent_Discovery_Documentation.md,
+section 8.
 
-Migrating to real SharePoint templates later needs ZERO changes here or in
-any service code — only:
-  1. A SharePointStorage implementation of StorageBackend (app/storage/base.py)
-  2. Re-pointing TEMPLATE_STORE_PATH (or swapping which backend get_template_storage()
-     constructs, in app/deps.py) at that implementation
-  3. Re-running a real-template equivalent of this seed script (or updating the
-     `templates` table's storage_path/filename directly) to point at the real files
+Uses the same Supabase REST client the running app uses (SUPABASE_URL/
+SUPABASE_KEY in .env), not a direct Postgres connection — this is meant to
+be run wherever the app itself runs, on any network, including ones that
+block direct DB ports. Only Alembic migrations still need a direct
+connection, since PostgREST has no schema-migration endpoint.
 
 Idempotent: safe to re-run. Existing placeholder files/rows are left as-is
 unless --force is passed, so it won't clobber real templates once they exist.
@@ -20,14 +18,11 @@ unless --force is passed, so it won't clobber real templates once they exist.
 import argparse
 from pathlib import Path
 
-from sqlalchemy.orm import Session
-
+from app.config import settings
 from app.core.file_naming import slugify
 from app.core.phase_config import get_phase_config
-from app.db.models import Template
-from app.db.session import SessionLocal
+from app.db.rest_client import SupabaseRestClient
 from app.storage.local import LocalFilesystemStorage
-from app.config import settings
 
 PLACEHOLDER_EXTENSION = "txt"
 
@@ -54,7 +49,7 @@ def _placeholder_content(doc_type: str, phase_name: str) -> bytes:
     ).encode("utf-8")
 
 
-def seed_templates(db: Session, force: bool = False) -> None:
+def seed_templates(rest: SupabaseRestClient, force: bool = False) -> None:
     config = get_phase_config()
     storage = LocalFilesystemStorage(settings.template_store_path)
 
@@ -73,14 +68,11 @@ def seed_templates(db: Session, force: bool = False) -> None:
                     content = _placeholder_content(doc_type, phase.name)
                 storage.save(storage_path, content)
 
-            template = db.query(Template).filter_by(doc_type=doc_type).one_or_none()
-            if template is None:
-                db.add(Template(doc_type=doc_type, storage_path=storage_path, filename=filename))
+            existing = rest.select_one("templates", doc_type=doc_type)
+            if existing is None:
+                rest.insert("templates", {"doc_type": doc_type, "storage_path": storage_path, "filename": filename})
             elif force:
-                template.storage_path = storage_path
-                template.filename = filename
-
-    db.commit()
+                rest.update("templates", {"id": existing["id"]}, {"storage_path": storage_path, "filename": filename})
 
 
 def main() -> None:
@@ -90,12 +82,12 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    db = SessionLocal()
+    rest = SupabaseRestClient(settings.supabase_url, settings.supabase_key)
     try:
-        seed_templates(db, force=args.force)
-        print("Seeded mock template library (files + DB rows) for local/dev testing.")
+        seed_templates(rest, force=args.force)
+        print("Seeded template library (files + DB rows) for local/dev testing.")
     finally:
-        db.close()
+        rest.close()
 
 
 if __name__ == "__main__":
