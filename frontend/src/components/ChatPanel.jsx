@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { deleteClient, sendChat, uploadDocument } from '../api'
+import { useChatHistory } from '../hooks/useChatHistory'
 import AttachUploadCard from './AttachUploadCard'
+import ChatHistoryMenu from './ChatHistoryMenu'
 import DeleteConfirmCard from './DeleteConfirmCard'
 import DeleteResult from './DeleteResult'
 import ToolActivity from './ToolActivity'
@@ -60,12 +62,34 @@ export default function ChatPanel() {
   const [error, setError] = useState(null)
   const [pendingFile, setPendingFile] = useState(null)
   const [pendingDelete, setPendingDelete] = useState(null)
+  const [dragActive, setDragActive] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
+  const [chatId, setChatId] = useState(null)
   const scrollRef = useRef(null)
   const fileInputRef = useRef(null)
+  const dragDepth = useRef(0)
+  const chatIdRef = useRef(null)
+  const { entries: chatHistory, saveEntry, deleteEntry } = useChatHistory()
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages, pendingFile])
+
+  // Auto-save to the local chat history sidebar after every exchange that has
+  // real user content — a fresh chatId is minted on the first user message, so
+  // reloads/edits to the same conversation update one entry instead of piling
+  // up duplicates.
+  useEffect(() => {
+    const userMessages = messages.filter((m) => m.role === 'user')
+    if (userMessages.length === 0) return
+
+    if (!chatIdRef.current) {
+      chatIdRef.current = Date.now()
+      setChatId(chatIdRef.current)
+    }
+    const title = extractText(userMessages[0].content).slice(0, 60) || 'New chat'
+    saveEntry(chatIdRef.current, title, messages)
+  }, [messages, saveEntry])
 
   // Shared by both a fresh send and a retry — `outgoing` already contains
   // the user's message (appended by the caller), so this never duplicates
@@ -124,11 +148,29 @@ export default function ChatPanel() {
   }
 
   function handleNewChat() {
+    chatIdRef.current = null
+    setChatId(null)
     setMessages([])
     setInput('')
     setError(null)
     setPendingFile(null)
     setPendingDelete(null)
+  }
+
+  function handleLoadChat(entry) {
+    if (chatIdRef.current === entry.id) return
+    chatIdRef.current = entry.id
+    setChatId(entry.id)
+    setMessages(entry.messages)
+    setInput('')
+    setError(null)
+    setPendingFile(null)
+    setPendingDelete(null)
+  }
+
+  function handleDeleteChat(id) {
+    deleteEntry(id)
+    if (chatIdRef.current === id) handleNewChat()
   }
 
   function handleKeyDown(e) {
@@ -142,6 +184,36 @@ export default function ChatPanel() {
     const file = e.target.files[0]
     if (file) setPendingFile(file)
     e.target.value = '' // allow re-picking the same file later
+  }
+
+  // Enter/leave counter avoids flicker from drag events firing on child
+  // elements as the pointer moves over them — only the outermost enter/leave
+  // (depth 0) should toggle the overlay.
+  function handleDragEnter(e) {
+    e.preventDefault()
+    dragDepth.current += 1
+    if (e.dataTransfer.types.includes('Files')) setDragActive(true)
+  }
+
+  function handleDragOver(e) {
+    e.preventDefault()
+  }
+
+  function handleDragLeave(e) {
+    e.preventDefault()
+    dragDepth.current -= 1
+    if (dragDepth.current <= 0) {
+      dragDepth.current = 0
+      setDragActive(false)
+    }
+  }
+
+  function handleDrop(e) {
+    e.preventDefault()
+    dragDepth.current = 0
+    setDragActive(false)
+    const file = e.dataTransfer.files[0]
+    if (file) setPendingFile(file)
   }
 
   async function handleUploadConfirm(clientName, docType) {
@@ -178,15 +250,67 @@ export default function ChatPanel() {
   const hasConversation = messages.length > 0 || pendingFile || pendingDelete
 
   return (
-    <div className="chat-panel">
-      {hasConversation && (
-        <div className="chat-panel__topbar">
-          <button type="button" className="chat-panel__new-chat" onClick={handleNewChat}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    <div
+      className="chat-panel"
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {dragActive && (
+        <div className="chat-panel__drop-overlay">
+          <div className="chat-panel__drop-overlay-inner">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </svg>
-            New chat
-          </button>
+            <span>Drop to attach</span>
+          </div>
+        </div>
+      )}
+      {(hasConversation || chatHistory.length > 0) && (
+        <div className="chat-panel__topbar">
+          <div className="chat-panel__history-wrap">
+            <button
+              type="button"
+              className="chat-panel__history-toggle"
+              onClick={() => setShowHistory((s) => !s)}
+              disabled={chatHistory.length === 0}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M3 12a9 9 0 109-9M3 12l3-3M3 12l3 3M12 7v5l3 3"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              History
+            </button>
+            {showHistory && (
+              <ChatHistoryMenu
+                entries={chatHistory}
+                activeId={chatId}
+                onLoad={handleLoadChat}
+                onDelete={handleDeleteChat}
+                onClose={() => setShowHistory(false)}
+              />
+            )}
+          </div>
+          {hasConversation && (
+            <button type="button" className="chat-panel__new-chat" onClick={handleNewChat}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+              New chat
+            </button>
+          )}
         </div>
       )}
       <div className="chat-panel__messages" ref={scrollRef}>
