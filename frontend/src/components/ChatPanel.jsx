@@ -8,12 +8,6 @@ import DeleteResult from './DeleteResult'
 import ToolActivity from './ToolActivity'
 import UploadResult from './UploadResult'
 
-const SUGGESTED_PROMPTS = [
-  'What documents do I need for each phase?',
-  "What's Hillenbrand's status right now?",
-  'Can I get the Pricing template for Hillenbrand?',
-]
-
 function extractText(content) {
   if (typeof content === 'string') return content
   if (Array.isArray(content)) {
@@ -315,21 +309,13 @@ export default function ChatPanel() {
       )}
       <div className="chat-panel__messages" ref={scrollRef}>
         {messages.length === 0 && !pendingFile && (
-          <div className="chat-panel__empty">
-            <p className="chat-panel__empty-lead">Ask the delivery assistant anything about a client's document status, or try:</p>
-            <div className="chat-panel__suggestions">
-              {SUGGESTED_PROMPTS.map((prompt) => (
-                <button
-                  key={prompt}
-                  type="button"
-                  className="chat-panel__suggestion"
-                  onClick={() => handleSend(prompt)}
-                >
-                  {prompt}
-                </button>
-              ))}
+          <div className="bubble bubble--assistant">
+            <div className="bubble__label">Agent</div>
+            <div className="bubble__text">
+              Hi, I'm your delivery assistant. I can check a client's document status, hand over a
+              phase-appropriate template, or file a completed document for you — just ask, or
+              attach a file directly with the 📎 button below.
             </div>
-            <p className="chat-panel__empty-hint">Or attach a completed document directly with the 📎 button below.</p>
           </div>
         )}
         {messages.map((msg, i) => {
