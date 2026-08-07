@@ -56,6 +56,16 @@ def test_search_blank_query_returns_empty(rest):
     assert search_documents(rest, "   ") == []
 
 
+def test_search_excludes_soft_deleted_clients(rest):
+    acme, _ = _seed(rest)
+    rest.update("clients", {"id": acme["id"]}, {"deleted_at": "2026-01-01T00:00:00+00:00"})
+
+    assert search_documents(rest, "Acme") == []
+    # "MSA" matched both Acme and Globex before — only Globex's should remain now.
+    results = search_documents(rest, "MSA")
+    assert {r.client_name for r in results} == {"Globex"}
+
+
 def test_search_does_not_duplicate_results(rest):
     # A document matching both by client name AND doc_type/filename should
     # only appear once, not twice.

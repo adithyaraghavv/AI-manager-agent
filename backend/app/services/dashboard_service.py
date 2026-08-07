@@ -34,7 +34,7 @@ class ClientStatus:
 
 
 def list_client_statuses(rest: SupabaseRestClient, config: PhaseConfig) -> list[ClientStatus]:
-    clients = rest.select("clients")
+    clients = rest.select_active("clients")
     now = datetime.now(timezone.utc)
     statuses = []
 

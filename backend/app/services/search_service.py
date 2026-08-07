@@ -22,7 +22,13 @@ def search_documents(rest: SupabaseRestClient, query: str) -> list[DocumentSearc
     if not query:
         return []
 
-    matching_clients = {c["id"]: c["name"] for c in rest.select_ilike_any("clients", ["name"], query)}
+    # Soft-deleted clients (and their documents) must never surface in search —
+    # same "hidden until purged" contract as the dashboard and chat lookups.
+    matching_clients = {
+        c["id"]: c["name"]
+        for c in rest.select_ilike_any("clients", ["name"], query)
+        if c.get("deleted_at") is None
+    }
     matching_docs = {doc["id"]: doc for doc in rest.select_ilike_any("client_documents", ["filename", "doc_type"], query)}
 
     for client_id in matching_clients:
@@ -34,7 +40,9 @@ def search_documents(rest: SupabaseRestClient, query: str) -> list[DocumentSearc
         client_name = matching_clients.get(doc["client_id"])
         if client_name is None:
             client = rest.select_one("clients", id=doc["client_id"])
-            client_name = client["name"] if client else "Unknown"
+            if client is None or client.get("deleted_at") is not None:
+                continue
+            client_name = client["name"]
         results.append(
             DocumentSearchResult(
                 client_name=client_name,

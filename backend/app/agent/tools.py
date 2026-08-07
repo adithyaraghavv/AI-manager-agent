@@ -74,12 +74,13 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "function": {
             "name": "propose_delete_client",
             "description": (
-                "Look up a client and prepare to delete them (their documents, database record, and files) "
-                "PERMANENTLY. This tool does NOT delete anything itself — it only looks up the client and "
-                "returns their info so the PM can review it. The actual deletion only happens if the PM "
-                "explicitly confirms in the UI. Never claim a client was deleted after calling this tool — "
-                "only the UI confirmation can make that true. Use this when the PM asks to delete, remove, "
-                "or get rid of a client."
+                "Look up a client and prepare to delete them. Deletion hides the client from everywhere "
+                "(chat, dashboard, uploads, search) but is recoverable for a retention window before it's "
+                "permanently purged — not instant/irreversible. This tool does NOT delete anything itself — "
+                "it only looks up the client and returns their info so the PM can review it. The actual "
+                "deletion only happens if the PM explicitly confirms in the UI. Never claim a client was "
+                "deleted after calling this tool — only the UI confirmation can make that true. Use this "
+                "when the PM asks to delete, remove, or get rid of a client."
             ),
             "parameters": {
                 "type": "object",

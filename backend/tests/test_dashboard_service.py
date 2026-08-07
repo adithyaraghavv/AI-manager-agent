@@ -78,3 +78,9 @@ def test_old_activity_on_complete_client_is_not_stale(rest):
 
     assert status.current_phase is None
     assert status.is_stale is False
+
+
+def test_soft_deleted_client_does_not_appear_on_dashboard(rest):
+    rest.insert("clients", {"name": "Acme", "created_at": _iso(datetime.now(timezone.utc)), "deleted_at": _iso(datetime.now(timezone.utc))})
+
+    assert list_client_statuses(rest, CONFIG) == []

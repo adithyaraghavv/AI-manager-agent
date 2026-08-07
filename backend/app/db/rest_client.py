@@ -51,6 +51,23 @@ class SupabaseRestClient:
         rows = response.json()
         return rows[0] if rows else None
 
+    def select_active(self, table: str, active_column: str = "deleted_at", **filters: object) -> list[dict]:
+        """Like select(), but excludes soft-deleted rows (where `active_column` is set)."""
+        params = {k: f"eq.{v}" for k, v in filters.items()}
+        params[active_column] = "is.null"
+        response = self._client.get(f"/{table}", params=params)
+        response.raise_for_status()
+        return response.json()
+
+    def select_one_ci_active(self, table: str, column: str, value: str, active_column: str = "deleted_at") -> dict | None:
+        """Same as select_one_ci, but additionally excludes soft-deleted rows."""
+        escaped = value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        params = {column: f"ilike.{escaped}", active_column: "is.null"}
+        response = self._client.get(f"/{table}", params=params)
+        response.raise_for_status()
+        rows = response.json()
+        return rows[0] if rows else None
+
     def select_ilike_any(self, table: str, columns: list[str], query: str) -> list[dict]:
         """Rows in `table` where ANY of `columns` contains `query` (case-insensitive,
         substring match — not an exact match like select_one_ci). Escapes ILIKE's

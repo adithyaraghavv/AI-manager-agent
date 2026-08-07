@@ -1,7 +1,9 @@
+from datetime import datetime, timedelta, timezone
+
 import pytest
 
 from app.core.phase_config import Phase, PhaseConfig
-from app.services.client_service import delete_client, find_client, get_or_create_client
+from app.services.client_service import delete_client, find_client, get_or_create_client, purge_deleted_clients
 from app.storage.local import LocalFilesystemStorage
 
 CONFIG = PhaseConfig(
@@ -30,7 +32,9 @@ def test_find_client_returns_existing_client(rest, storage):
     assert found == created
 
 
-def test_delete_client_removes_db_rows_and_storage_folder(rest, storage):
+def test_delete_client_hides_it_but_keeps_data_intact(rest, storage):
+    # Soft-delete: invisible to normal lookups, but nothing is actually erased —
+    # this is the recovery window added per team review feedback.
     client = get_or_create_client(rest, storage, CONFIG, "Acme")
     rest.insert("client_documents", {"client_id": client["id"], "doc_type": "MSA", "phase_name": "Pre-requisites"})
     assert storage.exists("Acme")
@@ -38,8 +42,55 @@ def test_delete_client_removes_db_rows_and_storage_folder(rest, storage):
     delete_client(rest, storage, client)
 
     assert find_client(rest, "Acme") is None
+    # ...but the underlying row, its documents, and its files are all still there.
+    assert rest.select_one("clients", id=client["id"])["deleted_at"] is not None
+    assert rest.select("client_documents", client_id=client["id"]) != []
+    assert storage.exists("Acme")
+
+
+def test_get_or_create_after_delete_creates_a_new_client_not_a_revival(rest, storage):
+    original = get_or_create_client(rest, storage, CONFIG, "Acme")
+    delete_client(rest, storage, original)
+
+    revived = get_or_create_client(rest, storage, CONFIG, "Acme")
+
+    assert revived["id"] != original["id"]
+    # Both rows exist — the old (deleted) one and the new (active) one.
+    assert len(rest.select("clients", name="Acme")) == 2
+
+
+def test_purge_removes_clients_past_the_retention_window(rest, storage):
+    client = get_or_create_client(rest, storage, CONFIG, "Acme")
+    rest.insert("client_documents", {"client_id": client["id"], "doc_type": "MSA", "phase_name": "Pre-requisites"})
+    old_deletion = (datetime.now(timezone.utc) - timedelta(days=45)).isoformat()
+    rest.update("clients", {"id": client["id"]}, {"deleted_at": old_deletion})
+
+    purged = purge_deleted_clients(rest, storage, older_than_days=30)
+
+    assert purged == ["Acme"]
+    assert rest.select("clients", id=client["id"]) == []
     assert rest.select("client_documents", client_id=client["id"]) == []
     assert not storage.exists("Acme")
+
+
+def test_purge_leaves_recently_deleted_clients_alone(rest, storage):
+    client = get_or_create_client(rest, storage, CONFIG, "Acme")
+    delete_client(rest, storage, client)  # deleted "now", well within the window
+
+    purged = purge_deleted_clients(rest, storage, older_than_days=30)
+
+    assert purged == []
+    assert rest.select_one("clients", id=client["id"]) is not None
+    assert storage.exists("Acme")
+
+
+def test_purge_leaves_active_clients_alone(rest, storage):
+    get_or_create_client(rest, storage, CONFIG, "Acme")
+
+    purged = purge_deleted_clients(rest, storage, older_than_days=30)
+
+    assert purged == []
+    assert find_client(rest, "Acme") is not None
 
 
 def test_delete_client_does_not_affect_other_clients(rest, storage):

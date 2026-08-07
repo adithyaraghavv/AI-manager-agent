@@ -20,7 +20,7 @@ export default function DeleteResult({ clientName, error, cancelled }) {
   return (
     <div className="tool-activity tool-activity--success">
       <span className="tool-activity__icon">✓</span>
-      <span className="tool-activity__text">Deleted {clientName} — documents, database record, and files removed</span>
+      <span className="tool-activity__text">Deleted {clientName} — hidden everywhere, kept for a recovery window before permanent removal</span>
     </div>
   )
 }

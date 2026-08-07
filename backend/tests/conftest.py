@@ -31,6 +31,16 @@ class FakeSupabaseRestClient:
                 return row
         return None
 
+    def select_active(self, table: str, active_column: str = "deleted_at", **filters) -> list[dict]:
+        rows = self.select(table, **filters)
+        return [r for r in rows if r.get(active_column) is None]
+
+    def select_one_ci_active(self, table: str, column: str, value: str, active_column: str = "deleted_at") -> dict | None:
+        for row in self._tables.get(table, []):
+            if str(row.get(column, "")).lower() == value.lower() and row.get(active_column) is None:
+                return row
+        return None
+
     def select_ilike_any(self, table: str, columns: list[str], query: str) -> list[dict]:
         q = query.lower()
         return [

@@ -135,9 +135,11 @@ def delete_client_route(
     rest: SupabaseRestClient = Depends(get_rest_client),
     client_storage: StorageBackend = Depends(get_client_storage),
 ):
-    """Permanently deletes a client. This is the ONLY path that actually performs a
-    deletion — the chat agent's propose_delete_client tool never calls this itself,
-    it only surfaces a confirm card in the UI that hits this endpoint on click."""
+    """Soft-deletes a client (see client_service.delete_client — hidden everywhere,
+    recoverable until the retention window's cleanup purges it). This is the ONLY
+    path that actually performs a deletion — the chat agent's propose_delete_client
+    tool never calls this itself, it only surfaces a confirm card in the UI that
+    hits this endpoint on click."""
     client = find_client(rest, client_name)
     if client is None:
         raise HTTPException(status_code=404, detail=f"No client named '{client_name}'")

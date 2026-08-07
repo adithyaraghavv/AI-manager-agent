@@ -35,7 +35,7 @@ def test_delete_unknown_client_returns_404(tmp_path):
     assert response.status_code == 404
 
 
-def test_delete_existing_client_removes_everything(tmp_path):
+def test_delete_existing_client_soft_deletes_it(tmp_path):
     client, fake_rest, storage = _client_with_overrides(tmp_path)
     try:
         acme = get_or_create_client(fake_rest, storage, CONFIG, "Acme")
@@ -45,8 +45,11 @@ def test_delete_existing_client_removes_everything(tmp_path):
 
         assert response.status_code == 200
         assert response.json() == {"deleted": True, "client_name": "Acme"}
-        assert fake_rest.select("clients", name="Acme") == []
-        assert fake_rest.select("client_documents", client_id=acme["id"]) == []
-        assert not storage.exists("Acme")
+        # Hidden from normal lookups...
+        assert client.get("/api/clients/status").json()["clients"] == []
+        # ...but nothing was actually erased — recoverable until the retention window's cleanup runs.
+        assert fake_rest.select_one("clients", id=acme["id"])["deleted_at"] is not None
+        assert fake_rest.select("client_documents", client_id=acme["id"]) != []
+        assert storage.exists("Acme")
     finally:
         app.dependency_overrides.clear()

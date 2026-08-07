@@ -27,7 +27,8 @@ export default function DeleteConfirmCard({ proposal, onConfirm, onCancel }) {
         <div>
           <div className="delete-card__title">Delete {proposal.client_name}?</div>
           <p className="delete-card__body">
-            This permanently removes their documents, database record, and files. This cannot be undone.
+            This hides them everywhere immediately (chat, dashboard, search, uploads). Their data is kept for
+            a recovery window before being permanently removed — this isn't instant or irreversible.
           </p>
         </div>
       </div>
