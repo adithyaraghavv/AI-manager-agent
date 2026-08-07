@@ -31,6 +31,13 @@ class FakeSupabaseRestClient:
                 return row
         return None
 
+    def select_ilike_any(self, table: str, columns: list[str], query: str) -> list[dict]:
+        q = query.lower()
+        return [
+            row for row in self._tables.get(table, [])
+            if any(q in str(row.get(col, "")).lower() for col in columns)
+        ]
+
     def insert(self, table: str, data: dict) -> dict:
         row = {"id": self._next_id, **data}
         self._next_id += 1

@@ -51,6 +51,16 @@ class SupabaseRestClient:
         rows = response.json()
         return rows[0] if rows else None
 
+    def select_ilike_any(self, table: str, columns: list[str], query: str) -> list[dict]:
+        """Rows in `table` where ANY of `columns` contains `query` (case-insensitive,
+        substring match — not an exact match like select_one_ci). Escapes ILIKE's
+        wildcard characters so the search term itself can't inject a pattern."""
+        escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        or_clause = ",".join(f"{col}.ilike.*{escaped}*" for col in columns)
+        response = self._client.get(f"/{table}", params={"or": f"({or_clause})"})
+        response.raise_for_status()
+        return response.json()
+
     def insert(self, table: str, data: dict) -> dict:
         response = self._client.post(
             f"/{table}", json=data, headers={"Prefer": "return=representation"}

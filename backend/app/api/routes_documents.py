@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import Response
 
 from app.core.phase_config import PhaseConfig
@@ -7,11 +7,14 @@ from app.deps import get_client_storage, get_config, get_rest_client, get_templa
 from app.core.upload_validation import InvalidUpload
 from app.services.client_service import delete_client, find_client
 from app.services.document_service import (
+    ClientDocumentNotFound,
     GatingBlocked,
     TemplateNotFound,
+    get_stored_document,
     request_template,
     upload_document,
 )
+from app.services.search_service import search_documents
 from app.storage.base import StorageBackend
 
 router = APIRouter(prefix="/api", tags=["documents"])
@@ -83,6 +86,47 @@ async def upload_client_document(
         "filename": result.filename,
         "stored_path": result.stored_path,
     }
+
+
+@router.get("/documents/search")
+def search_documents_route(
+    q: str = Query(..., min_length=1, description="Search by client name, document type, or filename"),
+    rest: SupabaseRestClient = Depends(get_rest_client),
+):
+    results = search_documents(rest, q)
+    return {
+        "query": q,
+        "count": len(results),
+        "results": [
+            {
+                "client_name": r.client_name,
+                "doc_type": r.doc_type,
+                "filename": r.filename,
+                "phase_name": r.phase_name,
+                "download_url": f"/api/clients/{r.client_name}/documents/{r.doc_type}/download",
+            }
+            for r in results
+        ],
+    }
+
+
+@router.get("/clients/{client_name}/documents/{doc_type}/download")
+def download_client_document(
+    client_name: str,
+    doc_type: str,
+    rest: SupabaseRestClient = Depends(get_rest_client),
+    client_storage: StorageBackend = Depends(get_client_storage),
+):
+    try:
+        result = get_stored_document(rest, client_storage, client_name, doc_type)
+    except ClientDocumentNotFound as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+
+    return Response(
+        content=result.content,
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{result.filename}"'},
+    )
 
 
 @router.delete("/clients/{client_name}")

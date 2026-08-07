@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getClientStatuses } from '../api'
+import DocumentSearch from './DocumentSearch'
 
 function buildReminderMessage(client) {
   const days = client.days_since_activity !== null ? Math.floor(client.days_since_activity) : '?'
@@ -122,6 +123,8 @@ export default function Dashboard() {
           </span>
         )}
       </div>
+
+      <DocumentSearch />
 
       {error && (
         <div className="dashboard__error">

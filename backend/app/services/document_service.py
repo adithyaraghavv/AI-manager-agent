@@ -11,7 +11,7 @@ from app.core.gating import GatingDecision, check_gate, resolve_phase_for_docume
 from app.core.phase_config import PhaseConfig
 from app.core.upload_validation import InvalidUpload, validate_upload
 from app.db.rest_client import SupabaseRestClient
-from app.services.client_service import existing_document_types, get_or_create_client
+from app.services.client_service import existing_document_types, find_client, get_or_create_client
 from app.storage.base import StorageBackend
 
 
@@ -109,3 +109,29 @@ def upload_document(
         )
 
     return UploadResult(stored_path=stored_path, filename=filename, phase_name=phase.name)
+
+
+class ClientDocumentNotFound(Exception):
+    pass
+
+
+def get_stored_document(
+    rest: SupabaseRestClient,
+    storage: StorageBackend,
+    client_name: str,
+    doc_type: str,
+) -> TemplateResult:
+    """Fetch an already-uploaded document for a client — not gated, since the
+    document already exists (gating only governs whether a NEW one can be
+    requested/filed). Used by search results and any other "get me the file
+    that's already on record" path."""
+    client = find_client(rest, client_name)
+    if client is None:
+        raise ClientDocumentNotFound(f"No client named {client_name!r}")
+
+    record = rest.select_one("client_documents", client_id=client["id"], doc_type=doc_type)
+    if record is None:
+        raise ClientDocumentNotFound(f"No {doc_type!r} document on file for {client_name!r}")
+
+    content = storage.get(record["storage_path"])
+    return TemplateResult(filename=record["filename"], content=content)
