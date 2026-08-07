@@ -3,8 +3,11 @@ import pytest
 from app.core.phase_config import Phase, PhaseConfig
 from app.core.upload_validation import InvalidUpload, MAX_UPLOAD_SIZE_BYTES
 from app.services.document_service import (
+    ClientDocumentNotFound,
     GatingBlocked,
+    TemplateFileMissing,
     TemplateNotFound,
+    get_stored_document,
     request_template,
     upload_document,
 )
@@ -109,3 +112,21 @@ def test_upload_rejects_oversized_file(rest, client_storage, template_storage):
     oversized = b"x" * (MAX_UPLOAD_SIZE_BYTES + 1)
     with pytest.raises(InvalidUpload, match="too large"):
         upload_document(rest, client_storage, CONFIG, "MSA", "Acme", oversized, "pdf")
+
+
+def test_request_template_with_record_but_no_local_file_gives_actionable_error(rest, client_storage, template_storage):
+    # The exact bug this guards against: a fresh clone/environment has the
+    # database row (shared across every environment) but never ran the local
+    # seed script, so the file itself doesn't exist there. Must fail with a
+    # clear "run this command" message, not a raw FileNotFoundError/500.
+    _seed_template_row(rest, "MSA", "does_not_exist_on_disk.txt")
+    with pytest.raises(TemplateFileMissing, match="seed_templates"):
+        request_template(rest, client_storage, template_storage, CONFIG, "MSA", "Acme")
+
+
+def test_get_stored_document_with_record_but_no_local_file_gives_actionable_error(rest, client_storage, template_storage):
+    upload_document(rest, client_storage, CONFIG, "MSA", "Acme", b"filled msa", "pdf")
+    client_storage.delete_dir("Acme")  # simulate: DB row exists, local file doesn't
+
+    with pytest.raises(ClientDocumentNotFound, match="local storage"):
+        get_stored_document(rest, client_storage, "Acme", "MSA")

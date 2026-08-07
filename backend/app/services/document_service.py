@@ -25,6 +25,22 @@ class TemplateNotFound(Exception):
     pass
 
 
+class TemplateFileMissing(Exception):
+    """The database has a record for this template, but the actual file isn't
+    on disk locally — happens on a fresh clone/environment that hasn't run
+    the one-time template seed script yet (local files aren't part of git;
+    the database is shared across every environment, but each one's local
+    file storage is its own). Distinct from TemplateNotFound (no record at
+    all) so the fix that's actually needed is obvious from the message."""
+    def __init__(self, doc_type: str):
+        self.doc_type = doc_type
+        super().__init__(
+            f"The '{doc_type}' template is on record but its file isn't set up on this "
+            "environment yet. Run `python -m app.db.seed_templates` in the backend folder, "
+            "then try again."
+        )
+
+
 @dataclass
 class TemplateResult:
     filename: str
@@ -51,7 +67,10 @@ def request_template(
     if template is None:
         raise TemplateNotFound(doc_type)
 
-    content = template_storage.get(template["storage_path"])
+    try:
+        content = template_storage.get(template["storage_path"])
+    except FileNotFoundError as e:
+        raise TemplateFileMissing(doc_type) from e
     return TemplateResult(filename=template["filename"], content=content)
 
 
@@ -133,5 +152,11 @@ def get_stored_document(
     if record is None:
         raise ClientDocumentNotFound(f"No {doc_type!r} document on file for {client_name!r}")
 
-    content = storage.get(record["storage_path"])
+    try:
+        content = storage.get(record["storage_path"])
+    except FileNotFoundError as e:
+        raise ClientDocumentNotFound(
+            f"{doc_type!r} is on record for {client_name!r}, but its file isn't present on this "
+            "environment's local storage (the database is shared, local files aren't)."
+        ) from e
     return TemplateResult(filename=record["filename"], content=content)

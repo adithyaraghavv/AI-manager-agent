@@ -17,7 +17,7 @@ from app.core.gating import missing_documents
 from app.core.phase_config import PhaseConfig
 from app.db.rest_client import SupabaseRestClient
 from app.services.client_service import existing_document_types, find_client, get_or_create_client
-from app.services.document_service import GatingBlocked, TemplateNotFound, request_template
+from app.services.document_service import GatingBlocked, TemplateFileMissing, TemplateNotFound, request_template
 from app.storage.base import StorageBackend
 
 TOOL_DEFINITIONS: list[dict[str, Any]] = [
@@ -144,6 +144,8 @@ def dispatch_tool(
             }
         except TemplateNotFound:
             return {"allowed": False, "reason": f"No master template is on file yet for '{doc_type}'."}
+        except TemplateFileMissing as e:
+            return {"allowed": False, "reason": str(e)}
         except ValueError as e:
             return {"allowed": False, "reason": str(e)}
 

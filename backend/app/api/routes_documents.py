@@ -9,6 +9,7 @@ from app.services.client_service import delete_client, find_client
 from app.services.document_service import (
     ClientDocumentNotFound,
     GatingBlocked,
+    TemplateFileMissing,
     TemplateNotFound,
     get_stored_document,
     request_template,
@@ -48,6 +49,8 @@ def download_template(
         raise HTTPException(status_code=409, detail=e.decision.reason) from e
     except TemplateNotFound as e:
         raise HTTPException(status_code=404, detail=f"No master template on file for '{doc_type}'") from e
+    except TemplateFileMissing as e:
+        raise HTTPException(status_code=503, detail=str(e)) from e
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
