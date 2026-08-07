@@ -215,17 +215,45 @@ On top of the tools themselves:
 
 ## How to run it locally
 
-**One-time setup:**
+**Prerequisites:** Python 3.11+, Node 18+, git. Clone the repo and open it in
+your editor before starting.
+
+**Step 1 — get your credentials first.** You need three things before
+anything will run:
+- An `OPENAI_API_KEY` (ask whoever holds the team's OpenAI account for one —
+  do not reuse a key someone pastes in chat; if one is ever shared that way,
+  treat it as compromised and get a fresh one)
+- `SUPABASE_URL` and `SUPABASE_KEY` (the `service_role` key, not `anon`) —
+  ask a teammate who already has access to the shared Supabase project for
+  these; everyone points at the same database, so these don't change per
+  person
+- (Only if you'll run migrations/seed scripts) a `DATABASE_URL` — see
+  `backend/.env.example` for the exact format and a note on which connection
+  string to use if your network blocks direct database ports
+
+**Step 2 — one-time backend setup**, from the `backend/` folder:
 ```bash
-# Backend
 cd backend
 pip install -r requirements.txt
-cp .env.example .env   # fill in OPENAI_API_KEY, SUPABASE_URL, SUPABASE_KEY
+cp .env.example .env
+```
+Now open `.env` (not `.env.example`) in your editor and fill in the three
+values from Step 1. **This file is never committed to git** — every person
+has their own local copy, and it must exist before the backend will boot.
+
+Then, still from `backend/`:
+```bash
 alembic upgrade head
 python -m app.db.seed
-python -m app.db.seed_templates   # template library (real SRS/HLD/LLD + placeholders)
+python -m app.db.seed_templates
+```
+The last command is easy to skip and causes the most common first-run
+error — if you ever see "template is on record but its file isn't set up
+on this environment yet," it means this step was skipped; just run it and
+retry.
 
-# Frontend
+**Step 3 — one-time frontend setup:**
+```bash
 cd ../frontend
 npm install
 ```
@@ -238,6 +266,17 @@ This starts both the backend (port 8000) and frontend (port 5173) together
 in one terminal. Open `http://localhost:5173`.
 
 To run either side alone: `npm run dev:backend` or `npm run dev:frontend`.
+
+**If something still won't start:**
+- `ModuleNotFoundError` → you skipped `pip install -r requirements.txt`
+  (or it needs re-running after a pull that changed `requirements.txt`)
+- Backend won't boot / crashes on startup → `.env` is missing or a value in
+  it is blank; double check `OPENAI_API_KEY`, `SUPABASE_URL`, `SUPABASE_KEY`
+- A file-not-found error when requesting a template/document → run
+  `python -m app.db.seed_templates` (see Step 2)
+- Port 8000 or 5173 already in use (common on Windows after a previous
+  `npm run dev` didn't fully stop) → fully close and reopen your editor,
+  which kills any leftover background process, then try again
 
 See `backend/README.md` and `frontend/README.md` for more detail, including
 why Supabase is accessed two different ways, and `docs/` for the original
