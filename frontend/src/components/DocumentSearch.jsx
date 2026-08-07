@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { searchDocuments } from '../api'
 
 // Debounced so typing doesn't fire a request per keystroke — waits for a
@@ -10,28 +10,36 @@ export default function DocumentSearch() {
   const [results, setResults] = useState(null)
   const [searching, setSearching] = useState(false)
   const [error, setError] = useState(null)
+  const timerRef = useRef(null)
+  const latestQueryRef = useRef('')
 
   function handleChange(e) {
     const value = e.target.value
     setQuery(value)
+    latestQueryRef.current = value
 
-    clearTimeout(handleChange._timer)
+    clearTimeout(timerRef.current)
     if (!value.trim()) {
       setResults(null)
       setError(null)
+      setSearching(false)
       return
     }
 
-    handleChange._timer = setTimeout(async () => {
+    timerRef.current = setTimeout(async () => {
       setSearching(true)
       setError(null)
       try {
         const data = await searchDocuments(value)
+        // Ignore stale responses — the box may have been cleared or changed
+        // to something else while this request was in flight.
+        if (latestQueryRef.current !== value) return
         setResults(data)
       } catch (err) {
+        if (latestQueryRef.current !== value) return
         setError(err.message)
       } finally {
-        setSearching(false)
+        if (latestQueryRef.current === value) setSearching(false)
       }
     }, DEBOUNCE_MS)
   }
