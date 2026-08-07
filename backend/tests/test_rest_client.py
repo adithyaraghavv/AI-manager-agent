@@ -118,6 +118,39 @@ def test_delete_sends_delete_method_with_eq_filters():
     assert "client_id=eq.5" in captured["url"]
 
 
+def test_select_ilike_any_queries_each_column_separately_not_via_or_syntax():
+    # Regression test: an earlier version built a hand-rolled PostgREST
+    # `or=(...)` filter, which treats commas/parens as structural — a search
+    # term containing either could inject extra conditions and widen the
+    # query far beyond a genuine substring match. Per-column requests avoid
+    # that mini-language entirely, so no request should ever carry an `or=`
+    # param, regardless of what characters are in the search term.
+    captured_urls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured_urls.append(str(request.url))
+        return httpx.Response(200, json=[])
+
+    client = _client_with_transport(handler)
+    client.select_ilike_any("client_documents", ["filename", "doc_type"], "x),deleted_at.is.null,(y")
+
+    assert len(captured_urls) == 2  # one request per column
+    for url in captured_urls:
+        assert "or=" not in url
+
+
+def test_select_ilike_any_merges_and_dedupes_results_across_columns():
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "filename" in str(request.url):
+            return httpx.Response(200, json=[{"id": 1, "filename": "MSA.pdf"}, {"id": 2, "filename": "MSA_2.pdf"}])
+        return httpx.Response(200, json=[{"id": 2, "doc_type": "MSA"}])  # id=2 matches both columns
+
+    client = _client_with_transport(handler)
+    rows = client.select_ilike_any("client_documents", ["filename", "doc_type"], "MSA")
+
+    assert [r["id"] for r in rows] == [1, 2]  # id=2 only appears once, not twice
+
+
 def test_select_raises_on_http_error():
     client = _client_with_transport(lambda request: httpx.Response(401, json={"message": "unauthorized"}))
     try:

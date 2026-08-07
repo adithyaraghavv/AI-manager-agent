@@ -70,13 +70,29 @@ class SupabaseRestClient:
 
     def select_ilike_any(self, table: str, columns: list[str], query: str) -> list[dict]:
         """Rows in `table` where ANY of `columns` contains `query` (case-insensitive,
-        substring match — not an exact match like select_one_ci). Escapes ILIKE's
-        wildcard characters so the search term itself can't inject a pattern."""
+        substring match — not an exact match like select_one_ci).
+
+        Issues one plain request per column and merges results, rather than
+        building a composite `or=(...)` filter by hand — PostgREST's OR syntax
+        treats commas/parentheses as structural, and escaping only the ILIKE
+        wildcard characters (%, _, \\) left those unescaped, so a search term
+        containing a comma or paren could inject extra conditions into the
+        query and widen it far beyond a genuine substring match. Per-column
+        requests avoid that mini-language entirely — each one is a single
+        simple `column=ilike.value` filter, which isn't comma/paren-parsed."""
         escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        or_clause = ",".join(f"{col}.ilike.*{escaped}*" for col in columns)
-        response = self._client.get(f"/{table}", params={"or": f"({or_clause})"})
-        response.raise_for_status()
-        return response.json()
+        seen_ids: set = set()
+        results: list[dict] = []
+        for col in columns:
+            response = self._client.get(f"/{table}", params={col: f"ilike.*{escaped}*"})
+            response.raise_for_status()
+            for row in response.json():
+                row_id = row.get("id")
+                if row_id in seen_ids:
+                    continue
+                seen_ids.add(row_id)
+                results.append(row)
+        return results
 
     def insert(self, table: str, data: dict) -> dict:
         response = self._client.post(
