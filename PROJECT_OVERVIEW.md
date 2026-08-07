@@ -13,7 +13,8 @@ It's two things in one app:
 1. **A conversational assistant** — a PM can ask in plain English for a
    template, check a client's status, or upload a completed document.
 2. **A manager dashboard** — a portfolio-level view of every client at once,
-   with clients flagged automatically if they've gone quiet mid-phase.
+   with clients flagged automatically if they've gone quiet mid-phase, plus a
+   search box to find any stored document by client, type, or filename.
 
 The core rule the whole system is built around: **a document belonging to
 phase N can't be requested or filed until every required document from every
@@ -41,6 +42,10 @@ what the AI says.
 - **Consistent file naming and filing**, automatically —
   `Marlabs_<DocType>_<ClientName>_<Timestamp>`, filed under the right client/
   phase folder every time, no manual naming conventions to remember.
+- **Accidental deletions are recoverable.** Deleting a client hides them
+  everywhere immediately, but their data is kept for a retention window
+  before being permanently purged — a confirm-click mistake isn't instantly
+  unrecoverable.
 
 ## Features (what's built and working today)
 
@@ -61,28 +66,39 @@ doing something the system doesn't actually support:
 4. **Delete a client** — looks the client up and shows their info, but
    **never deletes anything itself**. It hands off to a confirm/cancel card
    in the UI; only a human clicking "Confirm & delete" actually removes
-   anything (their documents, database record, and storage folder). The AI
-   is not allowed to claim a deletion happened — it has no way of knowing
-   whether the human confirmed.
+   anything. Deletion is a **soft delete** — the client is hidden everywhere
+   (chat, dashboard, search, uploads) immediately, but their documents,
+   database record, and files are kept intact until a routine cleanup
+   permanently purges them after a retention window. The AI is not allowed
+   to claim a deletion happened — it has no way of knowing whether the human
+   confirmed.
 
 On top of the tools themselves:
 - **Attach-to-upload** — drop a completed file directly into the chat
-  (paperclip button) instead of switching to the upload panel; shows an
-  inline confirm-before-upload card that pre-fills client/doc-type guesses
-  from the conversation, editable before anything is sent.
-- **Clickable suggested prompts** on the empty chat screen — one click sends
-  a real example question instead of typing from scratch.
+  (paperclip button, or drag-and-drop anywhere onto the chat window) instead
+  of switching to the upload panel; shows an inline confirm-before-upload
+  card that pre-fills client/doc-type guesses from the conversation,
+  editable before anything is sent.
+- **A real greeting on a new chat**, not a menu of clickable suggestion
+  prompts — reads as an assistant talking to you, not a form to fill in.
+- **Saved, reopenable chat history** — past conversations are saved locally
+  and listed in a History dropdown; reopen or delete any of them without
+  losing the current one.
 - **Knows what it doesn't know** — for portfolio-wide questions it has no
   tool for (e.g. "how many clients do we have"), it points to the Dashboard
   tab instead of just declining, since that tab already answers it better
   than a bare number would.
-- Every tool call renders inline in the chat as a visible activity line (⚙
-  icon + summary), so gating decisions and lookups are never hidden inside
-  the model's prose — what the system actually did is always visible. This
-  is deliberate: real outcomes (upload succeeded, deletion happened) are
-  always generated from actual API responses, never left for the AI to
-  narrate in its own words — so it can't ever misreport what really
-  happened.
+- Every tool call renders inline in the chat as a visible system-note chip
+  (⚙ icon + summary, tinted background so it's clearly distinct from the
+  agent's own prose), so gating decisions and lookups are never hidden
+  inside the model's words — what the system actually did is always
+  visible. This is deliberate: real outcomes (upload succeeded, deletion
+  happened) are always generated from actual API responses, never left for
+  the AI to narrate in its own words — so it can't ever misreport what
+  really happened.
+- **Avatars on every message** (person icon for you, robot icon for the
+  agent) and an **animated typing indicator** (three bouncing dots) while
+  waiting for a reply — easier to scan a long conversation at a glance.
 - **New chat button** — clears the conversation without a page refresh.
 - **Human-friendly errors with retry** — a failed request shows a plain
   message instead of a raw technical error, with a Retry button that
@@ -91,14 +107,21 @@ On top of the tools themselves:
 ### Everything else
 
 - **Document upload** — file a completed document for a client, either
-  through the standalone upload panel or by attaching a file directly in the
-  chat thread (with an inline confirm-before-upload card).
+  through the standalone upload panel or by attaching/dragging a file
+  directly into the chat thread (with an inline confirm-before-upload card).
+  Validated server-side against a file-type allow-list and a 50MB size cap.
+- **Document search** — a search box on the Dashboard finds any stored
+  document by client name, document type, or filename, with a direct
+  download link on each result.
 - **Hard-block phase-gating** — enforced in `app/services/document_service.py`,
   independent of the AI agent. Blocks both template requests and uploads if
   any earlier phase is incomplete, and reports exactly what's missing.
 - **Manager dashboard** (`/api/clients/status`) — every client's phase
   progress, current blocking phase + missing documents, and a stale-client
   flag, with a copy-to-clipboard follow-up reminder generator.
+- **Real Marlabs template files** for SRS, HLD, and LLD (sourced from the
+  team's existing template library) — everything else still uses a
+  placeholder file until a real one is available (see Pending, below).
 - **Marlabs branding** — real Marlabs logo, brand colors (navy `#283B91` /
   blue `#0EA5E9`, sampled from the actual logo file), dark navy hero banner,
   and Poppins headings (Google Fonts), styled to match Marlabs' existing
@@ -116,33 +139,48 @@ On top of the tools themselves:
   even on networks that block direct DB ports)
 - Phase-gating logic, fully tested
 - Chat agent wired to Groq
-- Document upload/download flow, tested end-to-end
+- Document upload/download flow, tested end-to-end, with file-type/size
+  validation
+- Document search across all stored documents, with download links
 - Manager dashboard + stale flagging + copy-reminder feature
 - Client deletion via chat, gated behind a mandatory human confirm/cancel
-  card — the AI can propose, only a human click actually deletes
+  card — soft-delete (recoverable for a retention window), not instant/
+  permanent; a manual cleanup command (`app/db/cleanup_deleted_clients.py`)
+  purges anything past that window (not yet on an automatic schedule — see
+  Pending)
 - Case-insensitive client-name matching everywhere (status, upload, template
   requests, deletion) — fixed after a real bug where differently-cased
   lookups of the same client were treated as two different clients
 - Marlabs rebrand (logo, colors, typography)
-- 67 backend tests passing, no known dependency CVEs (checked via `pip-audit`
-  / `npm audit`)
+- Saved/reopenable chat history, drag-and-drop file attach, message
+  avatars + animated typing indicator
+- 90 backend tests passing, no known dependency CVEs (checked via
+  `pip-audit` / `npm audit`)
 
 ### Pending
 - **Real SharePoint integration.** Templates and client documents currently
-  live in a **local filesystem mock** (`/templates`, `/clients` — placeholder
-  `.txt` files standing in for real Marlabs templates), not real SharePoint.
-  A teammate has already built related work in Azure DevOps with existing
-  SharePoint access — a sync is planned to reconcile what exists before
-  building `SharePointStorage` (the storage backend is already abstracted
-  behind an interface, so swapping it in later needs no changes to gating or
-  service logic — see `backend/app/storage/base.py`).
+  live in a **local filesystem mock** (`/templates`, `/clients`). SRS, HLD,
+  and LLD now use real Marlabs template files; everything else is still a
+  placeholder `.txt` file. A teammate has already built related work in
+  Azure DevOps with existing SharePoint access — a sync is planned to
+  reconcile what exists before building `SharePointStorage` (the storage
+  backend is already abstracted behind an interface, so swapping it in later
+  needs no changes to gating or service logic — see
+  `backend/app/storage/base.py`).
 - **No authentication on any endpoint.** Every API route is currently open —
   fine for local dev and controlled demos, but must be addressed (at minimum
   a shared API key) before this is reachable by anyone outside a trusted
   network, and definitely before real client documents flow through it
-  regularly.
-- **No upload file-size limit or file-type allow-list** — worth adding once
-  real documents (not mock `.txt` files) are flowing through the system.
+  regularly. This matters more now than before: a document-download route
+  was added (previously only template files were downloadable this way; now
+  real uploaded client documents are too).
+- **Soft-delete cleanup isn't on an automatic schedule yet.** The purge
+  command exists and works, but currently has to be run by hand (or wired to
+  a cron job/scheduled task later) — it doesn't run itself.
+- **FRD and Data Management Plan templates** — real files for these exist in
+  the team's Azure DevOps library, but don't map cleanly to any of our
+  defined document types. Left out rather than guess a mapping; open
+  decision for the team (map FRD → BRD? add DMP as a new document type?).
 - **No rate limiting** — relevant once the app is reachable by more than a
   handful of trusted users, since `/api/chat` calls a paid Groq API per
   request.
@@ -156,10 +194,11 @@ On top of the tools themselves:
 - [Supabase](https://supabase.com/) (managed Postgres) — data storage,
   accessed at runtime via its REST API (`httpx`), not a direct DB connection
   (see `backend/README.md`, "Two ways to reach Supabase")
-- SQLAlchemy + Alembic — used only for schema migrations and one-off seed
-  scripts, not the running app
+- SQLAlchemy + Alembic — used only for schema migrations, not the running
+  app; one-off seed/cleanup scripts also use the REST API (not a direct
+  connection) so they can be run from any network
 - Pydantic / pydantic-settings — request/response models, config
-- pytest — 67 tests covering gating logic, services, routes, and the seed
+- pytest — 90 tests covering gating logic, services, routes, and the seed
   scripts
 
 **Frontend**
@@ -184,7 +223,7 @@ pip install -r requirements.txt
 cp .env.example .env   # fill in GROQ_API_KEY, SUPABASE_URL, SUPABASE_KEY
 alembic upgrade head
 python -m app.db.seed
-python -m app.db.seed_templates   # mock template library
+python -m app.db.seed_templates   # template library (real SRS/HLD/LLD + placeholders)
 
 # Frontend
 cd ../frontend
@@ -203,3 +242,30 @@ To run either side alone: `npm run dev:backend` or `npm run dev:frontend`.
 See `backend/README.md` and `frontend/README.md` for more detail, including
 why Supabase is accessed two different ways, and `docs/` for the original
 discovery documentation and database structure.
+
+## Recent updates
+
+### 2026-08-07 07:19 UTC — ADO codebase merged in, `pullingado` branch, PR opened
+
+The team's Azure DevOps "RAG Agent" codebase was imported (frozen, untouched,
+on the `ado-import` branch) and compared feature-by-feature against this
+app. The two are different products, not one being a newer version of the
+other — the ADO version has no phase-gating and no database, ours does both.
+The genuinely useful pieces from their side were pulled into this app on a
+new `pullingado` branch, which also picked up several fixes and additions
+from live review/testing:
+
+- Real Marlabs template files for SRS/HLD/LLD (from the ADO team's library)
+- Upload file-type/size validation (previously unenforced)
+- Saved/reopenable chat history, drag-and-drop file attach
+- Empty-chat greeting instead of clickable suggestion chips
+- Message avatars, animated typing indicator, tool-activity chips styled as
+  system notes instead of bare text
+- Document search across all stored documents, with download links (found
+  and fixed a filter-injection bug in the search query during testing)
+- Client deletion changed from instant/permanent to soft-delete with a
+  retention window, plus a manual purge command for the actual cleanup
+- `pullingado` and `ado-import` both pushed to the Marlabs org repo
+  (`Marlabs-Innovations-Private-Limited/RAG-agent`) as `main` and
+  `pullingado`; PR #1 opened proposing `pullingado` replace `main`, under
+  review by the team as of this update
