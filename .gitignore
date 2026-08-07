@@ -1,42 +1,33 @@
-# ----------------------
-# Python
-# ----------------------
 __pycache__/
 *.pyc
 *.pyo
-
-# Ignore all __pycache__ folders inside subdirs
 **/__pycache__/
-# ----------------------
-# Virtual Environment
-# ----------------------
-venv/
 .venv/
+venv/
 env/
 
-# ----------------------
-# Environment variables
-# ----------------------
+# local secrets — never commit
+backend/.env
 .env
 
-# ----------------------
-# Logs
-# ----------------------
-*.log
-# ----------------------
-# OS files
-# ----------------------
-.DS_Store
-Thumbs.db
+# local POC storage — real client documents/templates never go into git
+/clients/*
+!/clients/.gitkeep
+/templates/*
+!/templates/.gitkeep
 
-# ----------------------
-# IDE
-# ----------------------
-.vscode/
-.idea/
-# ----------------------
-# Frontend build (if used later)
-# ----------------------
+# node
+frontend/node_modules/
+frontend/dist/
 node_modules/
 dist/
 build/
+
+# logs
+*.log
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
