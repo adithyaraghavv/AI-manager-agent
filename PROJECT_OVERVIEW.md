@@ -51,7 +51,7 @@ what the AI says.
 
 ### Chatbot capabilities
 
-The assistant (Groq-hosted Llama 3.3 70B) has four tools it can call — it can
+The assistant (OpenAI GPT-4o) has four tools it can call — it can
 only ever do what these tools allow, nothing else, so it can't be talked into
 doing something the system doesn't actually support:
 
@@ -138,7 +138,7 @@ On top of the tools themselves:
 - Supabase Postgres database (via REST API, not a direct connection — works
   even on networks that block direct DB ports)
 - Phase-gating logic, fully tested
-- Chat agent wired to Groq
+- Chat agent wired to OpenAI (GPT-4o)
 - Document upload/download flow, tested end-to-end, with file-type/size
   validation
 - Document search across all stored documents, with download links
@@ -154,7 +154,7 @@ On top of the tools themselves:
 - Marlabs rebrand (logo, colors, typography)
 - Saved/reopenable chat history, drag-and-drop file attach, message
   avatars + animated typing indicator
-- 90 backend tests passing, no known dependency CVEs (checked via
+- 91 backend tests passing, no known dependency CVEs (checked via
   `pip-audit` / `npm audit`)
 
 ### Pending
@@ -182,14 +182,14 @@ On top of the tools themselves:
   defined document types. Left out rather than guess a mapping; open
   decision for the team (map FRD → BRD? add DMP as a new document type?).
 - **No rate limiting** — relevant once the app is reachable by more than a
-  handful of trusted users, since `/api/chat` calls a paid Groq API per
+  handful of trusted users, since `/api/chat` calls a paid OpenAI API per
   request.
 
 ## Tech stack
 
 **Backend**
 - Python 3.11, [FastAPI](https://fastapi.tiangolo.com/) — REST API
-- [Groq](https://groq.com/) (Llama 3.3 70B) — the conversational agent's LLM,
+- [OpenAI](https://platform.openai.com/) (GPT-4o) — the conversational agent's LLM,
   via function-calling tools
 - [Supabase](https://supabase.com/) (managed Postgres) — data storage,
   accessed at runtime via its REST API (`httpx`), not a direct DB connection
@@ -198,7 +198,7 @@ On top of the tools themselves:
   app; one-off seed/cleanup scripts also use the REST API (not a direct
   connection) so they can be run from any network
 - Pydantic / pydantic-settings — request/response models, config
-- pytest — 90 tests covering gating logic, services, routes, and the seed
+- pytest — 91 tests covering gating logic, services, routes, and the seed
   scripts
 
 **Frontend**
@@ -220,7 +220,7 @@ On top of the tools themselves:
 # Backend
 cd backend
 pip install -r requirements.txt
-cp .env.example .env   # fill in GROQ_API_KEY, SUPABASE_URL, SUPABASE_KEY
+cp .env.example .env   # fill in OPENAI_API_KEY, SUPABASE_URL, SUPABASE_KEY
 alembic upgrade head
 python -m app.db.seed
 python -m app.db.seed_templates   # template library (real SRS/HLD/LLD + placeholders)
@@ -244,6 +244,22 @@ why Supabase is accessed two different ways, and `docs/` for the original
 discovery documentation and database structure.
 
 ## Recent updates
+
+### 2026-08-07 — Friendly error for missing local template files, LLM swapped from Groq to OpenAI
+
+- Fresh-clone crash fixed: requesting a template or an already-uploaded
+  document whose database record exists but whose file was never seeded
+  locally (fresh clone, `seed_templates` never run there) now returns a
+  clear, actionable error (`TemplateFileMissing` / enhanced
+  `ClientDocumentNotFound`) instead of a raw `FileNotFoundError` / 500.
+  Wired through the REST download routes (503) and the chat tool dispatch.
+- Swapped the conversational agent's LLM provider from Groq (Llama 3.3 70B,
+  free-tier 100k-tokens/day cap) to OpenAI (GPT-4o) to remove the daily
+  rate-limit ceiling hit during testing. `OPENAI_API_KEY` replaces
+  `GROQ_API_KEY` everywhere (config, `.env.example`, requirements). The
+  Groq-specific `tool_use_failed` retry hack was removed since it doesn't
+  apply to OpenAI's tool-calling.
+- 91 backend tests passing.
 
 ### 2026-08-07 07:19 UTC — ADO codebase merged in, `pullingado` branch, PR opened
 

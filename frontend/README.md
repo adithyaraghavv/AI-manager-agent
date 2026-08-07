@@ -6,7 +6,7 @@ backend in `/backend` (proxied at `/api` and `/health` during dev, see `vite.con
 ## Setup
 
 One-time: install both sides' dependencies, and set up `backend/.env` per `/backend/README.md`
-(GROQ_API_KEY, SUPABASE_URL, SUPABASE_KEY — the backend won't boot without these).
+(OPENAI_API_KEY, SUPABASE_URL, SUPABASE_KEY — the backend won't boot without these).
 
 ```bash
 cd frontend

@@ -7,7 +7,7 @@ Greenfield build. See `/docs/tech_stack_and_structure.md` for the design rationa
 ```bash
 cd backend
 pip install -r requirements.txt
-cp .env.example .env   # fill in GROQ_API_KEY, DATABASE_URL, SUPABASE_URL, SUPABASE_KEY
+cp .env.example .env   # fill in OPENAI_API_KEY, DATABASE_URL, SUPABASE_URL, SUPABASE_KEY
 
 # schema setup + seeding: needs DATABASE_URL, a direct-ish connection to
 # Supabase. If your network blocks direct Postgres ports (some corporate

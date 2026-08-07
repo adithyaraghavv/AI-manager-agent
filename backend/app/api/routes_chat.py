@@ -15,7 +15,7 @@ router = APIRouter(prefix="/api/chat", tags=["chat"])
 class ChatMessage(BaseModel):
     """Round-trips whatever the frontend sends back verbatim.
 
-    Groq requires role="tool" messages to carry tool_call_id, and
+    OpenAI requires role="tool" messages to carry tool_call_id, and
     role="assistant" tool-call messages to carry tool_calls — both of which
     are only present on some messages. `extra="allow"` preserves them
     instead of silently stripping them, which previously broke the second

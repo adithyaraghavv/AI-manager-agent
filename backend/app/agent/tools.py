@@ -1,5 +1,5 @@
 """Tool definitions for the conversational layer (OpenAI-style function-calling
-schema, used by the Groq API).
+schema, used by the OpenAI API).
 
 These tools only ever call into app.services / app.core — never storage or
 the DB directly — so the same hard-block gating guarantees apply whether a

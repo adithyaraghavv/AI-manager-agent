@@ -1,7 +1,7 @@
 import json
 from typing import Any
 
-from groq import BadRequestError, Groq
+from openai import OpenAI
 
 from app.agent.tools import TOOL_DEFINITIONS, dispatch_tool
 from app.config import settings
@@ -44,20 +44,11 @@ client's phase progress at a glance. Say something like "I can't pull that up he
 Dashboard tab has it — client count, stale flags, and progress for everyone."
 - Be concise and practical. This is a working tool for busy PMs, not a chatty assistant."""
 
-MODEL = "llama-3.3-70b-versatile"
+MODEL = "gpt-4o"
 MAX_TOOL_ROUNDS = 6
-FALLBACK_REPLY = (
-    "Sorry, I had trouble processing that. Could you rephrase, or tell me the client name "
-    "and document type you're asking about directly?"
-)
 
 
-def _is_tool_use_failed(error: BadRequestError) -> bool:
-    body = error.body
-    return isinstance(body, dict) and body.get("error", {}).get("code") == "tool_use_failed"
-
-
-def _complete_with_tools(client: Groq, api_messages: list[dict[str, Any]]):
+def _complete_with_tools(client: OpenAI, api_messages: list[dict[str, Any]]):
     return client.chat.completions.create(
         model=MODEL,
         max_tokens=1024,
@@ -76,33 +67,12 @@ def run_turn(
 ) -> list[dict[str, Any]]:
     """Run one assistant turn (including any tool-call round trips) and
     return the updated message list with the assistant's reply appended."""
-    client = Groq(api_key=settings.groq_api_key)
+    client = OpenAI(api_key=settings.openai_api_key)
 
     api_messages = [{"role": "system", "content": SYSTEM_PROMPT}, *messages]
 
     for _ in range(MAX_TOOL_ROUNDS):
-        try:
-            response = _complete_with_tools(client, api_messages)
-        except BadRequestError as e:
-            # Llama on Groq occasionally emits a malformed tool-call (e.g. "<function=..."
-            # instead of proper JSON) and Groq rejects it with tool_use_failed. Usually a
-            # transient flake — retry the same tool-enabled request once so the PM has a
-            # real chance at getting an actual answer, not just an apology.
-            if not _is_tool_use_failed(e):
-                raise
-            try:
-                response = _complete_with_tools(client, api_messages)
-            except BadRequestError as e2:
-                if not _is_tool_use_failed(e2):
-                    raise
-                # Failed twice — give up on tools for this turn. Don't bother asking the model
-                # for a tool-free explanation: observed live that when suddenly stripped of
-                # tools it invents confused text (e.g. offering to "simulate" data) instead of
-                # a clean answer, so just show our own canned message.
-                assistant_message = {"role": "assistant", "content": FALLBACK_REPLY}
-                messages.append(assistant_message)
-                return messages
-
+        response = _complete_with_tools(client, api_messages)
         choice = response.choices[0].message
 
         assistant_message: dict[str, Any] = {"role": "assistant", "content": choice.content or ""}

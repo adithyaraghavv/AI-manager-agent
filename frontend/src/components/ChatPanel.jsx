@@ -160,7 +160,7 @@ export default function ChatPanel() {
     setMessages(updated)
     setInput('')
 
-    // upload-result/delete-result entries are local-only display items — Groq rejects any
+    // upload-result/delete-result entries are local-only display items — OpenAI rejects any
     // role it doesn't recognize, so they must never be sent to the backend.
     const outgoing = updated.filter((m) => m.role !== 'upload-result' && m.role !== 'delete-result')
     await sendToBackend(outgoing)

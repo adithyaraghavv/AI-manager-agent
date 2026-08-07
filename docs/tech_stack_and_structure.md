@@ -10,7 +10,7 @@
 ## Stack
 
 - Backend: Python + FastAPI
-- LLM: Groq API (Llama 3.3 70B), tool-calling for intent parsing
+- LLM: OpenAI API (GPT-4o), tool-calling for intent parsing
 - DB: PostgreSQL (Supabase) — SQLAlchemy + Alembic for schema/seeding, REST API (httpx) for runtime queries
 - Frontend: React + Vite (minimal chat UI, polish deferred)
 - Tests: pytest
@@ -39,7 +39,7 @@
       migrations/                 # alembic
     /agent
       tools.py                    # tool defs: request_template, upload_document, check_status
-      orchestrator.py             # conversation loop (Groq)
+      orchestrator.py             # conversation loop (OpenAI)
     /api
       routes_chat.py
       routes_documents.py          # template download + document upload
