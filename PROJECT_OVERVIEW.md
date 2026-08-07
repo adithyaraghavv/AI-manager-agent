@@ -215,8 +215,15 @@ On top of the tools themselves:
 
 ## How to run it locally
 
-**Prerequisites:** Python 3.11+, Node 18+, git. Clone the repo and open it in
-your editor before starting.
+**Prerequisites:** Python 3.11+, Node 18+, git.
+
+**Step 0 — clone the repo:**
+```bash
+git clone https://github.com/Marlabs-Innovations-Private-Limited/RAG-agent.git
+cd RAG-agent
+git checkout pullingado
+```
+Open the folder in your editor before continuing.
 
 **Step 1 — get your credentials first.** You need three things before
 anything will run:
@@ -266,6 +273,11 @@ This starts both the backend (port 8000) and frontend (port 5173) together
 in one terminal. Open `http://localhost:5173`.
 
 To run either side alone: `npm run dev:backend` or `npm run dev:frontend`.
+
+**Step 4 — confirm it's actually working:** type something like "list phases"
+or "what's the status for Hillenbrand" into the chat box. A reply back from
+the assistant means the whole chain (frontend → backend → Supabase → OpenAI)
+is wired up correctly.
 
 **If something still won't start:**
 - `ModuleNotFoundError` → you skipped `pip install -r requirements.txt`
