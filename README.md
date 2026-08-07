@@ -57,8 +57,18 @@ flowchart LR
   animated typing indicator.
 
 See **[`PROJECT_OVERVIEW.md`](PROJECT_OVERVIEW.md)** for the full feature
-list, what's pending (SharePoint integration, auth, rate limiting), and a
-dated changelog of everything that's changed.
+list and a dated changelog of everything that's changed.
+
+## What's not built yet
+
+- **No real SharePoint integration** — documents currently live in local
+  filesystem storage; the storage layer is already abstracted so this is a
+  swap-in, not a rewrite, once SharePoint access is available.
+- **No authentication** — every API route is open. Fine for local dev and
+  controlled demos, not yet for wider access.
+- **No rate limiting** on the chat endpoint.
+
+Full detail on each in [`PROJECT_OVERVIEW.md`](PROJECT_OVERVIEW.md#pending).
 
 ## Tech stack
 
@@ -105,6 +115,11 @@ npm run dev
 This starts both backend (port 8000) and frontend (port 5173) together.
 Open `http://localhost:5173` and try typing "list phases" into the chat —
 a reply back confirms everything's wired up correctly.
+
+**Run the tests** (from `/backend`):
+```bash
+python -m pytest tests/ -q
+```
 
 Full setup detail, troubleshooting for common first-run errors, and the
 reasoning behind two different Supabase connection methods are in
