@@ -33,5 +33,25 @@ class Settings(BaseSettings):
     # many days since any document was filed while it's still mid-phase.
     stale_after_days: int = 3
 
+    # Storage backend selection. Only affects which StorageBackend
+    # implementation the DI factories in app/deps.py return; every other
+    # call site is unchanged. "local" (default) keeps the POC behaviour;
+    # "sharepoint" routes reads/writes through Microsoft Graph.
+    storage_backend: str = "local"
+
+    # SharePoint / Microsoft Graph (only read when storage_backend="sharepoint").
+    # SHAREPOINT_SITE_ID is Graph's composite ID for the target site:
+    #   "<host>.sharepoint.com,<site-guid>,<web-guid>"
+    # Fetch it once from Graph Explorer via
+    #   GET /sites/{host}:/{site-path}
+    # SHAREPOINT_DRIVE_ID is optional; leaving it blank tells Graph to use
+    # the site's default document library.
+    sharepoint_tenant_id: str = ""
+    sharepoint_client_id: str = ""
+    sharepoint_client_secret: str = ""
+    sharepoint_site_id: str = ""
+    sharepoint_drive_id: str = ""
+    sharepoint_root_path: str = ""
+
 
 settings = Settings()
