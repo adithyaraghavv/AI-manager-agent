@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 import httpx
 from openai import BadRequestError
 
-from app.agent.orchestrator import run_turn
+from app.agent.orchestrator import SYSTEM_PROMPT, run_turn
 
 
 def _bad_request_error(code: str) -> BadRequestError:
@@ -33,6 +33,16 @@ def test_plain_reply_with_no_tool_calls_is_appended_to_messages():
 
     assert result[-1] == {"role": "assistant", "content": "Hillenbrand is missing MSA, SOW, Pricing."}
     assert instance.chat.completions.create.call_count == 1
+
+
+def test_system_prompt_forbids_answering_from_stale_conversation_history():
+    # Regression guard for a real bug seen live: within one conversation, the model
+    # reused an earlier tool result (e.g. "template file missing") for a repeated
+    # request instead of calling the tool again — even after the underlying state
+    # had actually changed (the file got seeded). Tool results must never be
+    # treated as still valid just because they're in the conversation history.
+    assert "ALWAYS call the tool again for every new request" in SYSTEM_PROMPT
+    assert "never guaranteed to still be accurate" in SYSTEM_PROMPT
 
 
 def test_bad_request_errors_are_not_swallowed():
