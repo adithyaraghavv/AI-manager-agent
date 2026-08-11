@@ -12,6 +12,9 @@ function summarize(name, result) {
         : `Template request blocked: ${result.reason}`
     case 'list_phases':
       return `Listed ${result.phases?.length ?? 0} project phases`
+    case 'get_document_versions':
+      if (!result.found) return `No document on file: ${result.reason}`
+      return `Found ${result.versions?.length ?? 0} version${result.versions?.length === 1 ? '' : 's'} of "${result.doc_type}" for ${result.client_name}`
     default:
       return name
   }
@@ -19,6 +22,7 @@ function summarize(name, result) {
 
 export default function ToolActivity({ name, result }) {
   const showDownload = name === 'request_template' && result.allowed && result.download_url
+  const showVersionList = name === 'get_document_versions' && result.found && result.versions?.length > 0
 
   return (
     <div className="tool-activity">
@@ -28,6 +32,18 @@ export default function ToolActivity({ name, result }) {
         <a className="tool-activity__download" href={result.download_url} download>
           Download {result.filename}
         </a>
+      )}
+      {showVersionList && (
+        <ul className="tool-activity__version-list">
+          {result.versions.map((v) => (
+            <li key={v.version_number}>
+              <a className="tool-activity__download" href={v.download_url} download>
+                Download v{v.version_number}.0
+              </a>
+              {v.comment && <span className="tool-activity__version-comment"> — {v.comment}</span>}
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   )

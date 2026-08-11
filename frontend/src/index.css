@@ -541,6 +541,21 @@ body {
   text-decoration: underline;
 }
 
+.tool-activity__version-list {
+  flex-basis: 100%;
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tool-activity__version-comment {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
 .tool-activity--success {
   background: var(--ok-bg);
   color: var(--ok);

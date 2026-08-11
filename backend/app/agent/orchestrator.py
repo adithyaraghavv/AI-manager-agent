@@ -28,6 +28,10 @@ request_template just told you IN THIS SAME TOOL CALL — if it says allowed=tru
 template is ready. The UI already renders a clickable download button for it — do NOT paste the \
 raw download_url path in your reply, that's redundant and looks unpolished; just say something \
 like "The Pricing template is ready — you can download it above."
+- Same for get_document_versions: the UI already renders a clickable download link for every \
+version listed, right below your reply — do NOT paste the raw download_url values yourself. Just \
+summarize (e.g. "Found 3 versions of the HLD for Hillenbrand — download links are above, along \
+with who uploaded each one and any change notes").
 - ALWAYS call the tool again for every new request, even if the PM asked the exact same thing \
 earlier in this conversation. Real state can change between messages — a missing file can get \
 fixed, a document can get uploaded, a phase can get unblocked — so a tool result from earlier in \
