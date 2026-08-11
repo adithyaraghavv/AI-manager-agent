@@ -13,7 +13,7 @@ function BubbleAvatar({ role, hidden }) {
   if (role === 'user') {
     return (
       <span className="bubble-avatar bubble-avatar--user" aria-hidden="true">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
           <path
             d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"
             stroke="currentColor"
@@ -26,15 +26,12 @@ function BubbleAvatar({ role, hidden }) {
       </span>
     )
   }
+  // Marlabs-branded mark for the assistant, not a generic robot icon —
+  // brand-gradient circle with the wordmark's "M", same navy/blue as the
+  // header logo.
   return (
     <span className="bubble-avatar bubble-avatar--assistant" aria-hidden="true">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-        <rect x="3" y="10" width="18" height="10" rx="3" stroke="currentColor" strokeWidth="1.8" />
-        <path d="M12 10V6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        <circle cx="12" cy="4" r="1.6" fill="currentColor" />
-        <circle cx="8.5" cy="15" r="1.3" fill="currentColor" />
-        <circle cx="15.5" cy="15" r="1.3" fill="currentColor" />
-      </svg>
+      M
     </span>
   )
 }
@@ -92,6 +89,7 @@ export default function ChatPanel() {
   const [chatId, setChatId] = useState(null)
   const scrollRef = useRef(null)
   const fileInputRef = useRef(null)
+  const textareaRef = useRef(null)
   const dragDepth = useRef(0)
   const chatIdRef = useRef(null)
   const { entries: chatHistory, saveEntry, deleteEntry } = useChatHistory()
@@ -99,6 +97,16 @@ export default function ChatPanel() {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages, pendingFile])
+
+  // Auto-grow the composer only as far as the content actually needs —
+  // starts at one line, expands with typed content, and collapses back
+  // down (not left tall) once the message is sent or cleared.
+  useEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [input])
 
   // Auto-save to the local chat history sidebar after every exchange that has
   // real user content — a fresh chatId is minted on the first user message, so
@@ -438,6 +446,7 @@ export default function ChatPanel() {
 
       <div className="chat-panel__input">
         <textarea
+          ref={textareaRef}
           className="chat-panel__textarea"
           value={input}
           onChange={(e) => setInput(e.target.value)}
