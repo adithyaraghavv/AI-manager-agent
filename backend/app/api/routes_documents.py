@@ -115,6 +115,7 @@ def search_documents_route(
                 "doc_type": r.doc_type,
                 "filename": r.filename,
                 "phase_name": r.phase_name,
+                "version_count": r.version_count,
                 "download_url": f"/api/clients/{r.client_name}/documents/{r.doc_type}/download",
             }
             for r in results

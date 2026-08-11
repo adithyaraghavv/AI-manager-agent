@@ -89,7 +89,10 @@ export default function DocumentSearch() {
                       className="doc-search__result-versions-toggle"
                       onClick={() => toggleVersions(key)}
                     >
-                      {expandedKey === key ? 'Hide versions' : 'Versions'}
+                      <span className="doc-search__version-count">
+                        {r.version_count} {r.version_count === 1 ? 'version' : 'versions'}
+                      </span>
+                      {expandedKey === key ? 'Hide' : 'View'}
                     </button>
                   </div>
                   {expandedKey === key && (

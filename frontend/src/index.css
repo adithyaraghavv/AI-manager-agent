@@ -1213,6 +1213,9 @@ body {
 
 .doc-search__result-versions-toggle {
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 12px;
   font-weight: 600;
   color: var(--accent);
@@ -1221,6 +1224,16 @@ body {
   border: none;
   cursor: pointer;
   padding: 4px 2px;
+}
+
+.doc-search__version-count {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 8px;
 }
 
 .doc-search__result-versions-toggle:hover {
