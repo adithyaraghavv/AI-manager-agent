@@ -344,9 +344,9 @@ export default function ChatPanel() {
             <div className="bubble bubble--assistant">
               <div className="bubble__label">Agent</div>
               <div className="bubble__text">
-                Hi, I'm your delivery assistant. I can check a client's document status, hand over a
-                phase-appropriate template, or file a completed document for you — just ask, or
-                attach a file directly with the 📎 button below.
+                Hey! What can I help with — checking on a client, grabbing a template, or filing
+                something you've finished? You can also just drop a file in with the 📎 below if
+                that's easier.
               </div>
             </div>
           </div>
