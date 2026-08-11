@@ -68,18 +68,30 @@
   box-sizing: border-box;
 }
 
+html,
+body,
+#root {
+  height: 100%;
+}
+
 body {
   margin: 0;
+  /* The app manages its own internal scroll regions (chat messages, the
+     upload panel on short viewports) — the page itself never scrolls, so
+     the header/tabs and the composer stay visible together at all times. */
+  overflow: hidden;
 }
 
 .app {
   width: 100%;
-  min-height: 100svh;
+  height: 100svh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .app__header {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -109,6 +121,7 @@ body {
 }
 
 .app__hero {
+  flex-shrink: 0;
   padding: 34px 24px;
   text-align: center;
   background: linear-gradient(135deg, var(--brand-navy) 0%, #0a0e2e 60%, #000000 100%);
@@ -176,17 +189,29 @@ body {
   flex: 1;
   display: grid;
   grid-template-columns: 1fr 340px;
+  /* A single explicit row pinned to the container's own height — without
+     this, an auto-sized row grows to fit whichever side (the upload
+     panel's stacked form fields, in practice) is taller, pushing the
+     whole page past the viewport instead of letting each side manage its
+     own internal scroll. */
+  grid-template-rows: minmax(0, 1fr);
   gap: 20px;
   padding: 20px;
   min-height: 0;
   width: 100%;
   max-width: 1400px;
   margin: 0 auto;
+  overflow: hidden;
 }
 
 @media (max-width: 800px) {
   .app__main {
     grid-template-columns: 1fr;
+    /* Below the breakpoint, Chat and Upload stack as two rows instead of
+       side-by-side columns — pinning to one fixed-height row no longer
+       makes sense, so let this region scroll as a whole instead. */
+    grid-template-rows: none;
+    overflow-y: auto;
   }
 }
 
@@ -198,8 +223,8 @@ body {
   border-radius: 12px;
   display: flex;
   flex-direction: column;
-  min-height: 60vh;
-  max-height: 80vh;
+  height: 100%;
+  min-height: 0;
   overflow: hidden;
   position: relative;
   box-shadow: 0 1px 2px rgba(16, 18, 28, 0.04), 0 12px 32px rgba(16, 18, 28, 0.06);
@@ -1223,7 +1248,16 @@ body {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 18px;
-  height: fit-content;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+@media (max-width: 800px) {
+  .upload-panel {
+    height: fit-content;
+    overflow-y: visible;
+  }
 }
 
 .upload-panel h2 {
@@ -1350,6 +1384,16 @@ body {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 24px;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+@media (max-width: 800px) {
+  .dashboard {
+    height: auto;
+    overflow-y: visible;
+  }
 }
 
 .dashboard__header {
