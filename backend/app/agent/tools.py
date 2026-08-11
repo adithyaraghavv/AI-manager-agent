@@ -17,7 +17,14 @@ from app.core.gating import missing_documents
 from app.core.phase_config import PhaseConfig
 from app.db.rest_client import SupabaseRestClient
 from app.services.client_service import existing_document_types, find_client, get_or_create_client
-from app.services.document_service import GatingBlocked, TemplateFileMissing, TemplateNotFound, request_template
+from app.services.document_service import (
+    ClientDocumentNotFound,
+    GatingBlocked,
+    TemplateFileMissing,
+    TemplateNotFound,
+    list_document_versions,
+    request_template,
+)
 from app.storage.base import StorageBackend
 
 TOOL_DEFINITIONS: list[dict[str, Any]] = [
@@ -66,6 +73,29 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "client_name": {"type": "string", "description": "The client's name."},
                 },
                 "required": ["doc_type", "client_name"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_document_versions",
+            "description": (
+                "List every version on file for one of a client's documents — oldest to newest, with who "
+                "uploaded each one, when, and any change comment. Re-uploading a document never overwrites "
+                "an earlier version; every upload is kept permanently. Use this when the PM asks about "
+                "version history, a document's past versions, or wants to see/download an older version."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "client_name": {"type": "string", "description": "The client's name."},
+                    "doc_type": {
+                        "type": "string",
+                        "description": "Exact document type, e.g. 'Approved HLD'.",
+                    },
+                },
+                "required": ["client_name", "doc_type"],
             },
         },
     },
@@ -148,6 +178,32 @@ def dispatch_tool(
             return {"allowed": False, "reason": str(e)}
         except ValueError as e:
             return {"allowed": False, "reason": str(e)}
+
+    if tool_name == "get_document_versions":
+        client_name = tool_input["client_name"]
+        doc_type = tool_input["doc_type"]
+        try:
+            versions = list_document_versions(rest, client_name, doc_type)
+        except ClientDocumentNotFound as e:
+            return {"found": False, "reason": str(e)}
+        return {
+            "found": True,
+            "client_name": client_name,
+            "doc_type": doc_type,
+            "versions": [
+                {
+                    "version_number": v.version_number,
+                    "filename": v.filename,
+                    "uploaded_by": v.uploaded_by,
+                    "comment": v.comment,
+                    "uploaded_at": v.uploaded_at,
+                    "download_url": (
+                        f"/api/clients/{client_name}/documents/{doc_type}/versions/{v.version_number}/download"
+                    ),
+                }
+                for v in versions
+            ],
+        }
 
     if tool_name == "propose_delete_client":
         client_name = tool_input["client_name"]

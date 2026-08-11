@@ -51,7 +51,7 @@ what the AI says.
 
 ### Chatbot capabilities
 
-The assistant (OpenAI GPT-4o) has four tools it can call — it can
+The assistant (OpenAI GPT-4o) has five tools it can call — it can
 only ever do what these tools allow, nothing else, so it can't be talked into
 doing something the system doesn't actually support:
 
@@ -63,7 +63,10 @@ doing something the system doesn't actually support:
 3. **Request a master template** — hard-gated: refuses and explains exactly
    what's missing if any earlier phase is incomplete, rather than handing
    over a template out of order.
-4. **Delete a client** — looks the client up and shows their info, but
+4. **Show a document's version history** — every version ever uploaded for
+   a client's document, oldest to newest, with who uploaded it and any
+   change comment, plus a download link for each one.
+5. **Delete a client** — looks the client up and shows their info, but
    **never deletes anything itself**. It hands off to a confirm/cancel card
    in the UI; only a human clicking "Confirm & delete" actually removes
    anything. Deletion is a **soft delete** — the client is hidden everywhere
@@ -72,6 +75,10 @@ doing something the system doesn't actually support:
    permanently purges them after a retention window. The AI is not allowed
    to claim a deletion happened — it has no way of knowing whether the human
    confirmed.
+- Every tool result is re-checked fresh, every time — even if the PM asks
+  the exact same thing twice in one conversation. Real state (a fixed file,
+  a new upload, a newly filed document) can change between messages, so the
+  assistant never answers a repeat question from its own earlier reply.
 
 On top of the tools themselves:
 - **Attach-to-upload** — drop a completed file directly into the chat
@@ -110,6 +117,15 @@ On top of the tools themselves:
   through the standalone upload panel or by attaching/dragging a file
   directly into the chat thread (with an inline confirm-before-upload card).
   Validated server-side against a file-type allow-list and a 50MB size cap.
+- **Document version history.** Re-uploading a document never overwrites or
+  loses the previous one — every upload becomes a new, permanent version
+  (v1, v2, v3...), with an optional "uploaded by" name and change comment.
+  Every version stays downloadable forever, and an older version can be
+  **restored** — which copies its content forward as a brand-new version
+  rather than deleting anything, so the full history only ever grows.
+  Available both from the Dashboard's document search ("Versions" on any
+  result) and by asking the chat assistant, e.g. "show me the versions of
+  Hillenbrand's HLD."
 - **Document search** — a search box on the Dashboard finds any stored
   document by client name, document type, or filename, with a direct
   download link on each result.
@@ -154,7 +170,7 @@ On top of the tools themselves:
 - Marlabs rebrand (logo, colors, typography)
 - Saved/reopenable chat history, drag-and-drop file attach, message
   avatars + animated typing indicator
-- 91 backend tests passing, no known dependency CVEs (checked via
+- 113 backend tests passing, no known dependency CVEs (checked via
   `pip-audit` / `npm audit`)
 
 ### Pending
@@ -198,7 +214,7 @@ On top of the tools themselves:
   app; one-off seed/cleanup scripts also use the REST API (not a direct
   connection) so they can be run from any network
 - Pydantic / pydantic-settings — request/response models, config
-- pytest — 91 tests covering gating logic, services, routes, and the seed
+- pytest — 113 tests covering gating logic, services, routes, and the seed
   scripts
 
 **Frontend**
@@ -295,6 +311,32 @@ why Supabase is accessed two different ways, and `docs/` for the original
 discovery documentation and database structure.
 
 ## Recent updates
+
+### 2026-08-11 — Document version history, fixed a live stale-answer bug
+
+- **Document version history added.** Re-uploading a document no longer
+  overwrites the previous file — every upload creates a new, permanent
+  version (new `document_versions` table, one immutable row per upload),
+  with an optional uploader name and change comment. `client_documents`
+  still tracks only the current version (so gating logic is unchanged), but
+  every past version stays downloadable, viewable, and can be **restored**
+  (which copies its content forward as a brand-new version — nothing is
+  ever deleted or overwritten). Reachable from the Dashboard's document
+  search ("Versions" on any result) and from the chat assistant (new
+  `get_document_versions` tool). While building this, a real bug was
+  caught by the test suite before it shipped: two uploads within the same
+  second would have collided on the same filename and silently overwritten
+  each other on disk despite getting separate version numbers in the
+  database — fixed by folding the version number into the storage path
+  instead of relying on timestamp precision alone.
+- **Fixed a live bug found during pre-demo testing:** within a single chat
+  conversation, asking for the same template/status a second time could
+  return the model's memory of its earlier answer instead of re-checking —
+  so a file that had since been fixed still reported as broken. The system
+  prompt now explicitly requires every request to call the tool again,
+  since real state (files, uploads, phase status) can change between
+  messages and a past tool result is never guaranteed to still be accurate.
+- 113 backend tests passing.
 
 ### 2026-08-07 — Friendly error for missing local template files, LLM swapped from Groq to OpenAI
 

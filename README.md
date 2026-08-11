@@ -49,6 +49,9 @@ flowchart LR
 - **Document upload** — file a completed document via the chat (drag-and-drop
   or attach) or a standalone upload panel, validated server-side for file
   type and size.
+- **Document version history** — re-uploading never overwrites the previous
+  file; every upload is kept as a new version forever, viewable, downloadable,
+  and restorable (via the Dashboard search or the chat assistant).
 - **Document search** — find any stored document by client, type, or
   filename, with a direct download link.
 - **Manager dashboard** — every client's phase progress, current blocking

@@ -56,7 +56,9 @@ class Client(Base):
 
 
 class ClientDocument(Base):
-    """A completed document filed for a client under a specific phase/doc type."""
+    """A completed document filed for a client under a specific phase/doc type.
+    Always points at the CURRENT (latest) version — full version history lives
+    in DocumentVersion, never overwritten or deleted."""
 
     __tablename__ = "client_documents"
     __table_args__ = (UniqueConstraint("client_id", "doc_type", name="uq_client_doc_type"),)
@@ -70,3 +72,24 @@ class ClientDocument(Base):
     uploaded_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
     client: Mapped["Client"] = relationship(back_populates="documents")
+
+
+class DocumentVersion(Base):
+    """One immutable snapshot of a client's document at the moment it was
+    uploaded. Every upload for a given (client, doc_type) creates a NEW row
+    here — nothing is ever overwritten or deleted, so the full history is
+    always recoverable. ClientDocument tracks only the current pointer;
+    this table is the source of truth for "what did version 2 look like."""
+
+    __tablename__ = "document_versions"
+    __table_args__ = (UniqueConstraint("client_id", "doc_type", "version_number", name="uq_client_doc_version"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("clients.id"), nullable=False)
+    doc_type: Mapped[str] = mapped_column(String, nullable=False)
+    version_number: Mapped[int] = mapped_column(nullable=False)
+    storage_path: Mapped[str] = mapped_column(String, nullable=False)
+    filename: Mapped[str] = mapped_column(String, nullable=False)
+    uploaded_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    comment: Mapped[str | None] = mapped_column(String, nullable=True)
+    uploaded_at: Mapped[datetime] = mapped_column(server_default=func.now())

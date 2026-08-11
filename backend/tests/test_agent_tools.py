@@ -2,6 +2,7 @@ import pytest
 
 from app.agent.tools import dispatch_tool
 from app.core.phase_config import Phase, PhaseConfig
+from app.services.document_service import upload_document
 from app.storage.local import LocalFilesystemStorage
 
 CONFIG = PhaseConfig(
@@ -96,3 +97,20 @@ def test_propose_delete_client_finds_client_regardless_of_casing(rest, storage):
     # Still there — proposing is not deleting
     assert rest.select("clients", name="Hillenbrand") != []
     assert storage.exists("Hillenbrand")
+
+
+def test_get_document_versions_lists_full_history(rest, storage):
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v1", "pdf", uploaded_by="Priya", comment="First")
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v2", "pdf", uploaded_by="Priya", comment="Second")
+
+    result = dispatch_tool(rest, storage, storage, CONFIG, "get_document_versions", {"client_name": "Acme", "doc_type": "MSA"})
+
+    assert result["found"] is True
+    assert [v["version_number"] for v in result["versions"]] == [1, 2]
+    assert result["versions"][1]["comment"] == "Second"
+
+
+def test_get_document_versions_unknown_client_reports_not_found(rest, storage):
+    result = dispatch_tool(rest, storage, storage, CONFIG, "get_document_versions", {"client_name": "Ghost", "doc_type": "MSA"})
+
+    assert result["found"] is False

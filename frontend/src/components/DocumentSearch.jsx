@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { searchDocuments } from '../api'
+import DocumentVersionHistory from './DocumentVersionHistory'
 
 // Debounced so typing doesn't fire a request per keystroke — waits for a
 // short pause before actually searching.
@@ -10,8 +11,13 @@ export default function DocumentSearch() {
   const [results, setResults] = useState(null)
   const [searching, setSearching] = useState(false)
   const [error, setError] = useState(null)
+  const [expandedKey, setExpandedKey] = useState(null)
   const timerRef = useRef(null)
   const latestQueryRef = useRef('')
+
+  function toggleVersions(key) {
+    setExpandedKey((current) => (current === key ? null : key))
+  }
 
   function handleChange(e) {
     const value = e.target.value
@@ -67,17 +73,31 @@ export default function DocumentSearch() {
           {results.length === 0 ? (
             <div className="doc-search__status">No documents match "{query}"</div>
           ) : (
-            results.map((r, i) => (
-              <a key={i} className="doc-search__result" href={r.download_url} download>
-                <div>
-                  <div className="doc-search__result-name">{r.filename}</div>
-                  <div className="doc-search__result-meta">
-                    {r.client_name} · {r.doc_type} · {r.phase_name}
+            results.map((r, i) => {
+              const key = `${r.client_name}::${r.doc_type}`
+              return (
+                <div key={i} className="doc-search__result-wrap">
+                  <div className="doc-search__result">
+                    <a className="doc-search__result-link" href={r.download_url} download>
+                      <div className="doc-search__result-name">{r.filename}</div>
+                      <div className="doc-search__result-meta">
+                        {r.client_name} · {r.doc_type} · {r.phase_name}
+                      </div>
+                    </a>
+                    <button
+                      type="button"
+                      className="doc-search__result-versions-toggle"
+                      onClick={() => toggleVersions(key)}
+                    >
+                      {expandedKey === key ? 'Hide versions' : 'Versions'}
+                    </button>
                   </div>
+                  {expandedKey === key && (
+                    <DocumentVersionHistory clientName={r.client_name} docType={r.doc_type} />
+                  )}
                 </div>
-                <span className="doc-search__result-download">Download</span>
-              </a>
-            ))
+              )
+            })
           )}
         </div>
       )}
