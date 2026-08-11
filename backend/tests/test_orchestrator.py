@@ -61,6 +61,16 @@ def test_system_prompt_forbids_answering_from_stale_conversation_history():
     assert "never guaranteed to still be accurate" in SYSTEM_PROMPT
 
 
+def test_system_prompt_asks_for_a_warm_natural_tone_not_a_terse_bot():
+    # Feedback from a live demo: responses read as stiff/robotic, not like a
+    # natural assistant (Claude/ChatGPT-style). The old prompt explicitly said
+    # "not a chatty assistant" with no positive guidance toward warmth — that's
+    # what produced the clipped tone. Guard against that instruction sneaking
+    # back in without a corresponding push toward natural, varied phrasing.
+    assert "not a scripted bot" in SYSTEM_PROMPT
+    assert "not a chatty assistant" not in SYSTEM_PROMPT
+
+
 def test_bad_request_errors_are_not_swallowed():
     # A 400 (e.g. bad API key, malformed request) should propagate normally
     # rather than being silently masked.
