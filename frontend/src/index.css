@@ -202,6 +202,7 @@ body {
   max-height: 80vh;
   overflow: hidden;
   position: relative;
+  box-shadow: 0 1px 2px rgba(16, 18, 28, 0.04), 0 12px 32px rgba(16, 18, 28, 0.06);
 }
 
 .chat-panel__drop-overlay {
@@ -372,7 +373,26 @@ body {
 .chat-panel__messages {
   flex: 1;
   overflow-y: auto;
-  padding: 14px 10px;
+  padding: 14px 24px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.chat-panel__messages::-webkit-scrollbar {
+  width: 8px;
+}
+
+.chat-panel__messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-panel__messages::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+
+.chat-panel__messages::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
 }
 
 .chat-panel__messages-inner {
@@ -435,7 +455,6 @@ body {
   display: flex;
   align-items: flex-end;
   gap: 8px;
-  max-width: 74%;
   margin-top: 20px;
 }
 
@@ -446,10 +465,12 @@ body {
 .bubble-row--user {
   align-self: flex-end;
   flex-direction: row-reverse;
+  max-width: 58%;
 }
 
 .bubble-row--assistant {
   align-self: flex-start;
+  max-width: 72%;
 }
 
 .bubble-avatar {
@@ -492,6 +513,43 @@ body {
 
 .bubble--assistant {
   align-items: flex-start;
+}
+
+.bubble__text-wrap {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.bubble--user .bubble__text-wrap {
+  flex-direction: row-reverse;
+}
+
+.bubble__copy {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+
+.bubble-row:hover .bubble__copy,
+.bubble__copy:focus-visible {
+  opacity: 1;
+}
+
+.bubble__copy:hover {
+  background: var(--bg);
+  color: var(--accent);
 }
 
 .bubble__text {
@@ -572,6 +630,76 @@ body {
 .tool-activity--error {
   background: var(--danger-bg);
   color: var(--danger);
+}
+
+/* Status card — a client's phase progress rendered as a real mini-dashboard
+   (progress bar + blocking detail) instead of a single dense sentence. */
+
+.status-card {
+  margin-top: 8px;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.status-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.status-card__title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.status-card__badge {
+  flex-shrink: 0;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--status-warning);
+  background: var(--warning-bg);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.status-card__badge--good {
+  color: var(--ok);
+  background: var(--ok-bg);
+}
+
+.status-card__bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.status-card__bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--brand-navy), var(--accent-bright));
+  transition: width 0.3s ease;
+}
+
+.status-card__detail {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.status-card__detail strong {
+  color: var(--text-h);
+  font-weight: 600;
+}
+
+.status-card__detail--good {
+  color: var(--ok);
 }
 
 /* File cards — the visual target for any downloadable file surfaced in the

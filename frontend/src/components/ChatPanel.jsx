@@ -36,6 +36,37 @@ function BubbleAvatar({ role, hidden }) {
   )
 }
 
+function CopyButton({ text }) {
+  const [copied, setCopied] = useState(false)
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // Clipboard permission denied or unavailable — nothing useful to do,
+      // fail silently rather than show a scary error for a convenience action.
+    }
+  }
+
+  return (
+    <button type="button" className="bubble__copy" onClick={handleCopy} title="Copy message">
+      {copied ? (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      ) : (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <rect x="9" y="9" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.6" />
+          <path d="M5 15V5a2 2 0 012-2h10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        </svg>
+      )}
+      <span className="sr-only">{copied ? 'Copied' : 'Copy message'}</span>
+    </button>
+  )
+}
+
 function extractText(content) {
   if (typeof content === 'string') return content
   if (Array.isArray(content)) {
@@ -404,7 +435,10 @@ export default function ChatPanel() {
               <div key={i} className={`bubble-row bubble-row--${msg.role}${grouped ? ' bubble-row--grouped' : ''}`}>
                 <BubbleAvatar role={msg.role} hidden={grouped} />
                 <div className={`bubble bubble--${msg.role}`}>
-                  <div className="bubble__text">{text}</div>
+                  <div className="bubble__text-wrap">
+                    <div className="bubble__text">{text}</div>
+                    <CopyButton text={text} />
+                  </div>
                 </div>
               </div>
             )

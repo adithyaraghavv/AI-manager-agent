@@ -23,12 +23,10 @@ function inProgressPhrase(name, result) {
 
 function summarize(name, result) {
   switch (name) {
-    case 'get_client_status': {
-      const blocked = result.phases?.find((p) => !p.complete)
-      return blocked
-        ? `Checked status for "${result.client_name}" — blocked at "${blocked.phase}" (missing: ${blocked.missing_documents.join(', ')})`
-        : `Checked status for "${result.client_name}" — all phases complete`
-    }
+    case 'get_client_status':
+      // Rendered as a StatusCard instead — this text is only a fallback
+      // (e.g. if `phases` is ever missing from an older/mocked result).
+      return `Checked status for "${result.client_name}"`
     case 'request_template':
       return result.allowed
         ? `Template "${result.filename}" is available`
@@ -45,6 +43,34 @@ function summarize(name, result) {
     default:
       return name
   }
+}
+
+function StatusCard({ result }) {
+  const phases = result.phases ?? []
+  const completeCount = phases.filter((p) => p.complete).length
+  const blocked = phases.find((p) => !p.complete)
+  const pct = phases.length ? Math.round((completeCount / phases.length) * 100) : 0
+
+  return (
+    <div className="status-card">
+      <div className="status-card__header">
+        <span className="status-card__title">{result.client_name}</span>
+        <span className={`status-card__badge${blocked ? '' : ' status-card__badge--good'}`}>
+          {completeCount}/{phases.length} phases
+        </span>
+      </div>
+      <div className="status-card__bar">
+        <div className="status-card__bar-fill" style={{ width: `${pct}%` }} />
+      </div>
+      {blocked ? (
+        <div className="status-card__detail">
+          Blocked at <strong>{blocked.phase}</strong> — missing {blocked.missing_documents.join(', ')}
+        </div>
+      ) : (
+        <div className="status-card__detail status-card__detail--good">All phases complete</div>
+      )}
+    </div>
+  )
 }
 
 function FileCard({ title, badge, meta, comment, href }) {
@@ -101,6 +127,7 @@ export default function ToolActivity({ name, result }) {
 
   const showDownload = settled && name === 'request_template' && result.allowed && result.download_url
   const showVersionList = settled && name === 'get_document_versions' && result.found && result.versions?.length > 0
+  const showStatusCard = settled && name === 'get_client_status' && Array.isArray(result.phases)
 
   return (
     <div className="tool-activity">
@@ -110,6 +137,7 @@ export default function ToolActivity({ name, result }) {
         </span>
         <span className="tool-activity__text">{settled ? summarize(name, result) : inProgressPhrase(name, result)}</span>
       </div>
+      {showStatusCard && <StatusCard result={result} />}
       {showDownload && (
         <div className="file-card-list">
           <FileCard title={result.filename} href={result.download_url} />
