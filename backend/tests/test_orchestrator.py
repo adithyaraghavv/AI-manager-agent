@@ -35,6 +35,22 @@ def test_plain_reply_with_no_tool_calls_is_appended_to_messages():
     assert instance.chat.completions.create.call_count == 1
 
 
+def test_system_prompt_forbids_fabricating_download_links():
+    # Regression guard for a real bug seen live: asked for a download link,
+    # the model invented plausible-looking but fake URLs (e.g.
+    # "sandbox:/api/...") instead of calling get_document_versions and using
+    # its real download_url. Every link must come from an actual tool result.
+    assert "NEVER invent, construct, guess, or reconstruct a download URL" in SYSTEM_PROMPT
+
+
+def test_system_prompt_requires_exact_document_type_names():
+    # Regression guard for a real bug seen live: "signed off test summary
+    # report" (the PM's casual phrasing) didn't match the config's exact
+    # "Signed-off Test Summary Report" and got rejected as undefined, even
+    # though the document type does exist.
+    assert "must match EXACTLY as they appear in list_phases" in SYSTEM_PROMPT
+
+
 def test_system_prompt_forbids_answering_from_stale_conversation_history():
     # Regression guard for a real bug seen live: within one conversation, the model
     # reused an earlier tool result (e.g. "template file missing") for a repeated
