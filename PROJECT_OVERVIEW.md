@@ -312,6 +312,23 @@ discovery documentation and database structure.
 
 ## Recent updates
 
+### 2026-08-11 10:14 UTC — Chat UI overhaul, agent reliability fixes, viewport-scroll fix
+
+- **Two more live agent bugs fixed**, found during the same pre-demo testing pass as the stale-answer fix below:
+  - The assistant fabricated fake download links (e.g. `sandbox:/api/...`) instead of calling a tool and using its real `download_url` when asked for one directly. System prompt now explicitly forbids inventing any link under any circumstance.
+  - Casual document-type phrasing ("signed off test summary report") didn't match the config's exact spelling ("Signed-off Test Summary Report") and was wrongly reported as undefined. System prompt now requires resolving to the exact string from `list_phases` rather than guessing/paraphrasing.
+- **Tone pass.** The system prompt's "not a chatty assistant" instruction was producing stiff, clipped replies — replaced with guidance toward natural, warm, Claude/ChatGPT-style phrasing while keeping the same accuracy requirements. The static new-chat greeting (not AI-generated) was rewritten to match.
+- **Chat UI redesign** (three passes, driven by live demo feedback):
+  - Removed "YOU"/"AGENT" labels and repeated avatars — consecutive messages from the same sender now group under one avatar.
+  - Widened the message column to use the panel's actual available width (was artificially capped, leaving dead gutters); differentiated bubble widths (user 58% / assistant 72%); tightened spacing to an 8/12/20px rhythm.
+  - Replaced the generic robot avatar with a Marlabs-branded gradient "M" mark.
+  - Every downloadable file (a template, a document version) now renders as a real file card — icon, title, version badge, uploader/comment, download button, hover lift — instead of a bare text link.
+  - `get_client_status` now renders as a status card (progress bar + blocking detail) instead of one dense sentence.
+  - Added hover-to-copy on messages, a brief "in progress" phase before a tool result settles (spinner + present-continuous phrasing, e.g. "Checking status for..."), a soft elevation shadow on the chat panel, a modern thin scrollbar, and Inter for message typography (alongside the existing Poppins headings).
+  - Composer shrunk and now genuinely auto-grows/shrinks with content instead of a fixed single row.
+- **Fixed page-level scrolling.** The whole page was scrolling instead of just the chat messages — root cause was `.app` using `min-height` (not a fixed height) plus the upload panel using `height: fit-content` inside an auto-sized grid row, so the panel's stacked form fields pushed the entire page taller than the viewport. Fixed by pinning the page to `100svh` with no page-level scroll, and having the chat panel, upload panel, and dashboard each fill their own space with their own internal `overflow-y: auto` — header, tabs, and the composer now stay visible together at all times on common laptop screens.
+- 117 backend tests passing (frontend-only changes beyond this point didn't add backend tests).
+
 ### 2026-08-11 — Document version history, fixed a live stale-answer bug
 
 - **Document version history added.** Re-uploading a document no longer
