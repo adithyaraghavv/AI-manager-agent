@@ -1,3 +1,26 @@
+import { useEffect, useState } from 'react'
+
+// Present-continuous phrasing shown briefly before settling on the final
+// result — same idea as Claude/ChatGPT's transient "Searching…" state, so a
+// tool call reads as something actively happening rather than an instant,
+// silent fact appearing on screen.
+function inProgressPhrase(name, result) {
+  switch (name) {
+    case 'get_client_status':
+      return `Checking status for "${result.client_name}"…`
+    case 'request_template':
+      return 'Checking template availability…'
+    case 'list_phases':
+      return 'Listing project phases…'
+    case 'get_document_versions':
+      return 'Looking up document versions…'
+    case 'propose_delete_client':
+      return `Looking up ${result.client_name}…`
+    default:
+      return 'Working…'
+  }
+}
+
 function summarize(name, result) {
   switch (name) {
     case 'get_client_status': {
@@ -15,6 +38,10 @@ function summarize(name, result) {
     case 'get_document_versions':
       if (!result.found) return `No document on file: ${result.reason}`
       return `Found ${result.versions?.length ?? 0} version${result.versions?.length === 1 ? '' : 's'} of "${result.doc_type}" for ${result.client_name}`
+    case 'propose_delete_client':
+      return result.found
+        ? `Looked up "${result.client_name}" — ${result.phases_complete}/${result.total_phases} phases complete, ${result.document_count} documents filed`
+        : `No client named "${result.client_name}" found`
     default:
       return name
   }
@@ -59,14 +86,29 @@ function FileCard({ title, badge, meta, comment, href }) {
 }
 
 export default function ToolActivity({ name, result }) {
-  const showDownload = name === 'request_template' && result.allowed && result.download_url
-  const showVersionList = name === 'get_document_versions' && result.found && result.versions?.length > 0
+  // Every tool result already exists by the time this renders (the whole
+  // backend turn has finished), so this delay is purely presentational —
+  // it holds on the "…ing" phrasing for a beat before revealing the real
+  // outcome, instead of a finished fact just appearing with no sense of
+  // something having happened.
+  const [settled, setSettled] = useState(false)
+
+  useEffect(() => {
+    setSettled(false)
+    const timer = setTimeout(() => setSettled(true), 550)
+    return () => clearTimeout(timer)
+  }, [name, result])
+
+  const showDownload = settled && name === 'request_template' && result.allowed && result.download_url
+  const showVersionList = settled && name === 'get_document_versions' && result.found && result.versions?.length > 0
 
   return (
     <div className="tool-activity">
       <div className="tool-activity__summary">
-        <span className="tool-activity__icon">⚙</span>
-        <span className="tool-activity__text">{summarize(name, result)}</span>
+        <span className={`tool-activity__icon${settled ? '' : ' tool-activity__icon--spin'}`}>
+          {settled ? '⚙' : '◌'}
+        </span>
+        <span className="tool-activity__text">{settled ? summarize(name, result) : inProgressPhrase(name, result)}</span>
       </div>
       {showDownload && (
         <div className="file-card-list">
