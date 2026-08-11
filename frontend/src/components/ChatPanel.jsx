@@ -8,11 +8,12 @@ import DeleteResult from './DeleteResult'
 import ToolActivity from './ToolActivity'
 import UploadResult from './UploadResult'
 
-function BubbleAvatar({ role }) {
+function BubbleAvatar({ role, hidden }) {
+  if (hidden) return <span className="bubble-avatar bubble-avatar--spacer" aria-hidden="true" />
   if (role === 'user') {
     return (
       <span className="bubble-avatar bubble-avatar--user" aria-hidden="true">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
           <path
             d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"
             stroke="currentColor"
@@ -27,7 +28,7 @@ function BubbleAvatar({ role }) {
   }
   return (
     <span className="bubble-avatar bubble-avatar--assistant" aria-hidden="true">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
         <rect x="3" y="10" width="18" height="10" rx="3" stroke="currentColor" strokeWidth="1.8" />
         <path d="M12 10V6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
         <circle cx="12" cy="4" r="1.6" fill="currentColor" />
@@ -338,11 +339,11 @@ export default function ChatPanel() {
         </div>
       )}
       <div className="chat-panel__messages" ref={scrollRef}>
+       <div className="chat-panel__messages-inner">
         {messages.length === 0 && !pendingFile && (
           <div className="bubble-row bubble-row--assistant">
             <BubbleAvatar role="assistant" />
             <div className="bubble bubble--assistant">
-              <div className="bubble__label">Agent</div>
               <div className="bubble__text">
                 Hey! What can I help with — checking on a client, grabbing a template, or filing
                 something you've finished? You can also just drop a file in with the 📎 below if
@@ -351,45 +352,56 @@ export default function ChatPanel() {
             </div>
           </div>
         )}
-        {messages.map((msg, i) => {
-          if (msg.role === 'tool') {
-            let result
-            try {
-              result = JSON.parse(msg.content)
-            } catch {
-              return null
+        {(() => {
+          let previousBubbleRole = null
+          return messages.map((msg, i) => {
+            if (msg.role === 'tool') {
+              previousBubbleRole = null
+              let result
+              try {
+                result = JSON.parse(msg.content)
+              } catch {
+                return null
+              }
+              return <ToolActivity key={i} name={msg.name} result={result} />
             }
-            return <ToolActivity key={i} name={msg.name} result={result} />
-          }
 
-          if (msg.role === 'upload-result') {
-            return <UploadResult key={i} result={msg.content.result} error={msg.content.error} />
-          }
+            if (msg.role === 'upload-result') {
+              previousBubbleRole = null
+              return <UploadResult key={i} result={msg.content.result} error={msg.content.error} />
+            }
 
-          if (msg.role === 'delete-result') {
+            if (msg.role === 'delete-result') {
+              previousBubbleRole = null
+              return (
+                <DeleteResult
+                  key={i}
+                  clientName={msg.content.clientName}
+                  error={msg.content.error}
+                  cancelled={msg.content.cancelled}
+                />
+              )
+            }
+
+            const text = extractText(msg.content)
+            if (msg.role === 'assistant' && !text) return null
+
+            // Consecutive messages from the same sender stack tightly with a
+            // single avatar (shown once, on the first of the run) instead of
+            // repeating "You"/"Agent" labels and an avatar on every bubble.
+            const grouped = previousBubbleRole === msg.role
+            previousBubbleRole = msg.role
+
             return (
-              <DeleteResult
-                key={i}
-                clientName={msg.content.clientName}
-                error={msg.content.error}
-                cancelled={msg.content.cancelled}
-              />
-            )
-          }
-
-          const text = extractText(msg.content)
-          if (msg.role === 'assistant' && !text) return null
-
-          return (
-            <div key={i} className={`bubble-row bubble-row--${msg.role}`}>
-              <BubbleAvatar role={msg.role} />
-              <div className={`bubble bubble--${msg.role}`}>
-                <div className="bubble__label">{msg.role === 'user' ? 'You' : 'Agent'}</div>
-                <div className="bubble__text">{text}</div>
+              <div key={i} className={`bubble-row bubble-row--${msg.role}${grouped ? ' bubble-row--grouped' : ''}`}>
+                <BubbleAvatar role={msg.role} hidden={grouped} />
+                <div className={`bubble bubble--${msg.role}`}>
+                  <div className="bubble__text">{text}</div>
+                </div>
               </div>
-            </div>
-          )
-        })}
+            )
+          })
+        })()}
         {sending && (
           <div className="bubble-row bubble-row--assistant">
             <BubbleAvatar role="assistant" />
@@ -412,6 +424,7 @@ export default function ChatPanel() {
         {pendingDelete && (
           <DeleteConfirmCard proposal={pendingDelete} onConfirm={handleDeleteConfirm} onCancel={handleDeleteCancel} />
         )}
+       </div>
       </div>
 
       {error && (

@@ -20,30 +20,72 @@ function summarize(name, result) {
   }
 }
 
+function FileCard({ title, badge, meta, comment, href }) {
+  return (
+    <a className="file-card" href={href} download>
+      <span className="file-card__icon" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <path
+            d="M7 3h7l5 5v13a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinejoin="round"
+          />
+          <path d="M14 3v5h5" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+        </svg>
+      </span>
+      <span className="file-card__body">
+        <span className="file-card__title-row">
+          <span className="file-card__title">{title}</span>
+          {badge && <span className="file-card__badge">{badge}</span>}
+        </span>
+        {meta && <span className="file-card__meta">{meta}</span>}
+        {comment && <span className="file-card__comment">{comment}</span>}
+      </span>
+      <span className="file-card__btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M12 4v11m0 0l-4-4m4 4l4-4M5 19h14"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+        Download
+      </span>
+    </a>
+  )
+}
+
 export default function ToolActivity({ name, result }) {
   const showDownload = name === 'request_template' && result.allowed && result.download_url
   const showVersionList = name === 'get_document_versions' && result.found && result.versions?.length > 0
 
   return (
     <div className="tool-activity">
-      <span className="tool-activity__icon">⚙</span>
-      <span className="tool-activity__text">{summarize(name, result)}</span>
+      <div className="tool-activity__summary">
+        <span className="tool-activity__icon">⚙</span>
+        <span className="tool-activity__text">{summarize(name, result)}</span>
+      </div>
       {showDownload && (
-        <a className="tool-activity__download" href={result.download_url} download>
-          Download {result.filename}
-        </a>
+        <div className="file-card-list">
+          <FileCard title={result.filename} href={result.download_url} />
+        </div>
       )}
       {showVersionList && (
-        <ul className="tool-activity__version-list">
+        <div className="file-card-list">
           {result.versions.map((v) => (
-            <li key={v.version_number}>
-              <a className="tool-activity__download" href={v.download_url} download>
-                Download v{v.version_number}.0
-              </a>
-              {v.comment && <span className="tool-activity__version-comment"> — {v.comment}</span>}
-            </li>
+            <FileCard
+              key={v.version_number}
+              title={result.doc_type}
+              badge={`v${v.version_number}.0`}
+              meta={v.uploaded_by ? `Uploaded by ${v.uploaded_by}` : 'Uploaded'}
+              comment={v.comment}
+              href={v.download_url}
+            />
           ))}
-        </ul>
+        </div>
       )}
     </div>
   )
