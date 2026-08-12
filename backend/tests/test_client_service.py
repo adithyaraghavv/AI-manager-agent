@@ -3,7 +3,17 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from app.core.phase_config import Phase, PhaseConfig
-from app.services.client_service import delete_client, find_client, get_or_create_client, purge_deleted_clients
+from app.services.client_service import (
+    delete_client,
+    existing_document_types,
+    find_client,
+    get_or_create_client,
+    mark_document_not_applicable,
+    not_applicable_document_types,
+    purge_deleted_clients,
+    satisfied_document_types,
+    unmark_document_not_applicable,
+)
 from app.storage.local import LocalFilesystemStorage
 
 CONFIG = PhaseConfig(
@@ -129,3 +139,46 @@ def test_find_client_is_case_insensitive(rest, storage):
     get_or_create_client(rest, storage, CONFIG, "Hillenbrand")
     assert find_client(rest, "hillenbrand") is not None
     assert find_client(rest, "HILLENBRAND") is not None
+
+
+def test_mark_document_not_applicable_adds_to_satisfied_but_not_existing(rest, storage):
+    client = get_or_create_client(rest, storage, CONFIG, "Acme")
+
+    mark_document_not_applicable(rest, client, "BRD", reason="Client provided finished requirements in the SOW")
+
+    # Not actually filed — existing_document_types (real filings) is untouched.
+    assert existing_document_types(rest, client) == set()
+    # But it IS counted as not-applicable, and satisfied combines both.
+    assert not_applicable_document_types(rest, client) == {"BRD"}
+    assert satisfied_document_types(rest, client) == {"BRD"}
+
+
+def test_mark_document_not_applicable_is_idempotent(rest, storage):
+    client = get_or_create_client(rest, storage, CONFIG, "Acme")
+
+    mark_document_not_applicable(rest, client, "BRD", reason="first reason")
+    mark_document_not_applicable(rest, client, "BRD", reason="updated reason")
+
+    # Still just one mark, not two — and the reason was updated, not duplicated.
+    rows = rest.select("not_applicable_documents", client_id=client["id"], doc_type="BRD")
+    assert len(rows) == 1
+    assert rows[0]["reason"] == "updated reason"
+
+
+def test_unmark_document_not_applicable_reverses_it(rest, storage):
+    client = get_or_create_client(rest, storage, CONFIG, "Acme")
+    mark_document_not_applicable(rest, client, "BRD")
+
+    was_marked = unmark_document_not_applicable(rest, client, "BRD")
+
+    assert was_marked is True
+    assert not_applicable_document_types(rest, client) == set()
+    assert satisfied_document_types(rest, client) == set()
+
+
+def test_unmark_document_not_applicable_no_op_if_never_marked(rest, storage):
+    client = get_or_create_client(rest, storage, CONFIG, "Acme")
+
+    was_marked = unmark_document_not_applicable(rest, client, "BRD")
+
+    assert was_marked is False

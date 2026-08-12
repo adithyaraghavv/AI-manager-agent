@@ -51,7 +51,7 @@ what the AI says.
 
 ### Chatbot capabilities
 
-The assistant (OpenAI GPT-4o) has seven tools it can call — it can
+The assistant (OpenAI GPT-4o) has nine tools it can call — it can
 only ever do what these tools allow, nothing else, so it can't be talked into
 doing something the system doesn't actually support:
 
@@ -84,6 +84,18 @@ doing something the system doesn't actually support:
    permanently purges them after a retention window. The AI is not allowed
    to claim a deletion happened — it has no way of knowing whether the human
    confirmed.
+8. **Mark a document as not applicable to a client** — for when a document
+   genuinely doesn't apply to a specific engagement (e.g. the client already
+   handed over finished requirements in the SOW, so "Requirement Analysis"
+   documents don't apply). Once marked, the gate stops treating it as
+   permanently missing — it counts the same as a filed document for phase
+   completion, without ever creating a fake upload record. Only triggers when
+   the PM explicitly says something is out of scope — the assistant is
+   instructed to never use this as a workaround to bypass a gate the PM
+   actually wants respected.
+9. **Reverse a not-applicable mark** — for when something previously marked
+   not-applicable turns out to apply after all; puts the document back to
+   genuinely required/missing.
 - Every tool result is re-checked fresh, every time — even if the PM asks
   the exact same thing twice in one conversation. Real state (a fixed file,
   a new upload, a newly filed document) can change between messages, so the
@@ -179,7 +191,7 @@ On top of the tools themselves:
 - Marlabs rebrand (logo, colors, typography)
 - Saved/reopenable chat history, drag-and-drop file attach, message
   avatars + animated typing indicator
-- 133 backend tests passing, no known dependency CVEs (checked via
+- 146 backend tests passing, no known dependency CVEs (checked via
   `pip-audit` / `npm audit`)
 
 ### Pending
@@ -223,7 +235,7 @@ On top of the tools themselves:
   app; one-off seed/cleanup scripts also use the REST API (not a direct
   connection) so they can be run from any network
 - Pydantic / pydantic-settings — request/response models, config
-- pytest — 133 tests covering gating logic, services, routes, and the seed
+- pytest — 146 tests covering gating logic, services, routes, and the seed
   scripts
 
 **Frontend**
@@ -320,6 +332,40 @@ why Supabase is accessed two different ways, and `docs/` for the original
 discovery documentation and database structure.
 
 ## Recent updates
+
+### 2026-08-12 13:40 UTC — Phase/document "not applicable" flag
+
+- **New chat tools: `mark_document_not_applicable` and
+  `unmark_document_not_applicable`.** Item #6 from the Aug 11 demo feedback:
+  some documents genuinely don't apply to a specific client's engagement
+  (e.g. the client already handed over finished requirements inside the SOW,
+  so a separate "Requirement Analysis" document doesn't apply). Before this,
+  a document like that would sit "missing" forever and permanently block
+  every later phase — there was no way to tell the gate "this one doesn't
+  count."
+- A PM can now say something like "Requirement Analysis doesn't apply here,
+  the client gave us finished requirements in the SOW," and the assistant
+  marks it. From then on the gate treats it exactly like a filed document —
+  it stops blocking later phases — without ever creating a fake upload
+  record. `unmark_document_not_applicable` reverses it if it turns out the
+  document does apply after all.
+- Guardrail baked into the system prompt: this is only for when the PM
+  explicitly says something is out of scope. The assistant is told never to
+  reach for it as a workaround just because a request got blocked or a
+  document hasn't been filed yet — that would quietly defeat the hard gate
+  it's supposed to respect.
+- `get_client_status` now reports three states per phase instead of two:
+  filed, genuinely missing, and not-applicable — shown separately so a PM
+  can see at a glance what's actually blocking them versus what's been
+  waived.
+- New table `not_applicable_documents` (migration `c7f2a1e9d3b4`), and a new
+  `satisfied_document_types` helper (filed ∪ not-applicable) that both
+  `request_template` and `upload_document` now check against instead of
+  filed documents alone.
+- New tests across client-service logic, a document-service integration
+  test for both marking and unmarking, agent-tool dispatch, and
+  system-prompt guardrail regressions — 146 backend tests passing (was 134
+  before this feature).
 
 ### 2026-08-12 12:19 UTC — Path-only document lookups
 

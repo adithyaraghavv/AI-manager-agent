@@ -11,7 +11,7 @@ from app.core.gating import GatingDecision, check_gate, resolve_phase_for_docume
 from app.core.phase_config import PhaseConfig
 from app.core.upload_validation import InvalidUpload, validate_upload
 from app.db.rest_client import SupabaseRestClient
-from app.services.client_service import existing_document_types, find_client, get_or_create_client
+from app.services.client_service import find_client, get_or_create_client, satisfied_document_types
 from app.services import version_service
 from app.storage.base import StorageBackend
 
@@ -58,7 +58,7 @@ def request_template(
 ) -> TemplateResult:
     phase = resolve_phase_for_document(config, doc_type)
     client = get_or_create_client(rest, client_storage, config, client_name)
-    existing = existing_document_types(rest, client)
+    existing = satisfied_document_types(rest, client)
 
     decision = check_gate(config, phase.name, existing)
     if not decision.allowed:
@@ -105,7 +105,7 @@ def upload_document(
     # get_or_create_client's docstring for why this matters on a
     # case-sensitive filesystem.
     canonical_name = client["name"]
-    existing = existing_document_types(rest, client)
+    existing = satisfied_document_types(rest, client)
 
     decision = check_gate(config, phase.name, existing)
     if not decision.allowed:

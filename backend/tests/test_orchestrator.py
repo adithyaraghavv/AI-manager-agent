@@ -97,6 +97,18 @@ def test_system_prompt_asks_for_a_warm_natural_tone_not_a_terse_bot():
     assert "not a chatty assistant" not in SYSTEM_PROMPT
 
 
+def test_system_prompt_distinguishes_not_applicable_from_missing_in_status():
+    assert "get_client_status's missing_documents excludes anything marked not-applicable" in SYSTEM_PROMPT
+
+
+def test_system_prompt_forbids_using_not_applicable_as_a_gate_workaround():
+    # The exact failure mode this guards against: an agent marking a blocked
+    # document not-applicable just to unblock a phase the PM actually wants,
+    # silently defeating the hard gate instead of respecting it.
+    assert "NEVER call it just because a request got blocked" in SYSTEM_PROMPT
+    assert "that would silently defeat the hard gate" in SYSTEM_PROMPT
+
+
 def test_bad_request_errors_are_not_swallowed():
     # A 400 (e.g. bad API key, malformed request) should propagate normally
     # rather than being silently masked.

@@ -158,3 +158,61 @@ def test_get_document_versions_unknown_client_reports_not_found(rest, storage):
     result = dispatch_tool(rest, storage, storage, CONFIG, "get_document_versions", {"client_name": "Ghost", "doc_type": "MSA"})
 
     assert result["found"] is False
+
+
+def test_mark_document_not_applicable_dispatch_marks_it(rest, storage):
+    result = dispatch_tool(
+        rest, storage, storage, CONFIG, "mark_document_not_applicable",
+        {"client_name": "Acme", "doc_type": "SOW", "reason": "Client already provided this"},
+    )
+
+    assert result["ok"] is True
+    assert result["client_name"] == "Acme"
+    assert result["doc_type"] == "SOW"
+
+    status = dispatch_tool(rest, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"})
+    prereq_phase = status["phases"][0]
+    assert prereq_phase["not_applicable_documents"] == ["SOW"]
+    assert "SOW" not in prereq_phase["missing_documents"]
+
+
+def test_mark_document_not_applicable_unknown_doc_type_does_not_raise(rest, storage):
+    # Same guard as request_template's unknown-doc_type test — a hallucinated
+    # or misspelled doc_type must be a graceful in-conversation message, not
+    # an unhandled 500.
+    result = dispatch_tool(
+        rest, storage, storage, CONFIG, "mark_document_not_applicable",
+        {"client_name": "Acme", "doc_type": "NotARealDocument"},
+    )
+
+    assert result["ok"] is False
+    assert "NotARealDocument" in result["reason"]
+
+
+def test_unmark_document_not_applicable_dispatch_reverses_it(rest, storage):
+    dispatch_tool(
+        rest, storage, storage, CONFIG, "mark_document_not_applicable",
+        {"client_name": "Acme", "doc_type": "SOW"},
+    )
+
+    result = dispatch_tool(
+        rest, storage, storage, CONFIG, "unmark_document_not_applicable",
+        {"client_name": "Acme", "doc_type": "SOW"},
+    )
+
+    assert result["ok"] is True
+    assert result["was_marked"] is True
+
+    status = dispatch_tool(rest, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"})
+    assert status["phases"][0]["not_applicable_documents"] == []
+    assert "SOW" in status["phases"][0]["missing_documents"]
+
+
+def test_unmark_document_not_applicable_unknown_client_reports_not_found(rest, storage):
+    result = dispatch_tool(
+        rest, storage, storage, CONFIG, "unmark_document_not_applicable",
+        {"client_name": "Ghost", "doc_type": "SOW"},
+    )
+
+    assert result["ok"] is False
+    assert "Ghost" in result["reason"]

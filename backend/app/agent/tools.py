@@ -14,10 +14,18 @@ the actual write always goes through app.services.document_service directly.
 from typing import Any
 
 from app.core.document_lookup import find_document_types
-from app.core.gating import missing_documents
+from app.core.gating import missing_documents, resolve_phase_for_document
 from app.core.phase_config import PhaseConfig
 from app.db.rest_client import SupabaseRestClient
-from app.services.client_service import existing_document_types, find_client, get_or_create_client
+from app.services.client_service import (
+    existing_document_types,
+    find_client,
+    get_or_create_client,
+    mark_document_not_applicable,
+    not_applicable_document_types,
+    satisfied_document_types,
+    unmark_document_not_applicable,
+)
 from app.services.document_service import (
     ClientDocumentNotFound,
     GatingBlocked,
@@ -133,6 +141,59 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "mark_document_not_applicable",
+            "description": (
+                "Mark a document type as NOT REQUIRED for a specific client — e.g. 'Requirement "
+                "Analysis' doesn't apply because the client already handed over finished requirements "
+                "in the SOW. This stops phase-gating from permanently blocking on it: an unfiled but "
+                "not-applicable document no longer counts as missing. Use this only when the PM "
+                "explicitly says a document/phase doesn't apply, isn't needed, or is out of scope for "
+                "this client — never mark something not-applicable just because it hasn't been filed "
+                "yet or because a request was blocked on it; that's what request_template/upload are "
+                "for. This is reversible (see unmark_document_not_applicable)."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "client_name": {"type": "string", "description": "The client's name."},
+                    "doc_type": {
+                        "type": "string",
+                        "description": "Exact document type, e.g. 'Business Requirement Document (BRD)'.",
+                    },
+                    "reason": {
+                        "type": "string",
+                        "description": "Why it doesn't apply, if the PM gave one, e.g. 'client provided finished requirements in the SOW'.",
+                    },
+                },
+                "required": ["client_name", "doc_type"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "unmark_document_not_applicable",
+            "description": (
+                "Reverse a previous not-applicable mark — the document type goes back to being "
+                "genuinely required and will count as missing again until it's filed. Use this when "
+                "the PM says a document that was marked not-applicable actually does apply after all."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "client_name": {"type": "string", "description": "The client's name."},
+                    "doc_type": {
+                        "type": "string",
+                        "description": "Exact document type, e.g. 'Business Requirement Document (BRD)'.",
+                    },
+                },
+                "required": ["client_name", "doc_type"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "search_document_types",
             "description": (
                 "Search for document types by a loose/partial phrase (e.g. 'SOW', 'test', 'design') "
@@ -198,15 +259,19 @@ def dispatch_tool(
         client_name = tool_input["client_name"]
         client = get_or_create_client(rest, client_storage, config, client_name)
         existing = existing_document_types(rest, client)
+        not_applicable = not_applicable_document_types(rest, client)
+        satisfied = existing | not_applicable
         status = []
         for phase in config.phases:
-            missing = missing_documents(phase, existing)
+            missing = missing_documents(phase, satisfied)
+            na_in_phase = [d for d in phase.required_documents if d in not_applicable and d not in existing]
             status.append(
                 {
                     "phase": phase.name,
                     "sequence": phase.sequence,
                     "complete": len(missing) == 0,
                     "missing_documents": list(missing),
+                    "not_applicable_documents": na_in_phase,
                 }
             )
         return {"client_name": client["name"], "phases": status}
@@ -276,6 +341,27 @@ def dispatch_tool(
             "filename": location.filename,
         }
 
+    if tool_name == "mark_document_not_applicable":
+        client_name = tool_input["client_name"]
+        doc_type = tool_input["doc_type"]
+        reason = tool_input.get("reason")
+        try:
+            resolve_phase_for_document(config, doc_type)
+        except ValueError as e:
+            return {"ok": False, "reason": str(e)}
+        client = get_or_create_client(rest, client_storage, config, client_name)
+        mark_document_not_applicable(rest, client, doc_type, reason=reason)
+        return {"ok": True, "client_name": client["name"], "doc_type": doc_type, "reason": reason}
+
+    if tool_name == "unmark_document_not_applicable":
+        client_name = tool_input["client_name"]
+        doc_type = tool_input["doc_type"]
+        client = find_client(rest, client_name)
+        if client is None:
+            return {"ok": False, "reason": f"No client named {client_name!r}"}
+        was_marked = unmark_document_not_applicable(rest, client, doc_type)
+        return {"ok": True, "client_name": client["name"], "doc_type": doc_type, "was_marked": was_marked}
+
     if tool_name == "search_document_types":
         query = tool_input["query"]
         matches = find_document_types(config, query)
@@ -292,7 +378,8 @@ def dispatch_tool(
             return {"found": False, "client_name": client_name}
 
         existing = existing_document_types(rest, client)
-        phases_complete = sum(1 for phase in config.phases if not missing_documents(phase, existing))
+        satisfied = satisfied_document_types(rest, client)
+        phases_complete = sum(1 for phase in config.phases if not missing_documents(phase, satisfied))
         return {
             "found": True,
             "needs_confirmation": True,

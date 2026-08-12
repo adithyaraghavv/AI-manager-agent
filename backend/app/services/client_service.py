@@ -38,8 +38,58 @@ def get_or_create_client(
 
 
 def existing_document_types(rest: SupabaseRestClient, client: dict) -> set[str]:
+    """Document types actually FILED for this client — does not include
+    types marked not-applicable (see not_applicable_document_types).
+    Callers that feed gating usually want the two combined; callers that
+    display real filing status (dashboard, status checks) want this alone
+    so they can show "filed" vs "not applicable" as distinct states."""
     rows = rest.select("client_documents", client_id=client["id"])
     return {row["doc_type"] for row in rows}
+
+
+def not_applicable_document_types(rest: SupabaseRestClient, client: dict) -> set[str]:
+    """Document types explicitly marked as not required for this client —
+    see mark_document_not_applicable. Gating treats these the same as
+    filed documents (they stop counting as missing) without a fake
+    ClientDocument row ever being created."""
+    rows = rest.select("not_applicable_documents", client_id=client["id"])
+    return {row["doc_type"] for row in rows}
+
+
+def satisfied_document_types(rest: SupabaseRestClient, client: dict) -> set[str]:
+    """Everything gating should treat as "not missing": actually filed
+    documents, union not-applicable ones. This is what request_template/
+    upload_document must pass to check_gate — never existing_document_types
+    alone, or a not-applicable earlier-phase document would wrongly keep
+    blocking every later phase forever."""
+    return existing_document_types(rest, client) | not_applicable_document_types(rest, client)
+
+
+def mark_document_not_applicable(
+    rest: SupabaseRestClient, client: dict, doc_type: str, reason: str | None = None, marked_by: str | None = None
+) -> None:
+    """Marks a document type as not required for this client. Idempotent —
+    marking an already-marked doc_type just updates the reason/marked_by
+    rather than erroring or duplicating."""
+    existing = rest.select_one("not_applicable_documents", client_id=client["id"], doc_type=doc_type)
+    if existing is None:
+        rest.insert(
+            "not_applicable_documents",
+            {"client_id": client["id"], "doc_type": doc_type, "reason": reason, "marked_by": marked_by},
+        )
+    else:
+        rest.update("not_applicable_documents", {"id": existing["id"]}, {"reason": reason, "marked_by": marked_by})
+
+
+def unmark_document_not_applicable(rest: SupabaseRestClient, client: dict, doc_type: str) -> bool:
+    """Reverses a not-applicable mark — the document type goes back to being
+    treated as genuinely required/missing. Returns False (no-op, not an
+    error) if it was never marked."""
+    existing = rest.select_one("not_applicable_documents", client_id=client["id"], doc_type=doc_type)
+    if existing is None:
+        return False
+    rest.delete("not_applicable_documents", id=existing["id"])
+    return True
 
 
 def find_client(rest: SupabaseRestClient, client_name: str) -> dict | None:

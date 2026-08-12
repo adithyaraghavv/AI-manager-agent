@@ -93,3 +93,21 @@ class DocumentVersion(Base):
     uploaded_by: Mapped[str | None] = mapped_column(String, nullable=True)
     comment: Mapped[str | None] = mapped_column(String, nullable=True)
     uploaded_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class NotApplicableDocument(Base):
+    """Marks a document type as not required for a specific client — e.g. the
+    client already handed over finished requirements in the SOW, so
+    "Requirement Analysis" documents don't apply to this engagement. Gating
+    treats a marked doc_type the same as an existing one (it stops counting
+    as missing), without actually creating a fake ClientDocument row."""
+
+    __tablename__ = "not_applicable_documents"
+    __table_args__ = (UniqueConstraint("client_id", "doc_type", name="uq_client_doc_not_applicable"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("clients.id"), nullable=False)
+    doc_type: Mapped[str] = mapped_column(String, nullable=False)
+    reason: Mapped[str | None] = mapped_column(String, nullable=True)
+    marked_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

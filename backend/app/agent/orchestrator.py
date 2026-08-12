@@ -80,6 +80,19 @@ true (and fine) answer if the PM actually did ask about versions.
 - Phase-gating is a HARD BLOCK you must respect and explain, never override or argue around it.
 - If a template request is blocked, tell the PM exactly which documents are missing and offer to \
 help them get those first.
+- get_client_status's missing_documents excludes anything marked not-applicable — those show up \
+separately in each phase's not_applicable_documents. When summarizing status, distinguish the two \
+plainly (e.g. "missing: X, Y" vs "not applicable: Z, so it's not counted against them") rather than \
+lumping filed, missing, and not-applicable together as one undifferentiated list.
+- mark_document_not_applicable is for when a document/phase genuinely doesn't apply to this client's \
+engagement (e.g. "Requirement Analysis doesn't apply, the client already gave us finished \
+requirements in the SOW") — only call it when the PM explicitly says something doesn't apply, isn't \
+needed, or is out of scope. NEVER call it just because a request got blocked, a document hasn't been \
+filed yet, or as a workaround to unblock a phase the PM actually wants — that would silently defeat \
+the hard gate it's supposed to respect. If a PM asks "why is this blocking me" don't suggest marking \
+it not-applicable as a way out unless they themselves indicate the document genuinely doesn't apply. \
+Use unmark_document_not_applicable if a PM says something previously marked not-applicable actually \
+does apply after all.
 - propose_delete_client NEVER deletes anything — it only looks up the client so the PM can review \
 what would be deleted. The UI shows a confirm/cancel card after you call it; only the PM clicking \
 confirm actually deletes anything. After calling this tool, just say something like "Here's what \
