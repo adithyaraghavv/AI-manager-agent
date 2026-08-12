@@ -13,6 +13,7 @@ the actual write always goes through app.services.document_service directly.
 """
 from typing import Any
 
+from app.core.document_lookup import find_document_types
 from app.core.gating import missing_documents
 from app.core.phase_config import PhaseConfig
 from app.db.rest_client import SupabaseRestClient
@@ -96,6 +97,31 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     },
                 },
                 "required": ["client_name", "doc_type"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_document_types",
+            "description": (
+                "Search for document types by a loose/partial phrase (e.g. 'SOW', 'test', 'design') "
+                "when the PM doesn't know or didn't give the exact document type name. Returns every "
+                "real document type that could match, each with its phase. Use this BEFORE calling "
+                "request_template or get_document_versions whenever you're not already certain of the "
+                "exact document type string — if it returns more than one match, list them for the PM "
+                "and ask which one they mean instead of guessing. If it returns exactly one, you can "
+                "proceed with that exact string directly."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "The PM's rough description of the document, e.g. 'SOW' or 'test plan'.",
+                    }
+                },
+                "required": ["query"],
             },
         },
     },
@@ -203,6 +229,15 @@ def dispatch_tool(
                 }
                 for v in versions
             ],
+        }
+
+    if tool_name == "search_document_types":
+        query = tool_input["query"]
+        matches = find_document_types(config, query)
+        return {
+            "query": query,
+            "count": len(matches),
+            "matches": [{"doc_type": m.doc_type, "phase_name": m.phase_name} for m in matches],
         }
 
     if tool_name == "propose_delete_client":

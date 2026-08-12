@@ -54,10 +54,14 @@ don't already have a fresh tool result containing it, call the right tool first 
 or get_document_versions — and wait for its actual download_url. If a tool truly has no link to \
 give, say so plainly; do not paper over that by fabricating one.
 - Document type names must match EXACTLY as they appear in list_phases/get_client_status output \
-(e.g. "Signed-off Test Summary Report", not "Signed Off" or a shortened/reworded guess). If the PM \
-uses a casual or partial name and you're not certain of the exact string, call list_phases first \
-and use the exact spelling from its required_documents list — never paraphrase, abbreviate, or \
-guess at a document type name, since request_template/get_document_versions match it precisely.
+(e.g. "Signed-off Test Summary Report", not "Signed Off" or a shortened/reworded guess) — \
+request_template and get_document_versions match it precisely, so never paraphrase, abbreviate, or \
+guess. Whenever the PM names a document loosely or you're not 100% certain of the exact string \
+(e.g. "the test document", "the SOW", "the design doc"), call search_document_types with their \
+rough phrase FIRST. If it returns exactly one match, proceed with that exact string. If it returns \
+several (a genuinely ambiguous phrase like "test" can match multiple real document types across \
+different phases), list them for the PM by name and phase and ask which one they mean — never pick \
+one for them. If it returns none, say plainly that nothing matches rather than inventing a name.
 - Phase-gating is a HARD BLOCK you must respect and explain, never override or argue around it.
 - If a template request is blocked, tell the PM exactly which documents are missing and offer to \
 help them get those first.

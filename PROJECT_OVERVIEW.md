@@ -51,7 +51,7 @@ what the AI says.
 
 ### Chatbot capabilities
 
-The assistant (OpenAI GPT-4o) has five tools it can call — it can
+The assistant (OpenAI GPT-4o) has six tools it can call — it can
 only ever do what these tools allow, nothing else, so it can't be talked into
 doing something the system doesn't actually support:
 
@@ -66,7 +66,12 @@ doing something the system doesn't actually support:
 4. **Show a document's version history** — every version ever uploaded for
    a client's document, oldest to newest, with who uploaded it and any
    change comment, plus a download link for each one.
-5. **Delete a client** — looks the client up and shows their info, but
+5. **Search for a document type by a loose phrase** — when a PM doesn't know
+   or doesn't give the exact document name (e.g. "the test document," which
+   genuinely matches several real document types), this returns every real
+   match so the assistant can ask a clarifying question instead of guessing
+   at an exact name — never picks one on the PM's behalf.
+6. **Delete a client** — looks the client up and shows their info, but
    **never deletes anything itself**. It hands off to a confirm/cancel card
    in the UI; only a human clicking "Confirm & delete" actually removes
    anything. Deletion is a **soft delete** — the client is hidden everywhere
@@ -103,8 +108,8 @@ On top of the tools themselves:
   happened) are always generated from actual API responses, never left for
   the AI to narrate in its own words — so it can't ever misreport what
   really happened.
-- **Avatars on every message** (person icon for you, robot icon for the
-  agent) and an **animated typing indicator** (three bouncing dots) while
+- **Avatars on every message** (person icon for you, a Marlabs-branded
+  gradient mark for the agent) and an **animated typing indicator** while
   waiting for a reply — easier to scan a long conversation at a glance.
 - **New chat button** — clears the conversation without a page refresh.
 - **Human-friendly errors with retry** — a failed request shows a plain
@@ -170,7 +175,7 @@ On top of the tools themselves:
 - Marlabs rebrand (logo, colors, typography)
 - Saved/reopenable chat history, drag-and-drop file attach, message
   avatars + animated typing indicator
-- 113 backend tests passing, no known dependency CVEs (checked via
+- 127 backend tests passing, no known dependency CVEs (checked via
   `pip-audit` / `npm audit`)
 
 ### Pending
@@ -214,7 +219,7 @@ On top of the tools themselves:
   app; one-off seed/cleanup scripts also use the REST API (not a direct
   connection) so they can be run from any network
 - Pydantic / pydantic-settings — request/response models, config
-- pytest — 113 tests covering gating logic, services, routes, and the seed
+- pytest — 127 tests covering gating logic, services, routes, and the seed
   scripts
 
 **Frontend**
@@ -311,6 +316,21 @@ why Supabase is accessed two different ways, and `docs/` for the original
 discovery documentation and database structure.
 
 ## Recent updates
+
+### 2026-08-12 11:01 UTC — Guided document discovery
+
+- **New chat tool: `search_document_types`.** From the Aug 11 demo feedback
+  (Hames): a PM who doesn't know the exact document name — e.g. just says
+  "the test document" — should get a conversational narrowing instead of a
+  failed exact-match lookup. The tool searches every real document type by
+  a loose/partial phrase; a query like "test" genuinely matches 4 different
+  document types across 2 phases in the standard config, and the agent is
+  now required to list all matches and ask which one the PM means rather
+  than guessing at one. Single-match queries resolve directly, no
+  clarifying question needed.
+- New pure-logic module `app/core/document_lookup.py` (`find_document_types`)
+  — no DB/network dependency, so it's fast and trivially testable.
+- 127 backend tests passing (was 117).
 
 ### 2026-08-11 10:14 UTC — Chat UI overhaul, agent reliability fixes, viewport-scroll fix
 

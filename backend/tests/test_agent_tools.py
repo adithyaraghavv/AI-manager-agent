@@ -99,6 +99,33 @@ def test_propose_delete_client_finds_client_regardless_of_casing(rest, storage):
     assert storage.exists("Hillenbrand")
 
 
+def test_search_document_types_unambiguous_query_returns_one_match(rest, storage):
+    result = dispatch_tool(rest, storage, storage, CONFIG, "search_document_types", {"query": "SOW"})
+
+    assert result["count"] == 1
+    assert result["matches"][0]["doc_type"] == "SOW"
+    assert result["matches"][0]["phase_name"] == "Pre-requisites"
+
+
+def test_search_document_types_ambiguous_query_returns_every_match():
+    ambiguous_config = PhaseConfig(
+        [
+            Phase(name="Testing", sequence=1, required_documents=("Approved Test Plan", "Test Data Prepared")),
+            Phase(name="Deployment", sequence=2, required_documents=("Signed-off Test Summary Report",)),
+        ]
+    )
+    result = dispatch_tool(None, None, None, ambiguous_config, "search_document_types", {"query": "test"})
+
+    assert result["count"] == 3
+
+
+def test_search_document_types_no_match_returns_empty_not_an_error(rest, storage):
+    result = dispatch_tool(rest, storage, storage, CONFIG, "search_document_types", {"query": "nonexistent"})
+
+    assert result["count"] == 0
+    assert result["matches"] == []
+
+
 def test_get_document_versions_lists_full_history(rest, storage):
     upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v1", "pdf", uploaded_by="Priya", comment="First")
     upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v2", "pdf", uploaded_by="Priya", comment="Second")

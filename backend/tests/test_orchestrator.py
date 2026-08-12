@@ -51,6 +51,14 @@ def test_system_prompt_requires_exact_document_type_names():
     assert "must match EXACTLY as they appear in list_phases" in SYSTEM_PROMPT
 
 
+def test_system_prompt_requires_disambiguation_for_loose_document_names():
+    # Guided document discovery: a PM who doesn't know the exact document
+    # name (e.g. just says "the test document") should get a clarifying
+    # question listing every real match, not a guess.
+    assert "call search_document_types with their" in SYSTEM_PROMPT
+    assert "never pick one for them" in SYSTEM_PROMPT
+
+
 def test_system_prompt_forbids_answering_from_stale_conversation_history():
     # Regression guard for a real bug seen live: within one conversation, the model
     # reused an earlier tool result (e.g. "template file missing") for a repeated
