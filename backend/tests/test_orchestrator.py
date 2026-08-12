@@ -59,6 +59,18 @@ def test_system_prompt_requires_disambiguation_for_loose_document_names():
     assert "never pick one for them" in SYSTEM_PROMPT
 
 
+def test_system_prompt_does_not_default_to_version_history_for_plain_requests():
+    # Regression guard for a real bug seen live: "give me SOW" for a client
+    # with zero uploaded SOWs incorrectly called get_document_versions
+    # (found none, told the PM to go upload one) instead of request_template
+    # (which would have handed over the master template to fill in). Adding
+    # search_document_types confused which tool comes next after resolving
+    # an ambiguous name.
+    assert "search_document_types ONLY resolves which exact document type" in SYSTEM_PROMPT
+    assert "means request_template" in SYSTEM_PROMPT
+    assert "Do not default to get_document_versions" in SYSTEM_PROMPT
+
+
 def test_system_prompt_distinguishes_path_only_requests_from_document_requests():
     # get_document_location must only be used for an explicit "where is it
     # stored" question, never substituted for a plain "give me X" request.

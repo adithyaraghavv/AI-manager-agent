@@ -85,8 +85,12 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "description": (
                 "List every version on file for one of a client's documents — oldest to newest, with who "
                 "uploaded each one, when, and any change comment. Re-uploading a document never overwrites "
-                "an earlier version; every upload is kept permanently. Use this when the PM asks about "
-                "version history, a document's past versions, or wants to see/download an older version."
+                "an earlier version; every upload is kept permanently. ONLY use this when the PM's own "
+                "words are specifically about version history / past uploads (e.g. 'show me the versions', "
+                "'what's been uploaded so far', 'the last one someone filed'). A plain 'give me the SOW' / "
+                "'I need the HLD' request — even for a document that turns out to have zero uploads yet — "
+                "means request_template, NOT this tool; do not call this just to check whether something "
+                "exists before deciding what to do."
             ),
             "parameters": {
                 "type": "object",
