@@ -7,6 +7,7 @@ from app.services.document_service import (
     GatingBlocked,
     TemplateFileMissing,
     TemplateNotFound,
+    get_document_location,
     get_stored_document,
     request_template,
     upload_document,
@@ -130,3 +131,27 @@ def test_get_stored_document_with_record_but_no_local_file_gives_actionable_erro
 
     with pytest.raises(ClientDocumentNotFound, match="local storage"):
         get_stored_document(rest, client_storage, "Acme", "MSA")
+
+
+def test_get_document_location_returns_folder_not_filename(rest, client_storage, template_storage):
+    result = upload_document(rest, client_storage, CONFIG, "MSA", "Acme", b"filled msa", "pdf")
+
+    location = get_document_location(rest, "Acme", "MSA")
+
+    assert location.client_name == "Acme"
+    assert location.doc_type == "MSA"
+    assert location.folder_path == "Acme/01_Pre-requisites"
+    assert location.folder_path == result.stored_path.rsplit("/", 1)[0]
+    assert location.filename == result.filename
+
+
+def test_get_document_location_unknown_client_raises(rest, client_storage, template_storage):
+    with pytest.raises(ClientDocumentNotFound):
+        get_document_location(rest, "Ghost", "MSA")
+
+
+def test_get_document_location_unfiled_doc_type_raises(rest, client_storage, template_storage):
+    upload_document(rest, client_storage, CONFIG, "MSA", "Acme", b"filled msa", "pdf")
+
+    with pytest.raises(ClientDocumentNotFound):
+        get_document_location(rest, "Acme", "SOW")

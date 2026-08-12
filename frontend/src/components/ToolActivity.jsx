@@ -14,6 +14,10 @@ function inProgressPhrase(name, result) {
       return 'Listing project phases…'
     case 'get_document_versions':
       return 'Looking up document versions…'
+    case 'get_document_location':
+      return 'Looking up where it’s stored…'
+    case 'search_document_types':
+      return `Searching document types for "${result.query}"…`
     case 'propose_delete_client':
       return `Looking up ${result.client_name}…`
     default:
@@ -36,6 +40,14 @@ function summarize(name, result) {
     case 'get_document_versions':
       if (!result.found) return `No document on file: ${result.reason}`
       return `Found ${result.versions?.length ?? 0} version${result.versions?.length === 1 ? '' : 's'} of "${result.doc_type}" for ${result.client_name}`
+    case 'get_document_location':
+      return result.found
+        ? `Located "${result.doc_type}" for ${result.client_name}`
+        : `No document on file: ${result.reason}`
+    case 'search_document_types':
+      if (result.count === 0) return `No document type matches "${result.query}"`
+      if (result.count === 1) return `Found 1 matching document type for "${result.query}"`
+      return `Found ${result.count} matching document types for "${result.query}"`
     case 'propose_delete_client':
       return result.found
         ? `Looked up "${result.client_name}" — ${result.phases_complete}/${result.total_phases} phases complete, ${result.document_count} documents filed`
@@ -69,6 +81,39 @@ function StatusCard({ result }) {
       ) : (
         <div className="status-card__detail status-card__detail--good">All phases complete</div>
       )}
+    </div>
+  )
+}
+
+function PathCard({ folderPath }) {
+  const [copied, setCopied] = useState(false)
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(folderPath)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // Clipboard unavailable — the path is still visible to copy by hand.
+    }
+  }
+
+  return (
+    <div className="path-card">
+      <span className="path-card__icon" aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <path
+            d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </span>
+      <code className="path-card__path">{folderPath}</code>
+      <button type="button" className="path-card__copy" onClick={handleCopy}>
+        {copied ? 'Copied' : 'Copy'}
+      </button>
     </div>
   )
 }
@@ -128,6 +173,7 @@ export default function ToolActivity({ name, result }) {
   const showDownload = settled && name === 'request_template' && result.allowed && result.download_url
   const showVersionList = settled && name === 'get_document_versions' && result.found && result.versions?.length > 0
   const showStatusCard = settled && name === 'get_client_status' && Array.isArray(result.phases)
+  const showPathCard = settled && name === 'get_document_location' && result.found && result.folder_path
 
   return (
     <div className="tool-activity">
@@ -138,6 +184,7 @@ export default function ToolActivity({ name, result }) {
         <span className="tool-activity__text">{settled ? summarize(name, result) : inProgressPhrase(name, result)}</span>
       </div>
       {showStatusCard && <StatusCard result={result} />}
+      {showPathCard && <PathCard folderPath={result.folder_path} />}
       {showDownload && (
         <div className="file-card-list">
           <FileCard title={result.filename} href={result.download_url} />

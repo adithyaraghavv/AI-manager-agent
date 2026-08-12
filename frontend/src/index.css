@@ -727,6 +727,54 @@ body {
   color: var(--ok);
 }
 
+/* Path card — deliberately NOT a file card. A folder path is a "browse it
+   yourself" answer, not a downloadable file, so it gets its own quieter
+   visual treatment (monospace path, copy button) instead of looking like
+   another download target. */
+
+.path-card {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.path-card__icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  display: flex;
+}
+
+.path-card__path {
+  flex: 1;
+  min-width: 0;
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  font-size: 12px;
+  color: var(--text-h);
+  white-space: nowrap;
+  overflow-x: auto;
+}
+
+.path-card__copy {
+  flex-shrink: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--accent);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 9px;
+  cursor: pointer;
+}
+
+.path-card__copy:hover {
+  border-color: var(--accent);
+}
+
 /* File cards — the visual target for any downloadable file surfaced in the
    chat (a template, a specific document version), replacing bare text links. */
 

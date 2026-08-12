@@ -51,7 +51,7 @@ what the AI says.
 
 ### Chatbot capabilities
 
-The assistant (OpenAI GPT-4o) has six tools it can call — it can
+The assistant (OpenAI GPT-4o) has seven tools it can call — it can
 only ever do what these tools allow, nothing else, so it can't be talked into
 doing something the system doesn't actually support:
 
@@ -71,7 +71,11 @@ doing something the system doesn't actually support:
    genuinely matches several real document types), this returns every real
    match so the assistant can ask a clarifying question instead of guessing
    at an exact name — never picks one on the PM's behalf.
-6. **Delete a client** — looks the client up and shows their info, but
+6. **Get a document's storage location** — for when a PM explicitly wants to
+   know *where* something is filed (a folder path) rather than getting the
+   file itself; a separate, deliberately narrower path from actually
+   requesting/downloading a document.
+7. **Delete a client** — looks the client up and shows their info, but
    **never deletes anything itself**. It hands off to a confirm/cancel card
    in the UI; only a human clicking "Confirm & delete" actually removes
    anything. Deletion is a **soft delete** — the client is hidden everywhere
@@ -175,7 +179,7 @@ On top of the tools themselves:
 - Marlabs rebrand (logo, colors, typography)
 - Saved/reopenable chat history, drag-and-drop file attach, message
   avatars + animated typing indicator
-- 127 backend tests passing, no known dependency CVEs (checked via
+- 133 backend tests passing, no known dependency CVEs (checked via
   `pip-audit` / `npm audit`)
 
 ### Pending
@@ -219,7 +223,7 @@ On top of the tools themselves:
   app; one-off seed/cleanup scripts also use the REST API (not a direct
   connection) so they can be run from any network
 - Pydantic / pydantic-settings — request/response models, config
-- pytest — 127 tests covering gating logic, services, routes, and the seed
+- pytest — 133 tests covering gating logic, services, routes, and the seed
   scripts
 
 **Frontend**
@@ -316,6 +320,20 @@ why Supabase is accessed two different ways, and `docs/` for the original
 discovery documentation and database structure.
 
 ## Recent updates
+
+### 2026-08-12 12:19 UTC — Path-only document lookups
+
+- **New chat tool: `get_document_location`.** From the same demo feedback
+  as guided discovery: "not everything needs to be a downloadable file — a
+  folder path is sometimes enough." When a PM explicitly asks where
+  something is stored ("where is the SOW", "just the path, don't download
+  it") the agent now returns the folder path instead of a download link —
+  a deliberately separate, narrower path from an ordinary "give me X"
+  request, which still hands over the actual file exactly as before.
+  Rendered in chat as a quiet path card (monospace path + copy button),
+  visually distinct from the file-card download UI so it doesn't read as
+  "another download option."
+- 133 backend tests passing (was 127).
 
 ### 2026-08-12 11:01 UTC — Guided document discovery
 

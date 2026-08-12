@@ -59,6 +59,12 @@ def test_system_prompt_requires_disambiguation_for_loose_document_names():
     assert "never pick one for them" in SYSTEM_PROMPT
 
 
+def test_system_prompt_distinguishes_path_only_requests_from_document_requests():
+    # get_document_location must only be used for an explicit "where is it
+    # stored" question, never substituted for a plain "give me X" request.
+    assert "get_document_location is a DIFFERENT thing from requesting a document" in SYSTEM_PROMPT
+
+
 def test_system_prompt_forbids_answering_from_stale_conversation_history():
     # Regression guard for a real bug seen live: within one conversation, the model
     # reused an earlier tool result (e.g. "template file missing") for a repeated

@@ -126,6 +126,23 @@ def test_search_document_types_no_match_returns_empty_not_an_error(rest, storage
     assert result["matches"] == []
 
 
+def test_get_document_location_returns_folder_path(rest, storage):
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"filled", "pdf")
+
+    result = dispatch_tool(rest, storage, storage, CONFIG, "get_document_location", {"client_name": "Acme", "doc_type": "MSA"})
+
+    assert result["found"] is True
+    assert result["folder_path"] == "Acme/01_Pre-requisites"
+    # Never a download_url — this tool is explicitly the "path only" answer.
+    assert "download_url" not in result
+
+
+def test_get_document_location_unfiled_doc_reports_not_found(rest, storage):
+    result = dispatch_tool(rest, storage, storage, CONFIG, "get_document_location", {"client_name": "Ghost", "doc_type": "MSA"})
+
+    assert result["found"] is False
+
+
 def test_get_document_versions_lists_full_history(rest, storage):
     upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v1", "pdf", uploaded_by="Priya", comment="First")
     upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v2", "pdf", uploaded_by="Priya", comment="Second")

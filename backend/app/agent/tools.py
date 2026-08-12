@@ -23,6 +23,7 @@ from app.services.document_service import (
     GatingBlocked,
     TemplateFileMissing,
     TemplateNotFound,
+    get_document_location,
     list_document_versions,
     request_template,
 )
@@ -86,6 +87,31 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "uploaded each one, when, and any change comment. Re-uploading a document never overwrites "
                 "an earlier version; every upload is kept permanently. Use this when the PM asks about "
                 "version history, a document's past versions, or wants to see/download an older version."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "client_name": {"type": "string", "description": "The client's name."},
+                    "doc_type": {
+                        "type": "string",
+                        "description": "Exact document type, e.g. 'Approved HLD'.",
+                    },
+                },
+                "required": ["client_name", "doc_type"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_document_location",
+            "description": (
+                "Get the FOLDER PATH where an already-filed document lives, without returning a "
+                "download link or the file itself. Use this ONLY when the PM explicitly asks where "
+                "something is stored / for the folder / to browse it themselves — phrases like 'where "
+                "is it', 'what folder', 'just the path', not a plain request to get/download the "
+                "document. For an ordinary 'give me the X' request, use request_template or "
+                "get_document_versions instead — those hand over the actual file/link."
             ),
             "parameters": {
                 "type": "object",
@@ -229,6 +255,21 @@ def dispatch_tool(
                 }
                 for v in versions
             ],
+        }
+
+    if tool_name == "get_document_location":
+        client_name = tool_input["client_name"]
+        doc_type = tool_input["doc_type"]
+        try:
+            location = get_document_location(rest, client_name, doc_type)
+        except ClientDocumentNotFound as e:
+            return {"found": False, "reason": str(e)}
+        return {
+            "found": True,
+            "client_name": location.client_name,
+            "doc_type": location.doc_type,
+            "folder_path": location.folder_path,
+            "filename": location.filename,
         }
 
     if tool_name == "search_document_types":
