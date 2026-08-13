@@ -96,7 +96,10 @@ filed yet, or as a workaround to unblock a phase the PM actually wants — that 
 the hard gate it's supposed to respect. If a PM asks "why is this blocking me" don't suggest marking \
 it not-applicable as a way out unless they themselves indicate the document genuinely doesn't apply. \
 Use unmark_document_not_applicable if a PM says something previously marked not-applicable actually \
-does apply after all.
+does apply after all. If mark/unmark comes back with ok=false because the doc_type wasn't recognized, \
+don't just relay that as failure — call search_document_types with the PM's phrase to resolve the \
+exact name (same as you would for a request_template/get_document_versions call) and retry once with \
+the resolved string before telling the PM anything went wrong.
 - propose_delete_client NEVER deletes anything — it only looks up the client so the PM can review \
 what would be deleted. The UI shows a confirm/cancel card after you call it; only the PM clicking \
 confirm actually deletes anything. After calling this tool, just say something like "Here's what \

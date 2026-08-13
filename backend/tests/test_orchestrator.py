@@ -109,6 +109,15 @@ def test_system_prompt_forbids_using_not_applicable_as_a_gate_workaround():
     assert "that would silently defeat the hard gate" in SYSTEM_PROMPT
 
 
+def test_system_prompt_self_corrects_on_unrecognized_doc_type_for_mark_unmark():
+    # Live bug: unmark_document_not_applicable failed on a mismatched doc_type
+    # string and the assistant just relayed the failure instead of resolving
+    # the exact name and retrying, which read to the PM as "this was never
+    # marked" when it actually had been.
+    assert "don't just relay that as failure" in SYSTEM_PROMPT
+    assert "call search_document_types with the PM's phrase to resolve the" in SYSTEM_PROMPT
+
+
 def test_bad_request_errors_are_not_swallowed():
     # A 400 (e.g. bad API key, malformed request) should propagate normally
     # rather than being silently masked.
