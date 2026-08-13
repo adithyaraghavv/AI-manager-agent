@@ -339,7 +339,16 @@ discovery documentation and database structure.
 
 ## Recent updates
 
-### 2026-08-13 UTC — Claude-style chat layout (sidebar + conversation history)
+### 2026-08-13 11:50 UTC — Remove inert settings icon from sidebar
+
+- The sidebar's profile footer had a settings gear icon that didn't do
+  anything when clicked — no real settings/access-control system exists
+  yet (that's item #8, still on hold pending the team's input), so the
+  icon just looked broken rather than "coming soon." Removed it; the
+  profile footer now shows only the avatar and "Marlabs PM" label, no
+  dead click target.
+
+### 2026-08-13 11:20 UTC — Claude-style chat layout (sidebar + conversation history)
 
 Frontend-only redesign — no backend, API, or business-logic changes.
 
@@ -379,7 +388,7 @@ Frontend-only redesign — no backend, API, or business-logic changes.
   navigation all confirmed working. Backend test suite untouched: 164
   passing (no backend files were touched by this change).
 
-### 2026-08-13 UTC — SOW metadata extraction
+### 2026-08-13 09:15 UTC — SOW metadata extraction
 
 - **New chat tool: `get_sow_summary`.** Item #7 from the Aug 11 demo
   feedback: SOWs just sat there as files — nobody could quickly answer
