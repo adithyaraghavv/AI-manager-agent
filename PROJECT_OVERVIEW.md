@@ -339,6 +339,30 @@ discovery documentation and database structure.
 
 ## Recent updates
 
+### 2026-08-13 12:45 UTC — Sidebar toggle: bigger, vertically centered, more visible
+
+Follow-up to the floating chevron toggle added earlier today — moved from a
+small 24px button near the top of the sidebar to a more prominent one, per
+live feedback that it wasn't easily noticeable.
+
+- Grown to 38px (within the 36–40px target) and vertically centered on
+  the sidebar/chat boundary — stays centered regardless of viewport
+  height (verified at both a standard height and a much taller one).
+- `aria-label="Toggle Chat History"` (was a dynamic "Collapse sidebar" /
+  "Expand sidebar" label) plus `aria-expanded` reflecting state.
+- Bigger shadow and a stronger one on hover for visibility against both
+  panels; background/border still use the app's own theme tokens
+  (`--panel-bg`/`--border`) rather than a hardcoded white, so it stays
+  correct in dark mode too — a literal white circle was requested, but
+  the same request also asked for the border to match the app's theme,
+  and the two conflict in dark mode, so the theme-token version was
+  kept.
+- Same interaction otherwise: 300ms transition, chevron flips direction,
+  keyboard accessible, hidden in favor of the header hamburger below the
+  tablet breakpoint.
+- Verified live at multiple viewport heights and both toggle states.
+  Backend untouched — 164 tests still passing.
+
 ### 2026-08-13 12:20 UTC — Floating chevron toggle for the sidebar
 
 - Moved the sidebar collapse/expand control out of the header and into a
