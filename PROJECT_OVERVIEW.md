@@ -339,6 +339,46 @@ discovery documentation and database structure.
 
 ## Recent updates
 
+### 2026-08-13 UTC — Claude-style chat layout (sidebar + conversation history)
+
+Frontend-only redesign — no backend, API, or business-logic changes.
+
+- **Removed the standalone "File a completed document" panel** from the
+  right side of the chat screen (`UploadPanel.jsx` deleted). Filing a
+  document is still fully supported via the existing attach-to-upload flow
+  (paperclip icon or drag-and-drop into the chat) — that flow only ever
+  captured client name + doc type, so no upload capability was lost,
+  though the standalone panel's optional "uploaded by" / "what changed"
+  fields go away with it (nothing in the attach flow captured those
+  either, so this wasn't a second path to lose).
+- **New permanent left sidebar** (`Sidebar.jsx`): a prominent "+ New chat"
+  button, saved conversations grouped by Today / Yesterday / Previous 7
+  Days / Previous 30 Days, hover-revealed per-chat menu (Rename, Delete),
+  and a profile footer. The profile footer is a placeholder (static
+  "Marlabs PM" label, inert settings icon) — there's no real user identity
+  system yet; that's item #8 (access control) from the demo feedback,
+  still on hold pending the team's input.
+- **Conversation state moved up to `App.jsx`** so the sidebar and the chat
+  panel can share one active conversation — `ChatPanel` now receives
+  `messages`/`setMessages` as props instead of owning them, everything
+  else (sending, drag/drop, upload/delete confirm flows) is unchanged.
+- **Editable chat title** at the top of the chat panel, synced with the
+  sidebar's entry name in both directions.
+- Chat column and composer capped at 900px and centered; message spacing
+  and composer are otherwise the same as before.
+- **Responsive**: sidebar is permanently docked on desktop (with a
+  collapse toggle), and becomes a slide-out drawer below 900px width
+  (tablet and mobile share one drawer behavior), opened via a hamburger
+  button in the header.
+- Colors/typography are unchanged — kept the existing Marlabs navy/blue
+  design-token system rather than switching to a generic beige palette,
+  by explicit choice, to preserve the branding work already shown to
+  stakeholders.
+- Verified live in a browser at desktop, collapsed-desktop, and mobile
+  (drawer open/closed) — rename, delete, new chat, and Dashboard
+  navigation all confirmed working. Backend test suite untouched: 164
+  passing (no backend files were touched by this change).
+
 ### 2026-08-13 UTC — SOW metadata extraction
 
 - **New chat tool: `get_sow_summary`.** Item #7 from the Aug 11 demo

@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { deleteClient, sendChat, uploadDocument } from '../api'
-import { useChatHistory } from '../hooks/useChatHistory'
 import AttachUploadCard from './AttachUploadCard'
-import ChatHistoryMenu from './ChatHistoryMenu'
 import DeleteConfirmCard from './DeleteConfirmCard'
 import DeleteResult from './DeleteResult'
 import ToolActivity from './ToolActivity'
@@ -67,6 +65,64 @@ function CopyButton({ text }) {
   )
 }
 
+// Editable title shown above the message list — mirrors the entry's name in the
+// sidebar. Editing is disabled until a conversation actually has a chatId (i.e.
+// at least one message has been sent), since there's nothing to rename yet.
+function ChatTitleBar({ title, onRename }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(title || '')
+  const inputRef = useRef(null)
+
+  useEffect(() => {
+    if (editing) inputRef.current?.focus()
+  }, [editing])
+
+  if (!title) return null
+
+  function commit() {
+    setEditing(false)
+    if (draft.trim() && draft.trim() !== title) onRename(draft.trim())
+    else setDraft(title)
+  }
+
+  if (editing) {
+    return (
+      <div className="chat-panel__title-bar">
+        <input
+          ref={inputRef}
+          className="chat-panel__title-input"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commit()
+            if (e.key === 'Escape') {
+              setDraft(title)
+              setEditing(false)
+            }
+          }}
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div className="chat-panel__title-bar">
+      <button
+        type="button"
+        className="chat-panel__title"
+        onClick={() => {
+          setDraft(title)
+          setEditing(true)
+        }}
+        title="Click to rename"
+      >
+        {title}
+      </button>
+    </div>
+  )
+}
+
 function extractText(content) {
   if (typeof content === 'string') return content
   if (Array.isArray(content)) {
@@ -108,22 +164,17 @@ function inferUploadContext(messages) {
   return { clientName, docType }
 }
 
-export default function ChatPanel() {
-  const [messages, setMessages] = useState([])
+export default function ChatPanel({ messages, setMessages, chatTitle, onRenameTitle }) {
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState(null)
   const [pendingFile, setPendingFile] = useState(null)
   const [pendingDelete, setPendingDelete] = useState(null)
   const [dragActive, setDragActive] = useState(false)
-  const [showHistory, setShowHistory] = useState(false)
-  const [chatId, setChatId] = useState(null)
   const scrollRef = useRef(null)
   const fileInputRef = useRef(null)
   const textareaRef = useRef(null)
   const dragDepth = useRef(0)
-  const chatIdRef = useRef(null)
-  const { entries: chatHistory, saveEntry, deleteEntry } = useChatHistory()
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
@@ -138,22 +189,6 @@ export default function ChatPanel() {
     el.style.height = 'auto'
     el.style.height = `${el.scrollHeight}px`
   }, [input])
-
-  // Auto-save to the local chat history sidebar after every exchange that has
-  // real user content — a fresh chatId is minted on the first user message, so
-  // reloads/edits to the same conversation update one entry instead of piling
-  // up duplicates.
-  useEffect(() => {
-    const userMessages = messages.filter((m) => m.role === 'user')
-    if (userMessages.length === 0) return
-
-    if (!chatIdRef.current) {
-      chatIdRef.current = Date.now()
-      setChatId(chatIdRef.current)
-    }
-    const title = extractText(userMessages[0].content).slice(0, 60) || 'New chat'
-    saveEntry(chatIdRef.current, title, messages)
-  }, [messages, saveEntry])
 
   // Shared by both a fresh send and a retry — `outgoing` already contains
   // the user's message (appended by the caller), so this never duplicates
@@ -209,32 +244,6 @@ export default function ChatPanel() {
   function handleRetry() {
     const outgoing = messages.filter((m) => m.role !== 'upload-result' && m.role !== 'delete-result')
     sendToBackend(outgoing)
-  }
-
-  function handleNewChat() {
-    chatIdRef.current = null
-    setChatId(null)
-    setMessages([])
-    setInput('')
-    setError(null)
-    setPendingFile(null)
-    setPendingDelete(null)
-  }
-
-  function handleLoadChat(entry) {
-    if (chatIdRef.current === entry.id) return
-    chatIdRef.current = entry.id
-    setChatId(entry.id)
-    setMessages(entry.messages)
-    setInput('')
-    setError(null)
-    setPendingFile(null)
-    setPendingDelete(null)
-  }
-
-  function handleDeleteChat(id) {
-    deleteEntry(id)
-    if (chatIdRef.current === id) handleNewChat()
   }
 
   function handleKeyDown(e) {
@@ -311,7 +320,6 @@ export default function ChatPanel() {
   }
 
   const uploadContext = pendingFile ? inferUploadContext(messages) : null
-  const hasConversation = messages.length > 0 || pendingFile || pendingDelete
 
   return (
     <div
@@ -337,46 +345,7 @@ export default function ChatPanel() {
           </div>
         </div>
       )}
-      {(hasConversation || chatHistory.length > 0) && (
-        <div className="chat-panel__topbar">
-          <div className="chat-panel__history-wrap">
-            <button
-              type="button"
-              className="chat-panel__history-toggle"
-              onClick={() => setShowHistory((s) => !s)}
-              disabled={chatHistory.length === 0}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path
-                  d="M3 12a9 9 0 109-9M3 12l3-3M3 12l3 3M12 7v5l3 3"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              History
-            </button>
-            {showHistory && (
-              <ChatHistoryMenu
-                entries={chatHistory}
-                activeId={chatId}
-                onLoad={handleLoadChat}
-                onDelete={handleDeleteChat}
-                onClose={() => setShowHistory(false)}
-              />
-            )}
-          </div>
-          {hasConversation && (
-            <button type="button" className="chat-panel__new-chat" onClick={handleNewChat}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-              New chat
-            </button>
-          )}
-        </div>
-      )}
+      <ChatTitleBar title={chatTitle} onRename={onRenameTitle} />
       <div className="chat-panel__messages" ref={scrollRef}>
        <div className="chat-panel__messages-inner">
         {messages.length === 0 && !pendingFile && (
