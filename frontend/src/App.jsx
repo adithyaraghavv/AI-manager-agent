@@ -31,7 +31,7 @@ function extractText(content) {
 export default function App() {
   const [backendUp, setBackendUp] = useState(null)
   const [view, setView] = useState('chat')
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [sidebarDrawerOpen, setSidebarDrawerOpen] = useState(false)
 
   // Chat session state lives here (not inside ChatPanel) because the sidebar's
@@ -123,18 +123,6 @@ export default function App() {
             Dashboard
           </button>
         </nav>
-        <button
-          type="button"
-          className="app__sidebar-collapse-toggle"
-          title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
-          onClick={() => setSidebarCollapsed((v) => !v)}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.6" />
-            <path d="M9 4v16" stroke="currentColor" strokeWidth="1.6" />
-          </svg>
-          <span className="sr-only">{sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}</span>
-        </button>
         <span
           className={`status-dot status-dot--${backendUp ? 'up' : 'down'}`}
           title={backendUp ? 'Backend connected' : 'Backend unreachable'}
@@ -144,7 +132,7 @@ export default function App() {
         <h1>{hero.title}</h1>
         <p>{hero.subtitle}</p>
       </div>
-      <div className={`app__body${sidebarCollapsed ? ' app__body--sidebar-collapsed' : ''}`}>
+      <div className={`app__body${isSidebarCollapsed ? ' app__body--sidebar-collapsed' : ''}`}>
         <Sidebar
           entries={chatHistory}
           activeId={chatId}
@@ -155,6 +143,23 @@ export default function App() {
           open={sidebarDrawerOpen}
           onClose={() => setSidebarDrawerOpen(false)}
         />
+        <button
+          type="button"
+          className="sidebar-toggle"
+          aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-expanded={!isSidebarCollapsed}
+          onClick={() => setIsSidebarCollapsed((v) => !v)}
+        >
+          {isSidebarCollapsed ? (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          ) : (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
+        </button>
         <main className="app__main">
           {view === 'chat' ? (
             <ChatPanel

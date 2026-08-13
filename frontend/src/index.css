@@ -120,8 +120,7 @@ body {
   }
 }
 
-.app__hamburger,
-.app__sidebar-collapse-toggle {
+.app__hamburger {
   display: none;
   align-items: center;
   justify-content: center;
@@ -135,31 +134,17 @@ body {
   transition: background 0.2s ease, color 0.2s ease;
 }
 
-.app__hamburger:hover,
-.app__sidebar-collapse-toggle:hover {
+.app__hamburger:hover {
   background: var(--bg);
   color: var(--text-h);
 }
 
-/* Desktop: no hamburger (sidebar is permanently docked), but the collapse
-   toggle is available to hide it out of the way. */
-.app__sidebar-collapse-toggle {
-  display: flex;
-  margin-left: auto;
-}
-
 @media (max-width: 900px) {
   /* Below the desktop breakpoint the sidebar becomes a drawer for both
-     tablet and mobile — the hamburger opens it, and the desktop-only
-     collapse toggle no longer applies. */
+     tablet and mobile — the hamburger opens it, and the floating collapse
+     toggle (desktop-only) is hidden (see .sidebar-toggle). */
   .app__hamburger {
     display: flex;
-  }
-  .app__sidebar-collapse-toggle {
-    display: none;
-  }
-  .status-dot {
-    margin-left: auto;
   }
 }
 
@@ -218,8 +203,8 @@ body {
   width: 9px;
   height: 9px;
   border-radius: 50%;
+  margin-left: auto;
   background: var(--text-muted);
-  margin-left: 8px;
 }
 .status-dot--up {
   background: var(--ok);
@@ -232,6 +217,7 @@ body {
    flex child on desktop (docked, pushes the main column over) and becomes a
    fixed-position overlay drawer below the tablet breakpoint (see .sidebar). */
 .app__body {
+  position: relative;
   flex: 1;
   display: flex;
   min-height: 0;
@@ -249,6 +235,61 @@ body {
 @media (max-width: 900px) {
   .app__main {
     padding: 12px;
+  }
+}
+
+/* Floating collapse/expand toggle — a sibling of .sidebar, absolutely
+   positioned within .app__body so it stays visible and simply slides along
+   with the sidebar/main boundary as the sidebar's width animates (rather
+   than living inside the sidebar itself, where it would vanish once the
+   sidebar's width reaches 0). Desktop-only — the mobile/tablet drawer is
+   opened via the header hamburger instead (see .app__hamburger). */
+.sidebar-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 18px;
+  left: 280px;
+  transform: translateX(-50%);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--panel-bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  z-index: 60;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  transition: left 0.3s ease, background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.sidebar-toggle:hover {
+  background: var(--bg);
+  color: var(--text-h);
+  border-color: var(--accent);
+}
+
+.sidebar-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.app__body--sidebar-collapsed .sidebar-toggle {
+  /* Not 0 — the button is horizontally centered on `left` via translateX(-50%),
+     so 0 would clip its left half against the body's overflow:hidden edge. */
+  left: 14px;
+}
+
+@media (min-width: 901px) {
+  .sidebar-toggle {
+    display: flex;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-toggle {
+    transition: none;
   }
 }
 
@@ -1242,7 +1283,7 @@ body {
   background: var(--panel-bg);
   border-right: 1px solid var(--border);
   overflow: hidden;
-  transition: width 0.25s ease, margin-left 0.25s ease;
+  transition: width 0.3s ease, border-color 0.3s ease;
 }
 
 .app__body--sidebar-collapsed .sidebar {

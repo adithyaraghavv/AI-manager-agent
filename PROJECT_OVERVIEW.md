@@ -339,6 +339,25 @@ discovery documentation and database structure.
 
 ## Recent updates
 
+### 2026-08-13 12:20 UTC — Floating chevron toggle for the sidebar
+
+- Moved the sidebar collapse/expand control out of the header and into a
+  small round button that floats right at the seam between the sidebar
+  and the chat area — it slides along with that boundary as the sidebar
+  animates open/closed (280px ↔ 0px, 300ms), rather than sitting fixed
+  in the header. Chevron flips direction with state: left-facing (‹) when
+  expanded, right-facing (›) when collapsed.
+- Keyboard accessible (a real `<button>`, focusable and Enter/Space
+  operable) with an `aria-label` that reflects the current action
+  ("Collapse sidebar" / "Expand sidebar") and `aria-expanded` reflecting
+  state.
+- Desktop-only — unchanged from before, the drawer on tablet/mobile is
+  still opened via the header hamburger.
+- Verified live: expand → collapse → re-expand round-trip, keyboard
+  operation (Tab + Enter), and that the toggle correctly hides on mobile
+  widths in favor of the hamburger. Backend untouched — 164 tests still
+  passing.
+
 ### 2026-08-13 11:50 UTC — Remove inert settings icon from sidebar
 
 - The sidebar's profile footer had a settings gear icon that didn't do
