@@ -339,6 +339,28 @@ discovery documentation and database structure.
 
 ## Recent updates
 
+### 2026-08-13 13:10 UTC — Unboxed chat canvas, plain-text assistant replies
+
+Live feedback: the chat panel read as a boxed widget (white card, border,
+shadow) rather than a real AI-agent surface, and message bubbles felt more
+like a generic chat app than Claude's own reading experience.
+
+- Removed the `.chat-panel`'s card chrome (background/border/border-radius/
+  shadow) — the conversation now sits directly on the app's own background,
+  the same open-canvas feel as Claude.ai, instead of floating inside a
+  bordered box.
+- Assistant replies are now plain flowing text (no bubble background/
+  border), spanning the full width of the already-narrow 900px message
+  column — reads as prose, the way Claude's own responses do. User
+  messages keep their colored bubble on the right, matching Claude's own
+  pattern of "your message is a pill, the reply is just text."
+- Assistant avatar now aligns to the top of the message instead of the
+  bottom, since replies are no longer short single-line bubbles.
+- Verified live (including dark mode, and a mocked longer multi-line
+  reply to check wrapping + copy-button placement) — reads correctly in
+  both themes, no layout breakage. Backend untouched — 164 tests still
+  passing.
+
 ### 2026-08-13 12:45 UTC — Sidebar toggle: bigger, vertically centered, more visible
 
 Follow-up to the floating chevron toggle added earlier today — moved from a

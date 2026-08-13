@@ -301,9 +301,8 @@ body {
 /* Chat panel */
 
 .chat-panel {
-  background: var(--panel-bg);
-  border: 1px solid var(--border);
-  border-radius: 12px;
+  /* No card chrome (border/shadow/background) — the chat sits directly on
+     the app background like a real assistant canvas, not a boxed widget. */
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -312,7 +311,6 @@ body {
   min-width: 0;
   overflow: hidden;
   position: relative;
-  box-shadow: 0 1px 2px rgba(16, 18, 28, 0.04), 0 12px 32px rgba(16, 18, 28, 0.06);
 }
 
 .chat-panel__drop-overlay {
@@ -482,7 +480,14 @@ body {
 
 .bubble-row--assistant {
   align-self: flex-start;
-  max-width: 72%;
+  align-items: flex-start;
+  /* No bubble box to constrain — assistant replies flow as plain text
+     across most of the (already narrow, 900px-capped) message column,
+     the same way Claude's own responses read as prose, not a chat pill.
+     Aligned to the top (not bottom, like the row default) so a multi-line
+     reply doesn't drag the avatar down to its last line. */
+  max-width: 100%;
+  width: 100%;
 }
 
 .bubble-avatar {
@@ -517,6 +522,20 @@ body {
   min-width: 0;
   display: flex;
   flex-direction: column;
+}
+
+.bubble-row--assistant .bubble {
+  flex: 1;
+  width: 100%;
+}
+
+.bubble-row--assistant .bubble__text-wrap {
+  width: 100%;
+}
+
+.bubble-row--assistant .bubble__text {
+  flex: 1;
+  min-width: 0;
 }
 
 .bubble--user {
@@ -580,10 +599,11 @@ body {
 }
 
 .bubble--assistant .bubble__text {
-  background: var(--bg);
-  color: var(--agent-bubble-text);
-  border: 1px solid var(--border);
-  border-bottom-left-radius: 6px;
+  /* Plain flowing text, no bubble chrome — reads as prose, the way Claude's
+     own replies do, rather than a chat-app message pill. */
+  background: transparent;
+  color: var(--text);
+  padding: 4px 0;
 }
 
 /* Tool/result lines — deliberately NOT chat bubbles or AI-authored text.
