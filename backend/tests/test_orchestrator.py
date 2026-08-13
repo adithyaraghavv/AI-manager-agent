@@ -125,6 +125,14 @@ def test_system_prompt_distinguishes_sow_content_questions_from_file_requests():
     assert "never fill in a guess" in SYSTEM_PROMPT
 
 
+def test_system_prompt_general_sow_summary_request_surfaces_all_four_fields():
+    # A plain "summarize the SOW" must not silently reduce to just the scope
+    # field (what happened live) — the PM asking generally wants the whole
+    # picture: value, both dates, and scope together.
+    assert "present ALL FOUR fields together" in SYSTEM_PROMPT
+    assert "not just whichever one you'd otherwise guess at" in SYSTEM_PROMPT
+
+
 def test_bad_request_errors_are_not_swallowed():
     # A 400 (e.g. bad API key, malformed request) should propagate normally
     # rather than being silently masked.

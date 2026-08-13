@@ -197,7 +197,7 @@ On top of the tools themselves:
 - Marlabs rebrand (logo, colors, typography)
 - Saved/reopenable chat history, drag-and-drop file attach, message
   avatars + animated typing indicator
-- 163 backend tests passing, no known dependency CVEs (checked via
+- 164 backend tests passing, no known dependency CVEs (checked via
   `pip-audit` / `npm audit`)
 
 ### Pending
@@ -241,7 +241,7 @@ On top of the tools themselves:
   app; one-off seed/cleanup scripts also use the REST API (not a direct
   connection) so they can be run from any network
 - Pydantic / pydantic-settings — request/response models, config
-- pytest — 163 tests covering gating logic, services, routes, and the seed
+- pytest — 164 tests covering gating logic, services, routes, and the seed
   scripts
 
 **Frontend**
@@ -370,7 +370,12 @@ discovery documentation and database structure.
   so that path is deliberately guarded against too.
 - New table `sow_metadata` (migration `d8a3f5c1e6b7`), new dependencies
   `pypdf`, `python-docx`, `cffi`.
-- 163 backend tests passing (was 148).
+- Live-testing fix: a plain "summarize the SOW" (no specific field named)
+  was only surfacing the scope field, since the tool's examples were all
+  field-specific questions. A general summary/overview request now
+  explicitly triggers all four fields together (value, both dates, scope)
+  instead of the assistant picking one arbitrarily.
+- 164 backend tests passing (was 148).
 
 ### 2026-08-12 13:40 UTC — Phase/document "not applicable" flag
 
