@@ -35,6 +35,7 @@ from app.services.document_service import (
     list_document_versions,
     request_template,
 )
+from app.services.sow_extraction_service import SowExtractionFailed, get_sow_summary
 from app.storage.base import StorageBackend
 
 TOOL_DEFINITIONS: list[dict[str, Any]] = [
@@ -219,6 +220,30 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "get_sow_summary",
+            "description": (
+                "Pull key facts out of a client's filed SOW — contract value, start date, end date, "
+                "and a scope summary — so the PM doesn't have to open the document themselves. Use "
+                "this when the PM asks something the SOW's CONTENT would answer (e.g. 'what's the "
+                "contract value for Acme', 'when does the Acme engagement end', 'what's in scope for "
+                "Acme') — not for a plain 'give me the SOW' request, which means the file itself "
+                "(request_template/get_document_versions). Re-reads the SOW fresh every call, so it's "
+                "always based on whatever version is currently on file. Any field the SOW doesn't "
+                "actually state comes back null — never invent a value for a field this tool returns "
+                "null for."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "client_name": {"type": "string", "description": "The client's name."},
+                },
+                "required": ["client_name"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "propose_delete_client",
             "description": (
                 "Look up a client and prepare to delete them. Deletion hides the client from everywhere "
@@ -373,6 +398,22 @@ def dispatch_tool(
             "query": query,
             "count": len(matches),
             "matches": [{"doc_type": m.doc_type, "phase_name": m.phase_name} for m in matches],
+        }
+
+    if tool_name == "get_sow_summary":
+        client_name = tool_input["client_name"]
+        try:
+            result = get_sow_summary(rest, client_storage, client_name)
+        except SowExtractionFailed as e:
+            return {"found": False, "reason": str(e)}
+        return {
+            "found": True,
+            "client_name": result.client_name,
+            "contract_value": result.contract_value,
+            "start_date": result.start_date,
+            "end_date": result.end_date,
+            "scope_summary": result.scope_summary,
+            "extracted_at": result.extracted_at,
         }
 
     if tool_name == "propose_delete_client":

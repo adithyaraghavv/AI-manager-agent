@@ -111,3 +111,23 @@ class NotApplicableDocument(Base):
     reason: Mapped[str | None] = mapped_column(String, nullable=True)
     marked_by: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class SowMetadata(Base):
+    """AI-extracted key facts pulled from a client's filed SOW — contract
+    value, start/end dates, and a scope summary — so a PM can ask for them
+    directly instead of opening the document. Extraction is on-demand (a
+    chat request re-runs it against whatever SOW is currently on file) and
+    this row is simply overwritten each time; it's a cache of the last
+    extraction, not a source of truth independent of the SOW file itself."""
+
+    __tablename__ = "sow_metadata"
+    __table_args__ = (UniqueConstraint("client_id", name="uq_client_sow_metadata"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("clients.id"), nullable=False)
+    contract_value: Mapped[str | None] = mapped_column(String, nullable=True)
+    start_date: Mapped[str | None] = mapped_column(String, nullable=True)
+    end_date: Mapped[str | None] = mapped_column(String, nullable=True)
+    scope_summary: Mapped[str | None] = mapped_column(String, nullable=True)
+    extracted_at: Mapped[datetime] = mapped_column(server_default=func.now())

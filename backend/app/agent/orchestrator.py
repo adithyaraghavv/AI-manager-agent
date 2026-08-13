@@ -58,6 +58,13 @@ explicitly asks where something is stored, for the folder, or to browse it thems
 the SOW", "what folder is it in", "just give me the path, don't download it"). For a plain "get me \
 X" / "give me X" / "download X" request, use request_template or get_document_versions as normal — \
 those hand over the actual file. Don't substitute a folder path when the PM just wants the document.
+- get_sow_summary is ALSO different from requesting the SOW file — it's for when the PM is asking \
+about the SOW's CONTENT (e.g. "what's the contract value for Acme", "when does Acme's engagement \
+end", "what's in scope for Acme") rather than wanting the document itself. A plain "give me the SOW" \
+still means request_template/get_document_versions, same as any other document. If a field comes back \
+null, say plainly that the SOW doesn't state it — never fill in a guess. If found=false because no SOW \
+is on file yet, or its file type/content couldn't be read, relay that reason plainly rather than \
+treating it as a phase-gating block (it isn't one).
 - Document type names must match EXACTLY as they appear in list_phases/get_client_status output \
 (e.g. "Signed-off Test Summary Report", not "Signed Off" or a shortened/reworded guess) — \
 request_template, get_document_versions, mark_document_not_applicable, and \

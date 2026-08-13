@@ -1,3 +1,6 @@
+import json
+from unittest.mock import MagicMock, patch
+
 import pytest
 
 from app.agent.tools import dispatch_tool
@@ -235,3 +238,33 @@ def test_unmark_document_not_applicable_unknown_doc_type_reports_error_not_silen
 
     assert result["ok"] is False
     assert "Statement of Work" in result["reason"]
+
+
+def _mock_openai_response(fields: dict) -> MagicMock:
+    choice = MagicMock()
+    choice.message.content = json.dumps(fields)
+    response = MagicMock()
+    response.choices = [choice]
+    return response
+
+
+def test_get_sow_summary_dispatch_returns_extracted_fields(rest, storage):
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"filled msa", "pdf")
+    upload_document(rest, storage, CONFIG, "SOW", "Acme", b"Contract value: $50,000", "txt")
+
+    with patch("app.services.sow_extraction_service.OpenAI") as MockOpenAI:
+        MockOpenAI.return_value.chat.completions.create.return_value = _mock_openai_response(
+            {"contract_value": "$50,000", "start_date": None, "end_date": None, "scope_summary": None}
+        )
+        result = dispatch_tool(rest, storage, storage, CONFIG, "get_sow_summary", {"client_name": "Acme"})
+
+    assert result["found"] is True
+    assert result["client_name"] == "Acme"
+    assert result["contract_value"] == "$50,000"
+
+
+def test_get_sow_summary_dispatch_reports_not_found_when_no_sow_filed(rest, storage):
+    result = dispatch_tool(rest, storage, storage, CONFIG, "get_sow_summary", {"client_name": "Acme"})
+
+    assert result["found"] is False
+    assert "No client named" in result["reason"] or "No SOW is on file" in result["reason"]

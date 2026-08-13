@@ -118,6 +118,13 @@ def test_system_prompt_self_corrects_on_unrecognized_doc_type_for_mark_unmark():
     assert "call search_document_types with the PM's phrase to resolve the" in SYSTEM_PROMPT
 
 
+def test_system_prompt_distinguishes_sow_content_questions_from_file_requests():
+    # get_sow_summary answers questions ABOUT the SOW (value, dates, scope);
+    # a plain "give me the SOW" must still mean the file itself.
+    assert "get_sow_summary is ALSO different from requesting the SOW file" in SYSTEM_PROMPT
+    assert "never fill in a guess" in SYSTEM_PROMPT
+
+
 def test_bad_request_errors_are_not_swallowed():
     # A 400 (e.g. bad API key, malformed request) should propagate normally
     # rather than being silently masked.

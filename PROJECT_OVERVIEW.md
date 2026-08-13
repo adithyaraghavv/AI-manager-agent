@@ -51,7 +51,7 @@ what the AI says.
 
 ### Chatbot capabilities
 
-The assistant (OpenAI GPT-4o) has nine tools it can call — it can
+The assistant (OpenAI GPT-4o) has ten tools it can call — it can
 only ever do what these tools allow, nothing else, so it can't be talked into
 doing something the system doesn't actually support:
 
@@ -96,6 +96,12 @@ doing something the system doesn't actually support:
 9. **Reverse a not-applicable mark** — for when something previously marked
    not-applicable turns out to apply after all; puts the document back to
    genuinely required/missing.
+10. **Summarize a client's SOW** — pulls contract value, start/end dates,
+    and a scope summary out of a client's filed SOW so a PM can just ask
+    for them instead of opening the document. Runs on-demand (re-reads
+    whatever SOW is currently on file every time it's asked, never a
+    cached/stale answer) and never invents a value — any field the SOW
+    doesn't actually state comes back as "not stated," not a guess.
 - Every tool result is re-checked fresh, every time — even if the PM asks
   the exact same thing twice in one conversation. Real state (a fixed file,
   a new upload, a newly filed document) can change between messages, so the
@@ -191,7 +197,7 @@ On top of the tools themselves:
 - Marlabs rebrand (logo, colors, typography)
 - Saved/reopenable chat history, drag-and-drop file attach, message
   avatars + animated typing indicator
-- 146 backend tests passing, no known dependency CVEs (checked via
+- 163 backend tests passing, no known dependency CVEs (checked via
   `pip-audit` / `npm audit`)
 
 ### Pending
@@ -235,7 +241,7 @@ On top of the tools themselves:
   app; one-off seed/cleanup scripts also use the REST API (not a direct
   connection) so they can be run from any network
 - Pydantic / pydantic-settings — request/response models, config
-- pytest — 146 tests covering gating logic, services, routes, and the seed
+- pytest — 163 tests covering gating logic, services, routes, and the seed
   scripts
 
 **Frontend**
@@ -332,6 +338,39 @@ why Supabase is accessed two different ways, and `docs/` for the original
 discovery documentation and database structure.
 
 ## Recent updates
+
+### 2026-08-13 UTC — SOW metadata extraction
+
+- **New chat tool: `get_sow_summary`.** Item #7 from the Aug 11 demo
+  feedback: SOWs just sat there as files — nobody could quickly answer
+  "what's the contract value for this client" or "when does this
+  engagement end" without opening the document and reading it manually.
+- A PM can now ask directly (e.g. "what's the contract value for Acme,"
+  "when does Acme's engagement end," "what's in scope for Acme") and the
+  assistant reads the client's filed SOW and pulls out contract value,
+  start date, end date, and a scope summary via GPT-4o. Any field the SOW
+  doesn't actually state comes back null — the assistant is told never to
+  fill in a guess for a null field.
+- Scoped to SOW only (not every document type) — that's the one document
+  with a clean, consistent set of facts worth extracting; other document
+  types don't have an equivalent structured "facts" ask behind them.
+- On-demand only, by design: extraction runs fresh every time it's asked
+  (no automatic extraction on upload, no stale cached answer) — same
+  "never trust an earlier result" principle the rest of the assistant
+  already follows. The result is still cached in a new `sow_metadata`
+  table (overwritten on each re-extraction) so it's available for
+  anything that wants to query it directly later.
+- New `app/core/text_extraction.py` — best-effort plain-text extraction
+  from `.txt`, `.pdf`, and `.docx` files (the formats worth the added
+  dependency weight; `.doc`/`.xlsx`/`.pptx` report as unsupported rather
+  than guessed at). Any parse failure — a corrupted file, or a scanned
+  image-only PDF with no text layer — returns "couldn't read this" rather
+  than crashing; a malformed PDF can trip a low-level panic in pypdf's
+  crypto dependency that a normal `except Exception` doesn't even catch,
+  so that path is deliberately guarded against too.
+- New table `sow_metadata` (migration `d8a3f5c1e6b7`), new dependencies
+  `pypdf`, `python-docx`, `cffi`.
+- 163 backend tests passing (was 148).
 
 ### 2026-08-12 13:40 UTC — Phase/document "not applicable" flag
 
