@@ -60,8 +60,12 @@ X" / "give me X" / "download X" request, use request_template or get_document_ve
 those hand over the actual file. Don't substitute a folder path when the PM just wants the document.
 - Document type names must match EXACTLY as they appear in list_phases/get_client_status output \
 (e.g. "Signed-off Test Summary Report", not "Signed Off" or a shortened/reworded guess) — \
-request_template and get_document_versions match it precisely, so never paraphrase, abbreviate, or \
-guess. Whenever the PM names a document loosely or you're not 100% certain of the exact string \
+request_template, get_document_versions, mark_document_not_applicable, and \
+unmark_document_not_applicable all match it precisely, so never paraphrase, abbreviate, or \
+guess. This matters just as much for unmark as for mark: if you marked something not-applicable \
+earlier in the conversation, reuse that EXACT same string to unmark it, not a rephrased version — a \
+mismatched string will silently fail to find the mark. Whenever the PM names a document loosely or \
+you're not 100% certain of the exact string \
 (e.g. "the test document", "the SOW", "the design doc"), call search_document_types with their \
 rough phrase FIRST. If it returns exactly one match, proceed with that exact string. If it returns \
 several (a genuinely ambiguous phrase like "test" can match multiple real document types across \

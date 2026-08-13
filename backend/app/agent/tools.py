@@ -356,6 +356,10 @@ def dispatch_tool(
     if tool_name == "unmark_document_not_applicable":
         client_name = tool_input["client_name"]
         doc_type = tool_input["doc_type"]
+        try:
+            resolve_phase_for_document(config, doc_type)
+        except ValueError as e:
+            return {"ok": False, "reason": str(e)}
         client = find_client(rest, client_name)
         if client is None:
             return {"ok": False, "reason": f"No client named {client_name!r}"}

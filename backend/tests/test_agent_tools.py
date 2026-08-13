@@ -216,3 +216,22 @@ def test_unmark_document_not_applicable_unknown_client_reports_not_found(rest, s
 
     assert result["ok"] is False
     assert "Ghost" in result["reason"]
+
+
+def test_unmark_document_not_applicable_unknown_doc_type_reports_error_not_silent_no_op(rest, storage):
+    # The exact live bug this guards against: marking "SOW" then unmarking
+    # with a differently-worded string (e.g. "Statement of Work") must raise
+    # a clear error, not silently report was_marked=False as if it were
+    # simply never marked.
+    dispatch_tool(
+        rest, storage, storage, CONFIG, "mark_document_not_applicable",
+        {"client_name": "Acme", "doc_type": "SOW"},
+    )
+
+    result = dispatch_tool(
+        rest, storage, storage, CONFIG, "unmark_document_not_applicable",
+        {"client_name": "Acme", "doc_type": "Statement of Work"},
+    )
+
+    assert result["ok"] is False
+    assert "Statement of Work" in result["reason"]
