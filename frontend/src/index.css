@@ -1476,25 +1476,6 @@ body {
   text-overflow: ellipsis;
 }
 
-.sidebar__profile-settings {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: not-allowed;
-  transition: background 0.15s ease;
-}
-
-.sidebar__profile-settings:hover {
-  background: var(--bg);
-}
-
 .sidebar__backdrop {
   display: none;
 }
