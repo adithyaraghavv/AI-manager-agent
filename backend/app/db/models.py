@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, String, UniqueConstraint, func
+from sqlalchemy import JSON, ForeignKey, String, UniqueConstraint, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -115,11 +115,13 @@ class NotApplicableDocument(Base):
 
 class SowMetadata(Base):
     """AI-extracted key facts pulled from a client's filed SOW — contract
-    value, start/end dates, and a scope summary — so a PM can ask for them
-    directly instead of opening the document. Extraction is on-demand (a
-    chat request re-runs it against whatever SOW is currently on file) and
-    this row is simply overwritten each time; it's a cache of the last
-    extraction, not a source of truth independent of the SOW file itself."""
+    value, start/end dates, a scope summary, project team assignments, and
+    which party is responsible for providing each document type — so a PM
+    can ask for them directly instead of opening the document. Extraction is
+    on-demand (a chat request re-runs it against whatever SOW is currently
+    on file) and this row is simply overwritten each time; it's a cache of
+    the last extraction, not a source of truth independent of the SOW file
+    itself."""
 
     __tablename__ = "sow_metadata"
     __table_args__ = (UniqueConstraint("client_id", name="uq_client_sow_metadata"),)
@@ -130,4 +132,12 @@ class SowMetadata(Base):
     start_date: Mapped[str | None] = mapped_column(String, nullable=True)
     end_date: Mapped[str | None] = mapped_column(String, nullable=True)
     scope_summary: Mapped[str | None] = mapped_column(String, nullable=True)
+    # List of {"name": ..., "role": ...} objects — who's assigned to the
+    # project, per the SOW. Null/empty when the SOW doesn't state this.
+    team_assignments: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # Doc type -> responsible party, e.g. {"BRD": "Client team", "HLD":
+    # "Marlabs team"}. Free-form strings as written in the SOW — not
+    # cross-checked against phase_config's canonical doc-type names, since
+    # this is informational, not something gating depends on.
+    document_responsibilities: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     extracted_at: Mapped[datetime] = mapped_column(server_default=func.now())

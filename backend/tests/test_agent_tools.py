@@ -254,13 +254,22 @@ def test_get_sow_summary_dispatch_returns_extracted_fields(rest, storage):
 
     with patch("app.services.sow_extraction_service.OpenAI") as MockOpenAI:
         MockOpenAI.return_value.chat.completions.create.return_value = _mock_openai_response(
-            {"contract_value": "$50,000", "start_date": None, "end_date": None, "scope_summary": None}
+            {
+                "contract_value": "$50,000",
+                "start_date": None,
+                "end_date": None,
+                "scope_summary": None,
+                "team_assignments": [{"name": "Jane Doe", "role": "Project Manager"}],
+                "document_responsibilities": {"BRD": "Client team"},
+            }
         )
         result = dispatch_tool(rest, storage, storage, CONFIG, "get_sow_summary", {"client_name": "Acme"})
 
     assert result["found"] is True
     assert result["client_name"] == "Acme"
     assert result["contract_value"] == "$50,000"
+    assert result["team_assignments"] == [{"name": "Jane Doe", "role": "Project Manager"}]
+    assert result["document_responsibilities"] == {"BRD": "Client team"}
 
 
 def test_get_sow_summary_dispatch_reports_not_found_when_no_sow_filed(rest, storage):

@@ -20,6 +20,8 @@ function inProgressPhrase(name, result) {
       return `Searching document types for "${result.query}"…`
     case 'propose_delete_client':
       return `Looking up ${result.client_name}…`
+    case 'get_sow_summary':
+      return `Reading the SOW for "${result.client_name}"…`
     default:
       return 'Working…'
   }
@@ -52,6 +54,8 @@ function summarize(name, result) {
       return result.found
         ? `Looked up "${result.client_name}" — ${result.phases_complete}/${result.total_phases} phases complete, ${result.document_count} documents filed`
         : `No client named "${result.client_name}" found`
+    case 'get_sow_summary':
+      return result.found ? `Pulled SOW summary for "${result.client_name}"` : `Couldn't read the SOW: ${result.reason}`
     default:
       return name
   }
@@ -80,6 +84,77 @@ function StatusCard({ result }) {
         </div>
       ) : (
         <div className="status-card__detail status-card__detail--good">All phases complete</div>
+      )}
+    </div>
+  )
+}
+
+function SowSummaryCard({ result }) {
+  const fields = [
+    { label: 'Contract value', value: result.contract_value },
+    { label: 'Start date', value: result.start_date },
+    { label: 'End date', value: result.end_date },
+  ].filter((f) => f.value)
+
+  const hasTeam = Array.isArray(result.team_assignments) && result.team_assignments.length > 0
+  const responsibilities = result.document_responsibilities
+  const hasResponsibilities = responsibilities && Object.keys(responsibilities).length > 0
+
+  return (
+    <div className="sow-card">
+      <div className="sow-card__header">
+        <span className="sow-card__title">{result.client_name} — SOW summary</span>
+      </div>
+
+      {fields.length > 0 && (
+        <div className="sow-card__facts">
+          {fields.map((f) => (
+            <div className="sow-card__fact" key={f.label}>
+              <span className="sow-card__fact-label">{f.label}</span>
+              <span className="sow-card__fact-value">{f.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {result.scope_summary && (
+        <div className="sow-card__section">
+          <div className="sow-card__section-label">Scope</div>
+          <p className="sow-card__scope">{result.scope_summary}</p>
+        </div>
+      )}
+
+      {hasTeam && (
+        <div className="sow-card__section">
+          <div className="sow-card__section-label">Project team</div>
+          <ul className="sow-card__list">
+            {result.team_assignments.map((person, i) => (
+              <li key={i}>
+                <strong>{person.name}</strong>
+                {person.role ? ` — ${person.role}` : ''}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {hasResponsibilities && (
+        <div className="sow-card__section">
+          <div className="sow-card__section-label">Document ownership</div>
+          <ul className="sow-card__list">
+            {Object.entries(responsibilities).map(([docType, owner]) => (
+              <li key={docType}>
+                <strong>{docType}</strong> — {owner}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {!hasTeam && !hasResponsibilities && (
+        <div className="sow-card__note">
+          This SOW doesn't spell out a project team or document ownership.
+        </div>
       )}
     </div>
   )
@@ -174,6 +249,7 @@ export default function ToolActivity({ name, result }) {
   const showVersionList = settled && name === 'get_document_versions' && result.found && result.versions?.length > 0
   const showStatusCard = settled && name === 'get_client_status' && Array.isArray(result.phases)
   const showPathCard = settled && name === 'get_document_location' && result.found && result.folder_path
+  const showSowCard = settled && name === 'get_sow_summary' && result.found
 
   return (
     <div className="tool-activity">
@@ -185,6 +261,7 @@ export default function ToolActivity({ name, result }) {
       </div>
       {showStatusCard && <StatusCard result={result} />}
       {showPathCard && <PathCard folderPath={result.folder_path} />}
+      {showSowCard && <SowSummaryCard result={result} />}
       {showDownload && (
         <div className="file-card-list">
           <FileCard title={result.filename} href={result.download_url} />

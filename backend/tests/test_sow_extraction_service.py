@@ -35,6 +35,8 @@ def test_get_sow_summary_extracts_and_persists_fields(rest, storage):
         "start_date": "Jan 2026",
         "end_date": "Dec 2026",
         "scope_summary": "Build and deploy a delivery tracking tool.",
+        "team_assignments": [{"name": "Jane Doe", "role": "Project Manager"}],
+        "document_responsibilities": {"BRD": "Client team", "HLD": "Marlabs team"},
     }
 
     with patch("app.services.sow_extraction_service.OpenAI") as MockOpenAI:
@@ -46,10 +48,37 @@ def test_get_sow_summary_extracts_and_persists_fields(rest, storage):
     assert result.start_date == "Jan 2026"
     assert result.end_date == "Dec 2026"
     assert result.scope_summary == "Build and deploy a delivery tracking tool."
+    assert result.team_assignments == [{"name": "Jane Doe", "role": "Project Manager"}]
+    assert result.document_responsibilities == {"BRD": "Client team", "HLD": "Marlabs team"}
 
     client = rest.select_one("clients", name="Acme")
     stored = rest.select_one("sow_metadata", client_id=client["id"])
     assert stored["contract_value"] == "$50,000"
+    assert stored["team_assignments"] == [{"name": "Jane Doe", "role": "Project Manager"}]
+    assert stored["document_responsibilities"] == {"BRD": "Client team", "HLD": "Marlabs team"}
+
+
+def test_get_sow_summary_team_and_document_ownership_null_when_not_stated(rest, storage):
+    # The exact fabrication risk this guards against: a SOW that names no
+    # project team and assigns no document ownership must come back with
+    # both fields null, not an empty-but-invented team/ownership map.
+    upload_document(rest, storage, CONFIG, "SOW", "Acme", b"a bare-bones SOW", "txt")
+
+    with patch("app.services.sow_extraction_service.OpenAI") as MockOpenAI:
+        MockOpenAI.return_value.chat.completions.create.return_value = _mock_openai_response(
+            {
+                "contract_value": None,
+                "start_date": None,
+                "end_date": None,
+                "scope_summary": None,
+                "team_assignments": None,
+                "document_responsibilities": None,
+            }
+        )
+        result = get_sow_summary(rest, storage, "Acme")
+
+    assert result.team_assignments is None
+    assert result.document_responsibilities is None
 
 
 def test_get_sow_summary_re_extraction_overwrites_not_duplicates(rest, storage):

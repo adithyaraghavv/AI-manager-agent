@@ -734,6 +734,100 @@ body {
   color: var(--ok);
 }
 
+/* SOW summary card — structured facts pulled from a client's SOW (value,
+   dates, scope, team, document ownership), rendered instead of leaving the
+   whole thing to the assistant's prose so the demo-requested fields (who's
+   on the team, who owns which document) actually read as data, not a wall
+   of text. */
+
+.sow-card {
+  margin-top: 8px;
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sow-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sow-card__title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.sow-card__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sow-card__fact {
+  flex: 1;
+  min-width: 120px;
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sow-card__fact-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.sow-card__fact-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.sow-card__section-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.sow-card__scope {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.sow-card__list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.sow-card__list strong {
+  color: var(--text-h);
+}
+
+.sow-card__note {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 /* Path card — deliberately NOT a file card. A folder path is a "browse it
    yourself" answer, not a downloadable file, so it gets its own quieter
    visual treatment (monospace path, copy button) instead of looking like

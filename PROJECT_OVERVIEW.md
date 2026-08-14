@@ -96,12 +96,15 @@ doing something the system doesn't actually support:
 9. **Reverse a not-applicable mark** — for when something previously marked
    not-applicable turns out to apply after all; puts the document back to
    genuinely required/missing.
-10. **Summarize a client's SOW** — pulls contract value, start/end dates,
-    and a scope summary out of a client's filed SOW so a PM can just ask
-    for them instead of opening the document. Runs on-demand (re-reads
-    whatever SOW is currently on file every time it's asked, never a
-    cached/stale answer) and never invents a value — any field the SOW
-    doesn't actually state comes back as "not stated," not a guess.
+10. **Summarize a client's SOW** — pulls contract value, start/end dates, a
+    scope summary, the project team (who's assigned and their role), and
+    document ownership (who's responsible for providing each document,
+    e.g. who owns the BRD or HLD) out of a client's filed SOW so a PM can
+    just ask for them instead of opening the document. Runs on-demand
+    (re-reads whatever SOW is currently on file every time it's asked,
+    never a cached/stale answer) and never invents a value — any field
+    the SOW doesn't actually state, including a name, role, or document
+    owner, comes back as "not stated," not a guess.
 - Every tool result is re-checked fresh, every time — even if the PM asks
   the exact same thing twice in one conversation. Real state (a fixed file,
   a new upload, a newly filed document) can change between messages, so the
@@ -197,7 +200,7 @@ On top of the tools themselves:
 - Marlabs rebrand (logo, colors, typography)
 - Saved/reopenable chat history, drag-and-drop file attach, message
   avatars + animated typing indicator
-- 164 backend tests passing, no known dependency CVEs (checked via
+- 166 backend tests passing, no known dependency CVEs (checked via
   `pip-audit` / `npm audit`)
 
 ### Pending
@@ -241,7 +244,7 @@ On top of the tools themselves:
   app; one-off seed/cleanup scripts also use the REST API (not a direct
   connection) so they can be run from any network
 - Pydantic / pydantic-settings — request/response models, config
-- pytest — 164 tests covering gating logic, services, routes, and the seed
+- pytest — 166 tests covering gating logic, services, routes, and the seed
   scripts
 
 **Frontend**
@@ -338,6 +341,31 @@ why Supabase is accessed two different ways, and `docs/` for the original
 discovery documentation and database structure.
 
 ## Recent updates
+
+### 2026-08-13 14:05 UTC — SOW summary: project team + document ownership
+
+Direct feedback from today's demo: the SOW summary needed to also show who's
+assigned to the project and who's responsible for providing each document
+(e.g. who owns the BRD, who owns the HLD).
+
+- `get_sow_summary` now extracts two more fields alongside the existing
+  contract value/dates/scope: `team_assignments` (name + role for everyone
+  named in the SOW) and `document_responsibilities` (document type →
+  responsible party, exactly as stated in the SOW).
+- Same fabrication guard as every other field, made explicit for these two
+  specifically since a wrong name or a wrong "who owns this document" claim
+  causes real confusion on a live project: null (not an invented team, not
+  an empty-but-implied answer) when the SOW doesn't state it. The system
+  prompt calls this out as its own rule, not just folded into the general
+  "don't guess" instruction.
+- New chat-side rendering: a proper SOW summary card (facts, scope, project
+  team list, document ownership list) instead of leaving structured data to
+  be described in prose — verified live with both a fully-populated SOW and
+  one with no team/ownership info (shows a plain "doesn't spell this out"
+  note instead of an empty or fabricated section).
+- New columns `team_assignments`, `document_responsibilities` on
+  `sow_metadata` (migration `e2b7c4a9f1d3`, both JSON).
+- 166 backend tests passing (was 164).
 
 ### 2026-08-13 13:10 UTC — Unboxed chat canvas, plain-text assistant replies
 

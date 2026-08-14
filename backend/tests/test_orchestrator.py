@@ -125,12 +125,21 @@ def test_system_prompt_distinguishes_sow_content_questions_from_file_requests():
     assert "never fill in a guess" in SYSTEM_PROMPT
 
 
-def test_system_prompt_general_sow_summary_request_surfaces_all_four_fields():
-    # A plain "summarize the SOW" must not silently reduce to just the scope
-    # field (what happened live) — the PM asking generally wants the whole
-    # picture: value, both dates, and scope together.
-    assert "present ALL FOUR fields together" in SYSTEM_PROMPT
+def test_system_prompt_general_sow_summary_request_surfaces_all_six_fields():
+    # A plain "summarize the SOW" must not silently reduce to just one field
+    # (what happened live before) — the PM asking generally wants the whole
+    # picture: value, both dates, scope, team, and document ownership.
+    assert "present ALL SIX fields together" in SYSTEM_PROMPT
     assert "not just whichever one you'd otherwise guess at" in SYSTEM_PROMPT
+
+
+def test_system_prompt_forbids_inventing_team_or_document_ownership():
+    # Demo feedback: PMs want to ask who's on the project team and who owns
+    # providing each document. Both are exactly the kind of thing the model
+    # could plausibly guess wrong (a name, a role, "who usually owns this") —
+    # guard against fabrication here as strictly as any other SOW field.
+    assert "team_assignments and document_responsibilities are exactly as fabrication-sensitive" in SYSTEM_PROMPT
+    assert "never infer one from context" in SYSTEM_PROMPT
 
 
 def test_bad_request_errors_are_not_swallowed():

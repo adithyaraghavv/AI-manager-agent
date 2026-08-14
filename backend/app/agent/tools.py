@@ -222,17 +222,19 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "function": {
             "name": "get_sow_summary",
             "description": (
-                "Pull key facts out of a client's filed SOW — contract value, start date, end date, "
-                "and a scope summary — so the PM doesn't have to open the document themselves. Use "
-                "this when the PM asks something the SOW's CONTENT would answer: either a specific "
-                "field ('what's the contract value for Acme', 'when does the Acme engagement end', "
-                "'what's in scope for Acme') or a general request to summarize/overview the SOW itself "
-                "('summarize the SOW for Acme', 'give me a rundown of Acme's SOW', 'brief me on Acme's "
-                "engagement') — not for a plain 'give me the SOW' request, which means the file itself "
-                "(request_template/get_document_versions). Re-reads the SOW fresh every call, so it's "
-                "always based on whatever version is currently on file. Any field the SOW doesn't "
-                "actually state comes back null — never invent a value for a field this tool returns "
-                "null for."
+                "Pull key facts out of a client's filed SOW — contract value, start date, end date, a "
+                "scope summary, the project team (who's assigned and their role), and document "
+                "ownership (who's responsible for providing each document, e.g. who owns the BRD or "
+                "HLD) — so the PM doesn't have to open the document themselves. Use this when the PM "
+                "asks something the SOW's CONTENT would answer: a specific field ('what's the contract "
+                "value for Acme', 'who's on the team for Acme', 'who's responsible for the HLD for "
+                "Acme'), or a general request to summarize/overview the SOW itself ('summarize the SOW "
+                "for Acme', 'give me a rundown of Acme's SOW') — not for a plain 'give me the SOW' "
+                "request, which means the file itself (request_template/get_document_versions). "
+                "Re-reads the SOW fresh every call, so it's always based on whatever version is "
+                "currently on file. Any field the SOW doesn't actually state — including team "
+                "assignments and document ownership — comes back null; never invent a name, role, or "
+                "responsible party that isn't actually in the document."
             ),
             "parameters": {
                 "type": "object",
@@ -415,6 +417,8 @@ def dispatch_tool(
             "start_date": result.start_date,
             "end_date": result.end_date,
             "scope_summary": result.scope_summary,
+            "team_assignments": result.team_assignments,
+            "document_responsibilities": result.document_responsibilities,
             "extracted_at": result.extracted_at,
         }
 
