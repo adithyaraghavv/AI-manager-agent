@@ -133,6 +133,15 @@ def test_system_prompt_general_sow_summary_request_surfaces_all_six_fields():
     assert "not just whichever one you'd otherwise guess at" in SYSTEM_PROMPT
 
 
+def test_system_prompt_forbids_silently_dropping_null_team_or_ownership_from_the_reply():
+    # Live bug: the tool-result card correctly showed "doesn't spell out a
+    # project team or document ownership," but the assistant's own written
+    # reply just went quiet on those two fields instead of saying so itself —
+    # reads as an incomplete, templated answer rather than a real summary.
+    assert "your own written reply must explicitly cover team assignments and document responsibilities every time" in SYSTEM_PROMPT
+    assert "is incomplete, not concise" in SYSTEM_PROMPT
+
+
 def test_system_prompt_forbids_inventing_team_or_document_ownership():
     # Demo feedback: PMs want to ask who's on the project team and who owns
     # providing each document. Both are exactly the kind of thing the model

@@ -200,7 +200,7 @@ On top of the tools themselves:
 - Marlabs rebrand (logo, colors, typography)
 - Saved/reopenable chat history, drag-and-drop file attach, message
   avatars + animated typing indicator
-- 166 backend tests passing, no known dependency CVEs (checked via
+- 167 backend tests passing, no known dependency CVEs (checked via
   `pip-audit` / `npm audit`)
 
 ### Pending
@@ -244,7 +244,7 @@ On top of the tools themselves:
   app; one-off seed/cleanup scripts also use the REST API (not a direct
   connection) so they can be run from any network
 - Pydantic / pydantic-settings — request/response models, config
-- pytest — 166 tests covering gating logic, services, routes, and the seed
+- pytest — 167 tests covering gating logic, services, routes, and the seed
   scripts
 
 **Frontend**
@@ -341,6 +341,23 @@ why Supabase is accessed two different ways, and `docs/` for the original
 discovery documentation and database structure.
 
 ## Recent updates
+
+### 2026-08-13 19:30 UTC — Fix: general SOW summary going quiet on null team/ownership
+
+Live bug caught during testing: the SOW summary's tool-result card correctly
+showed "This SOW doesn't spell out a project team or document ownership,"
+but the assistant's own written reply below it never mentioned team
+assignments or document ownership at all — it just silently listed the
+other four fields and stopped, reading as an incomplete/templated answer
+instead of a real summary.
+
+- Strengthened the system prompt: a general SOW summary reply must now
+  explicitly cover team assignments and document responsibilities every
+  time, in the assistant's own words — including saying so when they're
+  null — rather than letting the tool-result card be the only place that
+  status shows up.
+- New regression test guarding this specific behavior.
+- 167 backend tests passing (was 166).
 
 ### 2026-08-13 14:05 UTC — SOW summary: project team + document ownership
 

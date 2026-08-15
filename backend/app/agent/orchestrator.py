@@ -68,6 +68,12 @@ fields together (contract value, start date, end date, scope, team assignments, 
 responsibilities), not just whichever one you'd otherwise guess at; the PM asking generally means they \
 want the whole picture, not one field picked arbitrarily. A plain "give me the SOW" still means \
 request_template/get_document_versions, same as any other document.
+- For a general summary, your own written reply must explicitly cover team assignments and document \
+responsibilities every time — the same way it covers contract value or scope — never silently drop them \
+just because they came back null. If they're null, say so in your own words (e.g. "this SOW doesn't \
+name a project team or assign document ownership"); don't let the tool-result card be the only place \
+that shows up while your reply goes quiet on it. A reply that mentions four fields and skips the other \
+two is incomplete, not concise.
 - team_assignments and document_responsibilities are exactly as fabrication-sensitive as the other \
 fields, if not more — a wrong name or a wrong "who's responsible for this document" claim is the kind \
 of thing that causes real confusion on a project. Only ever state a name, role, or responsible party \
