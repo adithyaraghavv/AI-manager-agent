@@ -40,7 +40,10 @@ def test_get_sow_summary_extracts_and_persists_fields(rest, storage):
         "end_date": "Dec 2026",
         "scope_summary": "Build and deploy a delivery tracking tool.",
         "team_assignments": [{"name": "Jane Doe", "role": "Project Manager"}],
-        "document_responsibilities": {"BRD": "Client team", "HLD": "Marlabs team"},
+        "document_responsibilities": {
+            "BRD": {"owner": "Client team", "approver": "Client team"},
+            "HLD": {"owner": "Marlabs team", "approver": "Client Sponsor"},
+        },
     }
 
     with patch("app.services.sow_extraction_service.OpenAI") as MockOpenAI:
@@ -53,13 +56,14 @@ def test_get_sow_summary_extracts_and_persists_fields(rest, storage):
     assert result.end_date == "Dec 2026"
     assert result.scope_summary == "Build and deploy a delivery tracking tool."
     assert result.team_assignments == [{"name": "Jane Doe", "role": "Project Manager"}]
-    assert result.document_responsibilities == {"BRD": "Client team", "HLD": "Marlabs team"}
+    assert result.document_responsibilities["BRD"] == {"owner": "Client team", "approver": "Client team"}
+    assert result.document_responsibilities["HLD"] == {"owner": "Marlabs team", "approver": "Client Sponsor"}
 
     client = rest.select_one("clients", name="Acme")
     stored = rest.select_one("sow_metadata", client_id=client["id"])
     assert stored["contract_value"] == "$50,000"
     assert stored["team_assignments"] == [{"name": "Jane Doe", "role": "Project Manager"}]
-    assert stored["document_responsibilities"] == {"BRD": "Client team", "HLD": "Marlabs team"}
+    assert stored["document_responsibilities"]["HLD"] == {"owner": "Marlabs team", "approver": "Client Sponsor"}
 
 
 def test_get_sow_summary_team_and_document_ownership_null_when_not_stated(rest, storage):
@@ -138,7 +142,7 @@ def test_get_sow_summary_raises_when_file_type_unsupported_for_extraction(rest, 
         get_sow_summary(rest, storage, "Acme")
 
 
-def test_generate_approval_reminder_finds_owner_and_drafts_message(rest, storage):
+def test_generate_approval_reminder_finds_approver_and_drafts_message(rest, storage):
     upload_document(rest, storage, CONFIG, "SOW", "Acme", b"SOW text", "txt")
 
     with patch("app.services.sow_extraction_service.OpenAI") as MockOpenAI:
@@ -146,17 +150,45 @@ def test_generate_approval_reminder_finds_owner_and_drafts_message(rest, storage
             {
                 "contract_value": None, "start_date": None, "end_date": None, "scope_summary": None,
                 "team_assignments": None,
-                "document_responsibilities": {"BRD": "Client team", "HLD": "Marlabs team"},
+                "document_responsibilities": {
+                    "BRD": {"owner": "Client team", "approver": "Client team"},
+                    "HLD": {"owner": "Marlabs team", "approver": "Client Sponsor"},
+                },
             }
         )
         result = generate_approval_reminder(rest, storage, "Acme", "HLD")
 
     assert result.found is True
     assert result.owner == "Marlabs team"
+    assert result.approver == "Client Sponsor"
     assert result.matched_doc_type == "HLD"
-    assert "Marlabs team" in result.reminder_message
+    # The reminder targets the APPROVER, not the owner — the owner just
+    # authored it, the approver is who actually needs to act.
+    assert "Client Sponsor" in result.reminder_message
     assert "Acme" in result.reminder_message
     assert "HLD" in result.reminder_message
+
+
+def test_generate_approval_reminder_falls_back_to_shared_owner_approver(rest, storage):
+    # When the SOW names only one party for a document (no distinction
+    # made), owner and approver come back as the same value — that's the
+    # only information available, not a guess, so the reminder still works.
+    upload_document(rest, storage, CONFIG, "SOW", "Acme", b"SOW text", "txt")
+
+    with patch("app.services.sow_extraction_service.OpenAI") as MockOpenAI:
+        MockOpenAI.return_value.chat.completions.create.return_value = _mock_openai_response(
+            {
+                "contract_value": None, "start_date": None, "end_date": None, "scope_summary": None,
+                "team_assignments": None,
+                "document_responsibilities": {"BRD": {"owner": "Client team", "approver": "Client team"}},
+            }
+        )
+        result = generate_approval_reminder(rest, storage, "Acme", "BRD")
+
+    assert result.found is True
+    assert result.owner == "Client team"
+    assert result.approver == "Client team"
+    assert "Client team" in result.reminder_message
 
 
 def test_generate_approval_reminder_matches_loosely_worded_doc_type(rest, storage):
@@ -169,14 +201,37 @@ def test_generate_approval_reminder_matches_loosely_worded_doc_type(rest, storag
             {
                 "contract_value": None, "start_date": None, "end_date": None, "scope_summary": None,
                 "team_assignments": None,
-                "document_responsibilities": {"Business Requirement Document (BRD)": "Client team"},
+                "document_responsibilities": {
+                    "Business Requirement Document (BRD)": {"owner": "Client team", "approver": "Client team"}
+                },
             }
         )
         result = generate_approval_reminder(rest, storage, "Acme", "BRD")
 
     assert result.found is True
-    assert result.owner == "Client team"
+    assert result.approver == "Client team"
     assert result.matched_doc_type == "Business Requirement Document (BRD)"
+
+
+def test_generate_approval_reminder_not_found_when_owner_named_but_no_approver(rest, storage):
+    # The exact fabrication risk this guards against: the SOW names who
+    # OWNS the document but doesn't say who approves it — the tool must not
+    # quietly treat the owner as a stand-in approver.
+    upload_document(rest, storage, CONFIG, "SOW", "Acme", b"SOW text", "txt")
+
+    with patch("app.services.sow_extraction_service.OpenAI") as MockOpenAI:
+        MockOpenAI.return_value.chat.completions.create.return_value = _mock_openai_response(
+            {
+                "contract_value": None, "start_date": None, "end_date": None, "scope_summary": None,
+                "team_assignments": None,
+                "document_responsibilities": {"HLD": {"owner": "Marlabs team", "approver": None}},
+            }
+        )
+        result = generate_approval_reminder(rest, storage, "Acme", "HLD")
+
+    assert result.found is False
+    assert result.reminder_message is None
+    assert "doesn't say who approves it" in result.reason
 
 
 def test_generate_approval_reminder_not_found_when_document_not_assigned(rest, storage):
@@ -187,7 +242,7 @@ def test_generate_approval_reminder_not_found_when_document_not_assigned(rest, s
             {
                 "contract_value": None, "start_date": None, "end_date": None, "scope_summary": None,
                 "team_assignments": None,
-                "document_responsibilities": {"BRD": "Client team"},
+                "document_responsibilities": {"BRD": {"owner": "Client team", "approver": "Client team"}},
             }
         )
         result = generate_approval_reminder(rest, storage, "Acme", "Deployment Plan")

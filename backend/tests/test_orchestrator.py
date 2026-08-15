@@ -147,7 +147,7 @@ def test_system_prompt_forbids_inventing_team_or_document_ownership():
     # providing each document. Both are exactly the kind of thing the model
     # could plausibly guess wrong (a name, a role, "who usually owns this") —
     # guard against fabrication here as strictly as any other SOW field.
-    assert "team_assignments and document_responsibilities are exactly as fabrication-sensitive" in SYSTEM_PROMPT
+    assert "team_assignments and document_responsibilities (both owner and approver) are exactly as" in SYSTEM_PROMPT
     assert "never infer one from context" in SYSTEM_PROMPT
 
 
@@ -157,7 +157,16 @@ def test_system_prompt_distinguishes_reminder_generation_from_plain_ownership_qu
     # fact question. Both must still refuse to invent a name for a document
     # the SOW doesn't actually assign.
     assert 'generate_approval_reminder is for "whom should I reach out to' in SYSTEM_PROMPT
-    assert "do NOT invent a name or a plausible role to draft a reminder to" in SYSTEM_PROMPT
+    assert "specifically targets the APPROVER" in SYSTEM_PROMPT
+
+
+def test_system_prompt_distinguishes_document_owner_from_approver():
+    # Real-world requirement: SOWs sometimes name a different party for
+    # "who provides this document" vs. "who signs off on it" — the
+    # assistant must not conflate the two or use the owner as a stand-in
+    # approver unless the tool result itself says they're the same party.
+    assert 'entries have an "owner"' in SYSTEM_PROMPT
+    assert "do NOT treat the owner as a stand-in approver unless the tool result itself says" in SYSTEM_PROMPT
 
 
 def test_bad_request_errors_are_not_swallowed():

@@ -260,7 +260,7 @@ def test_get_sow_summary_dispatch_returns_extracted_fields(rest, storage):
                 "end_date": None,
                 "scope_summary": None,
                 "team_assignments": [{"name": "Jane Doe", "role": "Project Manager"}],
-                "document_responsibilities": {"BRD": "Client team"},
+                "document_responsibilities": {"BRD": {"owner": "Client team", "approver": "Client team"}},
             }
         )
         result = dispatch_tool(rest, storage, storage, CONFIG, "get_sow_summary", {"client_name": "Acme"})
@@ -269,7 +269,7 @@ def test_get_sow_summary_dispatch_returns_extracted_fields(rest, storage):
     assert result["client_name"] == "Acme"
     assert result["contract_value"] == "$50,000"
     assert result["team_assignments"] == [{"name": "Jane Doe", "role": "Project Manager"}]
-    assert result["document_responsibilities"] == {"BRD": "Client team"}
+    assert result["document_responsibilities"] == {"BRD": {"owner": "Client team", "approver": "Client team"}}
 
 
 def test_get_sow_summary_dispatch_reports_not_found_when_no_sow_filed(rest, storage):
@@ -279,7 +279,7 @@ def test_get_sow_summary_dispatch_reports_not_found_when_no_sow_filed(rest, stor
     assert "No client named" in result["reason"] or "No SOW is on file" in result["reason"]
 
 
-def test_generate_approval_reminder_dispatch_returns_owner_and_message(rest, storage):
+def test_generate_approval_reminder_dispatch_returns_owner_approver_and_message(rest, storage):
     upload_document(rest, storage, CONFIG, "SOW", "Acme", b"SOW text", "txt")
 
     with patch("app.services.sow_extraction_service.OpenAI") as MockOpenAI:
@@ -290,7 +290,7 @@ def test_generate_approval_reminder_dispatch_returns_owner_and_message(rest, sto
                 "end_date": None,
                 "scope_summary": None,
                 "team_assignments": None,
-                "document_responsibilities": {"HLD": "Marlabs team"},
+                "document_responsibilities": {"HLD": {"owner": "Marlabs team", "approver": "Client Sponsor"}},
             }
         )
         result = dispatch_tool(
@@ -300,7 +300,8 @@ def test_generate_approval_reminder_dispatch_returns_owner_and_message(rest, sto
 
     assert result["found"] is True
     assert result["owner"] == "Marlabs team"
-    assert "Marlabs team" in result["reminder_message"]
+    assert result["approver"] == "Client Sponsor"
+    assert "Client Sponsor" in result["reminder_message"]
 
 
 def test_generate_approval_reminder_dispatch_not_found_when_unassigned(rest, storage):

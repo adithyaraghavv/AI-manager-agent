@@ -98,21 +98,25 @@ doing something the system doesn't actually support:
    genuinely required/missing.
 10. **Summarize a client's SOW** — pulls contract value, start/end dates, a
     scope summary, the project team (who's assigned and their role), and
-    document ownership (who's responsible for providing each document,
-    e.g. who owns the BRD or HLD) out of a client's filed SOW so a PM can
-    just ask for them instead of opening the document. Runs on-demand
-    (re-reads whatever SOW is currently on file every time it's asked,
-    never a cached/stale answer) and never invents a value — any field
-    the SOW doesn't actually state, including a name, role, or document
-    owner, comes back as "not stated," not a guess.
+    document responsibility out of a client's filed SOW so a PM can just
+    ask instead of opening the document. Document responsibility splits
+    into **owner** (who provides/authors a document) and **approver**
+    (who signs off on it) — SOWs vary on whether those are the same party
+    or different ones, and both are captured when the document
+    distinguishes them. Runs on-demand (re-reads whatever SOW is
+    currently on file every time it's asked, never a cached/stale
+    answer) and never invents a value — any field the SOW doesn't
+    actually state, including a name, role, owner, or approver, comes
+    back as "not stated," not a guess.
 11. **Draft an approval-chase reminder** — when a PM asks who they should
     reach out to for a specific document's approval (e.g. "whom should I
-    reach out to get the HLD approved"), this looks up who's responsible
-    from the SOW and drafts a ready-to-copy reminder message addressed to
-    them — same "nothing auto-sent" principle as the Dashboard's copy-
-    reminder button, just triggered from chat. If the SOW doesn't name
-    anyone responsible for that document, it says so plainly instead of
-    drafting a reminder to an invented name.
+    reach out to get the HLD approved"), this looks up who specifically
+    **approves** that document (not just who provides it — they can be
+    different people) and drafts a ready-to-copy reminder message
+    addressed to them — same "nothing auto-sent" principle as the
+    Dashboard's copy-reminder button, just triggered from chat. If the
+    SOW names an owner but not an approver, it says so plainly rather
+    than treating the owner as a stand-in.
 - Every tool result is re-checked fresh, every time — even if the PM asks
   the exact same thing twice in one conversation. Real state (a fixed file,
   a new upload, a newly filed document) can change between messages, so the
@@ -208,7 +212,7 @@ On top of the tools themselves:
 - Marlabs rebrand (logo, colors, typography)
 - Saved/reopenable chat history, drag-and-drop file attach, message
   avatars + animated typing indicator
-- 175 backend tests passing, no known dependency CVEs (checked via
+- 178 backend tests passing, no known dependency CVEs (checked via
   `pip-audit` / `npm audit`)
 
 ### Pending
@@ -252,7 +256,7 @@ On top of the tools themselves:
   app; one-off seed/cleanup scripts also use the REST API (not a direct
   connection) so they can be run from any network
 - Pydantic / pydantic-settings — request/response models, config
-- pytest — 175 tests covering gating logic, services, routes, and the seed
+- pytest — 178 tests covering gating logic, services, routes, and the seed
   scripts
 
 **Frontend**
@@ -349,6 +353,33 @@ why Supabase is accessed two different ways, and `docs/` for the original
 discovery documentation and database structure.
 
 ## Recent updates
+
+### 2026-08-13 21:00 UTC — Split document ownership into owner vs. approver
+
+Follow-up to the approval-reminder feature: confirmed the real workflow is
+request template → PM fills it out → gets it approved by whoever signs off
+per the SOW → uploads the approved version. Whether "who provides it" and
+"who approves it" are the same person varies per project/SOW, so the single
+"responsible party" field wasn't precise enough — a reminder needs to go to
+the actual approver, not just whoever's generically "responsible."
+
+- `document_responsibilities` entries are now `{"owner": ..., "approver":
+  ...}` instead of a single string. When a SOW names only one party for a
+  document, both fields come back as that same value (the only information
+  available, not an invented distinction); when a SOW genuinely names
+  different people for providing vs. approving, both are captured
+  separately.
+- `generate_approval_reminder` now specifically targets the **approver** —
+  if a SOW names an owner but never says who approves the document, it
+  correctly reports "not found" rather than quietly treating the owner as
+  a stand-in approver.
+- System prompt updated so the assistant answers the specific role asked
+  about (owner vs. approver) and only mentions both when they actually
+  differ — doesn't over-explain a distinction the SOW itself didn't make.
+- SOW summary card now shows "Owner: X · Approver: Y" when they differ, or
+  just one name when they're the same — verified live with a mock SOW
+  where HLD has separate owner/approver and other documents don't.
+- 178 backend tests passing (was 175).
 
 ### 2026-08-13 20:15 UTC — Draft a ready-to-copy approval reminder
 

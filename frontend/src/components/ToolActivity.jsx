@@ -148,11 +148,19 @@ function SowSummaryCard({ result }) {
         <div className="sow-card__section">
           <div className="sow-card__section-label">Document ownership</div>
           <ul className="sow-card__list">
-            {Object.entries(responsibilities).map(([docType, owner]) => (
-              <li key={docType}>
-                <strong>{docType}</strong> — {owner}
-              </li>
-            ))}
+            {Object.entries(responsibilities).map(([docType, entry]) => {
+              // Older/looser tool results may still hand back a plain string
+              // instead of {owner, approver} — support both defensively.
+              const owner = typeof entry === 'string' ? entry : entry?.owner
+              const approver = typeof entry === 'string' ? entry : entry?.approver
+              const sameParty = owner && approver && owner === approver
+              return (
+                <li key={docType}>
+                  <strong>{docType}</strong> —{' '}
+                  {sameParty ? owner : [owner && `Owner: ${owner}`, approver && `Approver: ${approver}`].filter(Boolean).join(' · ')}
+                </li>
+              )
+            })}
           </ul>
         </div>
       )}
@@ -166,7 +174,7 @@ function SowSummaryCard({ result }) {
   )
 }
 
-function ReminderCard({ owner, message }) {
+function ReminderCard({ approver, message }) {
   const [copied, setCopied] = useState(false)
 
   async function handleCopy() {
@@ -182,7 +190,7 @@ function ReminderCard({ owner, message }) {
   return (
     <div className="reminder-card">
       <div className="reminder-card__header">
-        <span className="reminder-card__to">Addressed to: {owner}</span>
+        <span className="reminder-card__to">Addressed to: {approver}</span>
         <button type="button" className="reminder-card__copy" onClick={handleCopy}>
           {copied ? 'Copied' : 'Copy'}
         </button>
@@ -295,7 +303,7 @@ export default function ToolActivity({ name, result }) {
       {showStatusCard && <StatusCard result={result} />}
       {showPathCard && <PathCard folderPath={result.folder_path} />}
       {showSowCard && <SowSummaryCard result={result} />}
-      {showReminderCard && <ReminderCard owner={result.owner} message={result.reminder_message} />}
+      {showReminderCard && <ReminderCard approver={result.approver} message={result.reminder_message} />}
       {showDownload && (
         <div className="file-card-list">
           <FileCard title={result.filename} href={result.download_url} />

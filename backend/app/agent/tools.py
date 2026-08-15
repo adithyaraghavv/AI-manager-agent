@@ -228,17 +228,21 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "description": (
                 "Pull key facts out of a client's filed SOW — contract value, start date, end date, a "
                 "scope summary, the project team (who's assigned and their role), and document "
-                "ownership (who's responsible for providing each document, e.g. who owns the BRD or "
-                "HLD) — so the PM doesn't have to open the document themselves. Use this when the PM "
-                "asks something the SOW's CONTENT would answer: a specific field ('what's the contract "
-                "value for Acme', 'who's on the team for Acme', 'who's responsible for the HLD for "
-                "Acme'), or a general request to summarize/overview the SOW itself ('summarize the SOW "
-                "for Acme', 'give me a rundown of Acme's SOW') — not for a plain 'give me the SOW' "
-                "request, which means the file itself (request_template/get_document_versions). "
-                "Re-reads the SOW fresh every call, so it's always based on whatever version is "
-                "currently on file. Any field the SOW doesn't actually state — including team "
-                "assignments and document ownership — comes back null; never invent a name, role, or "
-                "responsible party that isn't actually in the document."
+                "responsibility (who OWNS/provides each document vs. who APPROVES/signs off on it — "
+                "SOWs vary on whether those are the same party or different ones) — so the PM doesn't "
+                "have to open the document themselves. document_responsibilities entries look like "
+                "{'HLD': {'owner': 'Marlabs team', 'approver': 'Client Sponsor'}} — when a SOW names "
+                "only one party for a document, owner and approver will be the same value, not a guess. "
+                "Use this when the PM asks something the SOW's CONTENT would answer: a specific field "
+                "('what's the contract value for Acme', 'who's on the team for Acme', 'who owns the HLD "
+                "for Acme', 'who approves the HLD for Acme'), or a general request to summarize/overview "
+                "the SOW itself ('summarize the SOW for Acme', 'give me a rundown of Acme's SOW') — not "
+                "for a plain 'give me the SOW' request, which means the file itself "
+                "(request_template/get_document_versions). Re-reads the SOW fresh every call, so it's "
+                "always based on whatever version is currently on file. Any field the SOW doesn't "
+                "actually state — including team assignments and document responsibility — comes back "
+                "null; never invent a name, role, or responsible party that isn't actually in the "
+                "document."
             ),
             "parameters": {
                 "type": "object",
@@ -255,16 +259,19 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "name": "generate_approval_reminder",
             "description": (
                 "Use when the PM asks who they should reach out to / chase / contact to get a specific "
-                "document approved or provided (e.g. 'whom should I reach out to get the BRD approved', "
-                "'who do I chase for the HLD sign-off') and wants a ready-to-send reminder — not just "
-                "the name. Looks up who's responsible for that document from the SOW (the exact same "
-                "source as get_sow_summary's document_responsibilities) and drafts a copy-paste-ready "
-                "reminder message addressed to them, so the PM can copy it and send it themselves — "
-                "nothing is sent automatically. If the SOW doesn't name anyone responsible for that "
-                "document, found comes back false with a plain reason; NEVER invent a name or draft a "
-                "reminder to someone the document doesn't actually name. If the PM is just asking who's "
-                "responsible (not asking to reach out or for a reminder), get_sow_summary is usually the "
-                "better fit — this tool is specifically for the 'draft me something to send' case."
+                "document APPROVED (e.g. 'whom should I reach out to get the BRD approved', 'who do I "
+                "chase for the HLD sign-off') and wants a ready-to-send reminder — not just the name. "
+                "This specifically targets the APPROVER role (from get_sow_summary's "
+                "document_responsibilities: {'owner': ..., 'approver': ...}), since that's who actually "
+                "needs to act before the document counts as approved — not necessarily the same person "
+                "who authored/provided it. Drafts a copy-paste-ready reminder addressed to the approver, "
+                "so the PM can copy it and send it themselves — nothing is sent automatically. If the "
+                "SOW doesn't name an approver for that document (even if it names an owner), found comes "
+                "back false with a plain reason; NEVER invent a name or draft a reminder to someone the "
+                "document doesn't actually name as the approver. If the PM is just asking who owns or is "
+                "responsible for a document (not asking to reach out or for a reminder), get_sow_summary "
+                "is usually the better fit — this tool is specifically for the 'draft me something to "
+                "send to get this approved' case."
             ),
             "parameters": {
                 "type": "object",
@@ -470,6 +477,7 @@ def dispatch_tool(
             "client_name": result.client_name,
             "doc_type": result.matched_doc_type,
             "owner": result.owner,
+            "approver": result.approver,
             "reminder_message": result.reminder_message,
         }
 
