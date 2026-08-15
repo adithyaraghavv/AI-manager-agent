@@ -35,7 +35,11 @@ from app.services.document_service import (
     list_document_versions,
     request_template,
 )
-from app.services.sow_extraction_service import SowExtractionFailed, get_sow_summary
+from app.services.sow_extraction_service import (
+    SowExtractionFailed,
+    generate_approval_reminder,
+    get_sow_summary,
+)
 from app.storage.base import StorageBackend
 
 TOOL_DEFINITIONS: list[dict[str, Any]] = [
@@ -248,6 +252,36 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "generate_approval_reminder",
+            "description": (
+                "Use when the PM asks who they should reach out to / chase / contact to get a specific "
+                "document approved or provided (e.g. 'whom should I reach out to get the BRD approved', "
+                "'who do I chase for the HLD sign-off') and wants a ready-to-send reminder — not just "
+                "the name. Looks up who's responsible for that document from the SOW (the exact same "
+                "source as get_sow_summary's document_responsibilities) and drafts a copy-paste-ready "
+                "reminder message addressed to them, so the PM can copy it and send it themselves — "
+                "nothing is sent automatically. If the SOW doesn't name anyone responsible for that "
+                "document, found comes back false with a plain reason; NEVER invent a name or draft a "
+                "reminder to someone the document doesn't actually name. If the PM is just asking who's "
+                "responsible (not asking to reach out or for a reminder), get_sow_summary is usually the "
+                "better fit — this tool is specifically for the 'draft me something to send' case."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "client_name": {"type": "string", "description": "The client's name."},
+                    "doc_type": {
+                        "type": "string",
+                        "description": "The document the PM needs approved/provided, as they phrased it, e.g. 'BRD' or 'HLD'.",
+                    },
+                },
+                "required": ["client_name", "doc_type"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "propose_delete_client",
             "description": (
                 "Look up a client and prepare to delete them. Deletion hides the client from everywhere "
@@ -420,6 +454,23 @@ def dispatch_tool(
             "team_assignments": result.team_assignments,
             "document_responsibilities": result.document_responsibilities,
             "extracted_at": result.extracted_at,
+        }
+
+    if tool_name == "generate_approval_reminder":
+        client_name = tool_input["client_name"]
+        doc_type = tool_input["doc_type"]
+        try:
+            result = generate_approval_reminder(rest, client_storage, client_name, doc_type)
+        except SowExtractionFailed as e:
+            return {"found": False, "reason": str(e)}
+        if not result.found:
+            return {"found": False, "client_name": result.client_name, "doc_type": doc_type, "reason": result.reason}
+        return {
+            "found": True,
+            "client_name": result.client_name,
+            "doc_type": result.matched_doc_type,
+            "owner": result.owner,
+            "reminder_message": result.reminder_message,
         }
 
     if tool_name == "propose_delete_client":

@@ -277,3 +277,50 @@ def test_get_sow_summary_dispatch_reports_not_found_when_no_sow_filed(rest, stor
 
     assert result["found"] is False
     assert "No client named" in result["reason"] or "No SOW is on file" in result["reason"]
+
+
+def test_generate_approval_reminder_dispatch_returns_owner_and_message(rest, storage):
+    upload_document(rest, storage, CONFIG, "SOW", "Acme", b"SOW text", "txt")
+
+    with patch("app.services.sow_extraction_service.OpenAI") as MockOpenAI:
+        MockOpenAI.return_value.chat.completions.create.return_value = _mock_openai_response(
+            {
+                "contract_value": None,
+                "start_date": None,
+                "end_date": None,
+                "scope_summary": None,
+                "team_assignments": None,
+                "document_responsibilities": {"HLD": "Marlabs team"},
+            }
+        )
+        result = dispatch_tool(
+            rest, storage, storage, CONFIG, "generate_approval_reminder",
+            {"client_name": "Acme", "doc_type": "HLD"},
+        )
+
+    assert result["found"] is True
+    assert result["owner"] == "Marlabs team"
+    assert "Marlabs team" in result["reminder_message"]
+
+
+def test_generate_approval_reminder_dispatch_not_found_when_unassigned(rest, storage):
+    upload_document(rest, storage, CONFIG, "SOW", "Acme", b"SOW text", "txt")
+
+    with patch("app.services.sow_extraction_service.OpenAI") as MockOpenAI:
+        MockOpenAI.return_value.chat.completions.create.return_value = _mock_openai_response(
+            {
+                "contract_value": None,
+                "start_date": None,
+                "end_date": None,
+                "scope_summary": None,
+                "team_assignments": None,
+                "document_responsibilities": None,
+            }
+        )
+        result = dispatch_tool(
+            rest, storage, storage, CONFIG, "generate_approval_reminder",
+            {"client_name": "Acme", "doc_type": "HLD"},
+        )
+
+    assert result["found"] is False
+    assert "reminder_message" not in result

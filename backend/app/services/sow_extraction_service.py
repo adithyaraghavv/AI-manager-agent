@@ -58,6 +58,51 @@ class SowMetadataResult:
     extracted_at: str
 
 
+@dataclass
+class ApprovalReminderResult:
+    found: bool
+    client_name: str
+    doc_type: str
+    matched_doc_type: str | None = None
+    owner: str | None = None
+    reminder_message: str | None = None
+    reason: str | None = None
+
+
+def _match_document_owner(document_responsibilities: dict, requested_doc_type: str) -> tuple[str, str] | None:
+    """Find the (matched_key, owner) pair for `requested_doc_type` in a
+    document_responsibilities map. The PM's phrasing and the SOW's own
+    wording for a document name rarely match exactly (e.g. "BRD" vs
+    "Business Requirement Document (BRD)"), so this tries an exact
+    case-insensitive match first, then a substring match in either
+    direction, before giving up."""
+    requested = requested_doc_type.strip().lower()
+    if not requested:
+        return None
+
+    for key, owner in document_responsibilities.items():
+        if key.strip().lower() == requested:
+            return key, owner
+
+    for key, owner in document_responsibilities.items():
+        key_lower = key.strip().lower()
+        if requested in key_lower or key_lower in requested:
+            return key, owner
+
+    return None
+
+
+def _build_reminder_message(client_name: str, doc_type: str, owner: str) -> str:
+    return (
+        f"Subject: Approval Required for {doc_type} — {client_name}\n\n"
+        f"Hi {owner},\n\n"
+        f"The {doc_type} for {client_name} is currently awaiting your review/approval "
+        f"per the SOW. Could you please take a look and confirm approval at your "
+        f"earliest convenience so we can move this forward?\n\n"
+        f"Thanks,\n"
+    )
+
+
 def _extract_fields_via_llm(text: str) -> dict:
     client = OpenAI(api_key=settings.openai_api_key)
     response = client.chat.completions.create(
@@ -118,4 +163,45 @@ def get_sow_summary(rest: SupabaseRestClient, storage: StorageBackend, client_na
         team_assignments=row.get("team_assignments"),
         document_responsibilities=row.get("document_responsibilities"),
         extracted_at=row.get("extracted_at"),
+    )
+
+
+def generate_approval_reminder(
+    rest: SupabaseRestClient, storage: StorageBackend, client_name: str, doc_type: str
+) -> ApprovalReminderResult:
+    """Who to chase for a document's approval, plus a ready-to-copy reminder
+    addressed to them — built from the same document_responsibilities data
+    get_sow_summary returns, re-extracted fresh (not a cached answer). Never
+    drafts a reminder to an invented name — if the SOW doesn't assign this
+    document to anyone, this returns found=False rather than guessing."""
+    summary = get_sow_summary(rest, storage, client_name)
+
+    if not summary.document_responsibilities:
+        return ApprovalReminderResult(
+            found=False,
+            client_name=summary.client_name,
+            doc_type=doc_type,
+            reason=f"The SOW on file for {summary.client_name!r} doesn't assign responsibility for any documents.",
+        )
+
+    match = _match_document_owner(summary.document_responsibilities, doc_type)
+    if match is None:
+        return ApprovalReminderResult(
+            found=False,
+            client_name=summary.client_name,
+            doc_type=doc_type,
+            reason=(
+                f"The SOW on file for {summary.client_name!r} doesn't say who's responsible for "
+                f"{doc_type!r}."
+            ),
+        )
+
+    matched_doc_type, owner = match
+    return ApprovalReminderResult(
+        found=True,
+        client_name=summary.client_name,
+        doc_type=doc_type,
+        matched_doc_type=matched_doc_type,
+        owner=owner,
+        reminder_message=_build_reminder_message(summary.client_name, matched_doc_type, owner),
     )

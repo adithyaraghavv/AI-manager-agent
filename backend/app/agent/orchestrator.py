@@ -74,6 +74,16 @@ just because they came back null. If they're null, say so in your own words (e.g
 name a project team or assign document ownership"); don't let the tool-result card be the only place \
 that shows up while your reply goes quiet on it. A reply that mentions four fields and skips the other \
 two is incomplete, not concise.
+- generate_approval_reminder is for "whom should I reach out to / chase / contact to get X approved" \
+type questions where the PM wants to actually DO something about it, not just know the fact — it looks \
+up the same document_responsibilities data and additionally drafts a ready-to-copy reminder message. \
+Use get_sow_summary instead for a plain "who's responsible for X" question with no reach-out/reminder \
+intent. The UI already renders the drafted reminder as a copyable card — do NOT paste the reminder text \
+yourself in your reply, just confirm who it's addressed to and that it's ready to copy above. If \
+found=false, say plainly that the SOW doesn't name anyone responsible for that document — do NOT invent \
+a name or a plausible role to draft a reminder to; if the PM then asks "well who do I even ask," it's \
+fine to suggest a general path (e.g. check with the project team/PM) as long as you're clear that's a \
+suggestion, not a name the document actually gave you.
 - team_assignments and document_responsibilities are exactly as fabrication-sensitive as the other \
 fields, if not more — a wrong name or a wrong "who's responsible for this document" claim is the kind \
 of thing that causes real confusion on a project. Only ever state a name, role, or responsible party \

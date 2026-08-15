@@ -22,6 +22,8 @@ function inProgressPhrase(name, result) {
       return `Looking up ${result.client_name}…`
     case 'get_sow_summary':
       return `Reading the SOW for "${result.client_name}"…`
+    case 'generate_approval_reminder':
+      return `Looking up who's responsible for "${result.doc_type}"…`
     default:
       return 'Working…'
   }
@@ -56,6 +58,10 @@ function summarize(name, result) {
         : `No client named "${result.client_name}" found`
     case 'get_sow_summary':
       return result.found ? `Pulled SOW summary for "${result.client_name}"` : `Couldn't read the SOW: ${result.reason}`
+    case 'generate_approval_reminder':
+      return result.found
+        ? `Found who's responsible for "${result.doc_type}" — reminder ready to copy`
+        : `Couldn't find who's responsible: ${result.reason}`
     default:
       return name
   }
@@ -160,6 +166,32 @@ function SowSummaryCard({ result }) {
   )
 }
 
+function ReminderCard({ owner, message }) {
+  const [copied, setCopied] = useState(false)
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(message)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // Clipboard unavailable — the message is still visible to copy by hand.
+    }
+  }
+
+  return (
+    <div className="reminder-card">
+      <div className="reminder-card__header">
+        <span className="reminder-card__to">Addressed to: {owner}</span>
+        <button type="button" className="reminder-card__copy" onClick={handleCopy}>
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+      <pre className="reminder-card__body">{message}</pre>
+    </div>
+  )
+}
+
 function PathCard({ folderPath }) {
   const [copied, setCopied] = useState(false)
 
@@ -250,6 +282,7 @@ export default function ToolActivity({ name, result }) {
   const showStatusCard = settled && name === 'get_client_status' && Array.isArray(result.phases)
   const showPathCard = settled && name === 'get_document_location' && result.found && result.folder_path
   const showSowCard = settled && name === 'get_sow_summary' && result.found
+  const showReminderCard = settled && name === 'generate_approval_reminder' && result.found
 
   return (
     <div className="tool-activity">
@@ -262,6 +295,7 @@ export default function ToolActivity({ name, result }) {
       {showStatusCard && <StatusCard result={result} />}
       {showPathCard && <PathCard folderPath={result.folder_path} />}
       {showSowCard && <SowSummaryCard result={result} />}
+      {showReminderCard && <ReminderCard owner={result.owner} message={result.reminder_message} />}
       {showDownload && (
         <div className="file-card-list">
           <FileCard title={result.filename} href={result.download_url} />

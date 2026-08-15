@@ -151,6 +151,15 @@ def test_system_prompt_forbids_inventing_team_or_document_ownership():
     assert "never infer one from context" in SYSTEM_PROMPT
 
 
+def test_system_prompt_distinguishes_reminder_generation_from_plain_ownership_question():
+    # generate_approval_reminder is for "who do I reach out to" intent
+    # (drafts a message); get_sow_summary is for a plain "who's responsible"
+    # fact question. Both must still refuse to invent a name for a document
+    # the SOW doesn't actually assign.
+    assert 'generate_approval_reminder is for "whom should I reach out to' in SYSTEM_PROMPT
+    assert "do NOT invent a name or a plausible role to draft a reminder to" in SYSTEM_PROMPT
+
+
 def test_bad_request_errors_are_not_swallowed():
     # A 400 (e.g. bad API key, malformed request) should propagate normally
     # rather than being silently masked.

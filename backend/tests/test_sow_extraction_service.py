@@ -5,7 +5,11 @@ import pytest
 
 from app.core.phase_config import Phase, PhaseConfig
 from app.services.document_service import upload_document
-from app.services.sow_extraction_service import SowExtractionFailed, get_sow_summary
+from app.services.sow_extraction_service import (
+    SowExtractionFailed,
+    generate_approval_reminder,
+    get_sow_summary,
+)
 from app.storage.local import LocalFilesystemStorage
 
 CONFIG = PhaseConfig(
@@ -132,3 +136,85 @@ def test_get_sow_summary_raises_when_file_type_unsupported_for_extraction(rest, 
 
     with pytest.raises(SowExtractionFailed, match="Couldn't read text"):
         get_sow_summary(rest, storage, "Acme")
+
+
+def test_generate_approval_reminder_finds_owner_and_drafts_message(rest, storage):
+    upload_document(rest, storage, CONFIG, "SOW", "Acme", b"SOW text", "txt")
+
+    with patch("app.services.sow_extraction_service.OpenAI") as MockOpenAI:
+        MockOpenAI.return_value.chat.completions.create.return_value = _mock_openai_response(
+            {
+                "contract_value": None, "start_date": None, "end_date": None, "scope_summary": None,
+                "team_assignments": None,
+                "document_responsibilities": {"BRD": "Client team", "HLD": "Marlabs team"},
+            }
+        )
+        result = generate_approval_reminder(rest, storage, "Acme", "HLD")
+
+    assert result.found is True
+    assert result.owner == "Marlabs team"
+    assert result.matched_doc_type == "HLD"
+    assert "Marlabs team" in result.reminder_message
+    assert "Acme" in result.reminder_message
+    assert "HLD" in result.reminder_message
+
+
+def test_generate_approval_reminder_matches_loosely_worded_doc_type(rest, storage):
+    # The exact real-world mismatch this guards against: the SOW might say
+    # "Business Requirement Document (BRD)" while the PM just says "BRD".
+    upload_document(rest, storage, CONFIG, "SOW", "Acme", b"SOW text", "txt")
+
+    with patch("app.services.sow_extraction_service.OpenAI") as MockOpenAI:
+        MockOpenAI.return_value.chat.completions.create.return_value = _mock_openai_response(
+            {
+                "contract_value": None, "start_date": None, "end_date": None, "scope_summary": None,
+                "team_assignments": None,
+                "document_responsibilities": {"Business Requirement Document (BRD)": "Client team"},
+            }
+        )
+        result = generate_approval_reminder(rest, storage, "Acme", "BRD")
+
+    assert result.found is True
+    assert result.owner == "Client team"
+    assert result.matched_doc_type == "Business Requirement Document (BRD)"
+
+
+def test_generate_approval_reminder_not_found_when_document_not_assigned(rest, storage):
+    upload_document(rest, storage, CONFIG, "SOW", "Acme", b"SOW text", "txt")
+
+    with patch("app.services.sow_extraction_service.OpenAI") as MockOpenAI:
+        MockOpenAI.return_value.chat.completions.create.return_value = _mock_openai_response(
+            {
+                "contract_value": None, "start_date": None, "end_date": None, "scope_summary": None,
+                "team_assignments": None,
+                "document_responsibilities": {"BRD": "Client team"},
+            }
+        )
+        result = generate_approval_reminder(rest, storage, "Acme", "Deployment Plan")
+
+    assert result.found is False
+    assert result.reminder_message is None
+    assert "Deployment Plan" in result.reason
+
+
+def test_generate_approval_reminder_not_found_when_no_ownership_at_all(rest, storage):
+    upload_document(rest, storage, CONFIG, "SOW", "Acme", b"SOW text", "txt")
+
+    with patch("app.services.sow_extraction_service.OpenAI") as MockOpenAI:
+        MockOpenAI.return_value.chat.completions.create.return_value = _mock_openai_response(
+            {
+                "contract_value": None, "start_date": None, "end_date": None, "scope_summary": None,
+                "team_assignments": None, "document_responsibilities": None,
+            }
+        )
+        result = generate_approval_reminder(rest, storage, "Acme", "BRD")
+
+    assert result.found is False
+    assert "doesn't assign responsibility" in result.reason
+
+
+def test_generate_approval_reminder_raises_when_no_sow_filed(rest, storage):
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"filled msa", "pdf")
+
+    with pytest.raises(SowExtractionFailed, match="No SOW is on file"):
+        generate_approval_reminder(rest, storage, "Acme", "BRD")

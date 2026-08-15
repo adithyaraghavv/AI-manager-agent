@@ -51,7 +51,7 @@ what the AI says.
 
 ### Chatbot capabilities
 
-The assistant (OpenAI GPT-4o) has ten tools it can call — it can
+The assistant (OpenAI GPT-4o) has eleven tools it can call — it can
 only ever do what these tools allow, nothing else, so it can't be talked into
 doing something the system doesn't actually support:
 
@@ -105,6 +105,14 @@ doing something the system doesn't actually support:
     never a cached/stale answer) and never invents a value — any field
     the SOW doesn't actually state, including a name, role, or document
     owner, comes back as "not stated," not a guess.
+11. **Draft an approval-chase reminder** — when a PM asks who they should
+    reach out to for a specific document's approval (e.g. "whom should I
+    reach out to get the HLD approved"), this looks up who's responsible
+    from the SOW and drafts a ready-to-copy reminder message addressed to
+    them — same "nothing auto-sent" principle as the Dashboard's copy-
+    reminder button, just triggered from chat. If the SOW doesn't name
+    anyone responsible for that document, it says so plainly instead of
+    drafting a reminder to an invented name.
 - Every tool result is re-checked fresh, every time — even if the PM asks
   the exact same thing twice in one conversation. Real state (a fixed file,
   a new upload, a newly filed document) can change between messages, so the
@@ -200,7 +208,7 @@ On top of the tools themselves:
 - Marlabs rebrand (logo, colors, typography)
 - Saved/reopenable chat history, drag-and-drop file attach, message
   avatars + animated typing indicator
-- 167 backend tests passing, no known dependency CVEs (checked via
+- 175 backend tests passing, no known dependency CVEs (checked via
   `pip-audit` / `npm audit`)
 
 ### Pending
@@ -244,7 +252,7 @@ On top of the tools themselves:
   app; one-off seed/cleanup scripts also use the REST API (not a direct
   connection) so they can be run from any network
 - Pydantic / pydantic-settings — request/response models, config
-- pytest — 167 tests covering gating logic, services, routes, and the seed
+- pytest — 175 tests covering gating logic, services, routes, and the seed
   scripts
 
 **Frontend**
@@ -341,6 +349,31 @@ why Supabase is accessed two different ways, and `docs/` for the original
 discovery documentation and database structure.
 
 ## Recent updates
+
+### 2026-08-13 20:15 UTC — Draft a ready-to-copy approval reminder
+
+Direct follow-up from today's demo: knowing who's responsible for a document
+wasn't enough on its own — PMs wanted the assistant to also draft something
+they could immediately copy and send to that person.
+
+- New chat tool `generate_approval_reminder`: when a PM asks something like
+  "whom should I reach out to get the HLD approved for Acme," it looks up
+  who's responsible for that document from the SOW (same source as
+  `get_sow_summary`'s document ownership field, re-read fresh every call)
+  and drafts a ready-to-copy reminder message addressed to them.
+- Distinguished from `get_sow_summary` in the system prompt: a plain
+  "who's responsible for X" fact question still uses the summary tool; this
+  new one is specifically for "I want to reach out / chase / get a
+  reminder" intent.
+- Same fabrication discipline as everything else — if the SOW doesn't name
+  anyone responsible for that document, it says so plainly and does NOT
+  draft a reminder to an invented name. Loosely-worded document names (PM
+  says "BRD," SOW says "Business Requirement Document (BRD)") are matched
+  case-insensitively/by substring rather than requiring an exact string.
+- Nothing is ever auto-sent — same principle as the Dashboard's existing
+  "Copy reminder" button, just reachable from chat now. New reminder card
+  in the chat UI with its own copy button.
+- 175 backend tests passing (was 167).
 
 ### 2026-08-13 19:30 UTC — Fix: general SOW summary going quiet on null team/ownership
 
