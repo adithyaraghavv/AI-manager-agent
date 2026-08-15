@@ -214,7 +214,7 @@ On top of the tools themselves:
 - Marlabs rebrand (logo, colors, typography)
 - Saved/reopenable chat history, drag-and-drop file attach, message
   avatars + animated typing indicator
-- 179 backend tests passing, no known dependency CVEs (checked via
+- 180 backend tests passing, no known dependency CVEs (checked via
   `pip-audit` / `npm audit`)
 
 ### Pending
@@ -258,7 +258,7 @@ On top of the tools themselves:
   app; one-off seed/cleanup scripts also use the REST API (not a direct
   connection) so they can be run from any network
 - Pydantic / pydantic-settings — request/response models, config
-- pytest — 179 tests covering gating logic, services, routes, and the seed
+- pytest — 180 tests covering gating logic, services, routes, and the seed
   scripts
 
 **Frontend**
@@ -355,6 +355,22 @@ why Supabase is accessed two different ways, and `docs/` for the original
 discovery documentation and database structure.
 
 ## Recent updates
+
+### 2026-08-13 21:50 UTC — Fix: assistant claiming a reminder was ready when it wasn't
+
+Live bug caught right after the confirm-first change shipped: the PM said
+"yes" to the offer, and the assistant replied "the reminder is ready above"
+— but no tool call actually happened, so nothing was generated. Same
+failure class as fabricating an upload/deletion outcome, just showing up
+in the new reminder feature.
+
+- System prompt now explicitly requires a real `generate_approval_reminder`
+  tool call with `found=true` in the same turn before the assistant is
+  allowed to say anything about a reminder being ready. Confirming "yes"
+  is the trigger to call the tool, not something to treat as the outcome
+  itself.
+- New regression test guarding this specific failure.
+- 180 backend tests passing (was 179).
 
 ### 2026-08-13 21:30 UTC — Confirm before drafting an approval reminder
 

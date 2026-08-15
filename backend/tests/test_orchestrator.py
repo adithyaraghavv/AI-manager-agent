@@ -166,6 +166,16 @@ def test_system_prompt_requires_confirmation_before_drafting_a_reminder():
     assert 'Never call generate_approval_reminder on the PM\'s first "whom should I reach out to" message' in SYSTEM_PROMPT
 
 
+def test_system_prompt_forbids_claiming_reminder_ready_without_a_real_tool_call():
+    # Live bug: the PM said "yes" to the offer, and the assistant replied
+    # "the reminder is ready above" WITHOUT actually calling
+    # generate_approval_reminder — nothing was generated, but it claimed
+    # there was. Same class of failure as fabricating an upload/deletion
+    # outcome, just showing up in the new reminder feature.
+    assert "you MUST actually call generate_approval_reminder in that same turn before saying anything about it being ready" in SYSTEM_PROMPT
+    assert "Saying a reminder is ready when no tool call actually ran is exactly the kind of fabricated outcome" in SYSTEM_PROMPT
+
+
 def test_system_prompt_distinguishes_document_owner_from_approver():
     # Real-world requirement: SOWs sometimes name a different party for
     # "who provides this document" vs. "who signs off on it" — the
