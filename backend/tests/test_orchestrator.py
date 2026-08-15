@@ -166,6 +166,15 @@ def test_system_prompt_requires_confirmation_before_drafting_a_reminder():
     assert 'Never call generate_approval_reminder on the PM\'s first "whom should I reach out to" message' in SYSTEM_PROMPT
 
 
+def test_system_prompt_requires_the_reminder_offer_every_time_not_just_sometimes():
+    # Live bug: the assistant answered the approver's name and just stopped,
+    # skipping the "want me to draft a reminder?" offer entirely. The rule
+    # must be unambiguous that the offer is mandatory every time, not
+    # optional phrasing the model can skip when it doesn't feel needed.
+    assert "is NOT COMPLETE until it also explicitly offers to draft one — every single time" in SYSTEM_PROMPT
+    assert "A step-1 reply that gives the name and stops there, with no offer, is missing a required part" in SYSTEM_PROMPT
+
+
 def test_system_prompt_forbids_claiming_reminder_ready_without_a_real_tool_call():
     # Live bug: the PM said "yes" to the offer, and the assistant replied
     # "the reminder is ready above" WITHOUT actually calling
