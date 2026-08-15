@@ -214,7 +214,7 @@ On top of the tools themselves:
 - Marlabs rebrand (logo, colors, typography)
 - Saved/reopenable chat history, drag-and-drop file attach, message
   avatars + animated typing indicator
-- 181 backend tests passing, no known dependency CVEs (checked via
+- 192 backend tests passing, no known dependency CVEs (checked via
   `pip-audit` / `npm audit`)
 
 ### Pending
@@ -258,7 +258,7 @@ On top of the tools themselves:
   app; one-off seed/cleanup scripts also use the REST API (not a direct
   connection) so they can be run from any network
 - Pydantic / pydantic-settings — request/response models, config
-- pytest — 181 tests covering gating logic, services, routes, and the seed
+- pytest — 192 tests covering gating logic, services, routes, and the seed
   scripts
 
 **Frontend**
@@ -355,6 +355,41 @@ why Supabase is accessed two different ways, and `docs/` for the original
 discovery documentation and database structure.
 
 ## Recent updates
+
+### 2026-08-13 22:45 UTC — Codebase-wide bug pass: 3 real issues fixed
+
+Went through the whole codebase looking for anything that could fail —
+found and fixed three real issues (none were demo-blockers, but all were
+genuine bugs, not style nitpicks):
+
+1. **No error boundary on the chat path.** The REST upload/download
+   endpoints already caught specific exceptions and returned clean HTTP
+   errors; the chat path (`/api/chat` → `run_turn` → `dispatch_tool`) had
+   no equivalent — any unexpected exception (a client name that trips
+   storage validation, malformed tool-call JSON, etc.) crashed the whole
+   turn with an unhandled 500. Now every tool call in `run_turn` is
+   wrapped: an unexpected failure becomes a `{"error": "..."}` tool result
+   the assistant reacts to and explains plainly, instead of a crash. The
+   system prompt tells it exactly how to handle that result shape (relay
+   it, don't guess, don't retry, don't claim success).
+2. **Client names weren't validated before hitting storage.** Unlike
+   filenames (already sanitized via `slugify`), a client name went
+   straight into a folder path unsanitized. A name containing `".."`
+   would trip `LocalFilesystemStorage`'s path-escape guard with an opaque
+   `ValueError` deep in the storage layer — now caught up front by a new
+   `validate_client_name` check (rejects `..`, `/`, `\`, empty/blank)
+   with a clear, catchable message, before any folder gets touched.
+3. **Race condition in document version numbering.** `next_version_number`
+   reads-then-computes with no locking, so two uploads for the same
+   client+document landing at the same moment could reserve the same
+   version number. The DB's unique constraint already caught this as a
+   conflict rather than silently duplicating a row, but the conflict
+   itself was unhandled. `upload_document` now retries with a freshly
+   reserved number (up to 3 attempts) instead of surfacing the raw
+   failure.
+- 192 backend tests passing (was 181) — includes an end-to-end regression
+  test proving a failing tool call no longer crashes a chat turn, and a
+  parametrized test covering the rejected client-name patterns.
 
 ### 2026-08-13 22:05 UTC — Fix: reminder offer being skipped
 

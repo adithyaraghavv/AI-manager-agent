@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import pytest
 
 from app.core.phase_config import Phase, PhaseConfig
@@ -8,7 +10,8 @@ from app.services.document_service import (
     restore_document_version,
     upload_document,
 )
-from app.services.version_service import DocumentVersionNotFound, get_version_content, list_versions
+from app.services import version_service
+from app.services.version_service import DocumentVersionNotFound, VersionNumberConflict, get_version_content, list_versions
 from app.storage.local import LocalFilesystemStorage
 
 CONFIG = PhaseConfig(
@@ -141,3 +144,35 @@ def test_restore_unknown_version_raises(rest, storage):
 
     with pytest.raises(ClientDocumentNotFound):
         restore_document_version(rest, storage, "Acme", "MSA", 99)
+
+
+def test_upload_document_retries_and_succeeds_after_a_version_number_conflict(rest, storage):
+    # Simulates the exact race two near-simultaneous uploads can hit: the
+    # first attempt to record a reserved version number loses to a
+    # concurrent upload that claimed it first. upload_document must retry
+    # with a freshly reserved number rather than surfacing the raw conflict.
+    real_record_version = version_service.record_version
+    calls = {"count": 0}
+
+    def flaky_record_version(*args, **kwargs):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise VersionNumberConflict("simulated race — another upload claimed this version first")
+        return real_record_version(*args, **kwargs)
+
+    with patch("app.services.document_service.version_service.record_version", side_effect=flaky_record_version):
+        result = upload_document(rest, storage, CONFIG, "MSA", "Acme", b"content", "pdf")
+
+    assert calls["count"] == 2
+    assert result.version_number == 1
+    client = rest.select_one("clients", name="Acme")
+    assert [v.version_number for v in list_versions(rest, client["id"], "MSA")] == [1]
+
+
+def test_upload_document_gives_up_after_max_conflict_retries(rest, storage):
+    with patch(
+        "app.services.document_service.version_service.record_version",
+        side_effect=VersionNumberConflict("simulated persistent race"),
+    ):
+        with pytest.raises(VersionNumberConflict):
+            upload_document(rest, storage, CONFIG, "MSA", "Acme", b"content", "pdf")

@@ -5,12 +5,28 @@ version — this module is the only thing that reads/writes the full history.
 """
 from dataclasses import dataclass
 
+import httpx
+
 from app.db.rest_client import SupabaseRestClient
 from app.storage.base import StorageBackend
+
+# next_version_number() reads-then-computes with no locking, so two uploads
+# for the exact same (client, doc_type) landing at the same moment could both
+# reserve the same number. The DB's unique constraint (client_id, doc_type,
+# version_number) catches that as a conflict rather than silently duplicating
+# — document_service.upload_document retries this many times with a freshly
+# reserved number before giving up.
+MAX_VERSION_CONFLICT_RETRIES = 3
 
 
 class DocumentVersionNotFound(Exception):
     pass
+
+
+class VersionNumberConflict(Exception):
+    """Raised when two uploads raced for the same version number — the
+    caller should retry with a freshly reserved number, not surface this
+    as-is to the PM."""
 
 
 @dataclass
@@ -54,8 +70,42 @@ def record_version(
 ) -> VersionInfo:
     """Records a version whose number was already reserved via
     next_version_number and whose file is already saved. Never overwrites
-    or removes an earlier version."""
-    row = rest.insert(
+    or removes an earlier version.
+
+    Raises VersionNumberConflict (not the raw HTTP error) if another upload
+    already claimed this exact version_number in the moment between this
+    call and next_version_number reserving it — the DB's unique constraint
+    is the actual source of truth here, this is just surfacing that as a
+    typed exception the caller can retry on."""
+    try:
+        row = _insert_version_row(rest, client_id, doc_type, version_number, storage_path, filename, uploaded_by, comment)
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 409:
+            raise VersionNumberConflict(
+                f"Version {version_number} of {doc_type!r} was already claimed by a concurrent upload."
+            ) from e
+        raise
+    return VersionInfo(
+        version_number=row["version_number"],
+        filename=row["filename"],
+        storage_path=row["storage_path"],
+        uploaded_by=row.get("uploaded_by"),
+        comment=row.get("comment"),
+        uploaded_at=row.get("uploaded_at"),
+    )
+
+
+def _insert_version_row(
+    rest: SupabaseRestClient,
+    client_id: int,
+    doc_type: str,
+    version_number: int,
+    storage_path: str,
+    filename: str,
+    uploaded_by: str | None,
+    comment: str | None,
+) -> dict:
+    return rest.insert(
         "document_versions",
         {
             "client_id": client_id,
@@ -66,14 +116,6 @@ def record_version(
             "uploaded_by": uploaded_by,
             "comment": comment,
         },
-    )
-    return VersionInfo(
-        version_number=row["version_number"],
-        filename=row["filename"],
-        storage_path=row["storage_path"],
-        uploaded_by=row.get("uploaded_by"),
-        comment=row.get("comment"),
-        uploaded_at=row.get("uploaded_at"),
     )
 
 

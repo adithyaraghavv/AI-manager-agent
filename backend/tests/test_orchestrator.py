@@ -1,9 +1,12 @@
+import json
 from unittest.mock import MagicMock, patch
 
 import httpx
 from openai import BadRequestError
 
 from app.agent.orchestrator import SYSTEM_PROMPT, run_turn
+from app.core.phase_config import Phase, PhaseConfig
+from app.storage.local import LocalFilesystemStorage
 
 
 def _bad_request_error(code: str) -> BadRequestError:
@@ -16,6 +19,19 @@ def _plain_text_response(text: str) -> MagicMock:
     choice = MagicMock()
     choice.message.content = text
     choice.message.tool_calls = None
+    response = MagicMock()
+    response.choices = [choice]
+    return response
+
+
+def _tool_call_response(name: str, arguments: dict, call_id: str = "call_1") -> MagicMock:
+    tool_call = MagicMock()
+    tool_call.id = call_id
+    tool_call.function.name = name
+    tool_call.function.arguments = json.dumps(arguments)
+    choice = MagicMock()
+    choice.message.content = ""
+    choice.message.tool_calls = [tool_call]
     response = MagicMock()
     response.choices = [choice]
     return response
@@ -192,6 +208,39 @@ def test_system_prompt_distinguishes_document_owner_from_approver():
     # approver unless the tool result itself says they're the same party.
     assert 'entries have an "owner"' in SYSTEM_PROMPT
     assert "do NOT treat the owner as a stand-in approver unless the tool result itself says" in SYSTEM_PROMPT
+
+
+def test_run_turn_survives_a_tool_call_that_raises_instead_of_crashing(rest, tmp_path):
+    # Real end-to-end path (not a mocked dispatch_tool): a client name with
+    # ".." trips validate_client_name deep inside get_or_create_client.
+    # Before the fix, nothing caught this and the whole turn crashed with
+    # an unhandled exception. Now it must become a graceful tool result the
+    # model can react to, and the turn continues normally.
+    config = PhaseConfig([Phase(name="Pre-requisites", sequence=1, required_documents=("MSA",))])
+    storage = LocalFilesystemStorage(tmp_path)
+
+    tool_call_response = _tool_call_response("get_client_status", {"client_name": "../Escaped"})
+    final_response = _plain_text_response("That client name isn't valid — could you try it without special characters?")
+
+    with patch("app.agent.orchestrator.OpenAI") as MockOpenAI:
+        instance = MockOpenAI.return_value
+        instance.chat.completions.create.side_effect = [tool_call_response, final_response]
+
+        messages = [{"role": "user", "content": "check status for ../Escaped"}]
+        result = run_turn(rest, storage, storage, config, messages)
+
+    tool_messages = [m for m in result if m.get("role") == "tool"]
+    assert len(tool_messages) == 1
+    content = json.loads(tool_messages[0]["content"])
+    assert "error" in content
+    assert result[-1]["content"] == "That client name isn't valid — could you try it without special characters?"
+    # And critically: no client row was left behind by the failed attempt.
+    assert rest.select("clients") == []
+
+
+def test_system_prompt_explains_how_to_handle_a_tool_error_result():
+    assert 'If a tool result is just {"error": "..."}' in SYSTEM_PROMPT
+    assert "do NOT retry the same tool call yourself in this turn" in SYSTEM_PROMPT
 
 
 def test_bad_request_errors_are_not_swallowed():

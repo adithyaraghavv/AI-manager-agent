@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from app.core.client_name_validation import InvalidClientName
 from app.core.phase_config import Phase, PhaseConfig
 from app.services.client_service import (
     delete_client,
@@ -182,3 +183,26 @@ def test_unmark_document_not_applicable_no_op_if_never_marked(rest, storage):
     was_marked = unmark_document_not_applicable(rest, client, "BRD")
 
     assert was_marked is False
+
+
+@pytest.mark.parametrize("bad_name", ["../Escaped", "Acme/../../etc", "Foo/Bar", "Foo\\Bar", "", "   "])
+def test_get_or_create_client_rejects_names_that_would_break_as_a_storage_path(rest, storage, bad_name):
+    # The exact live bug this guards against: a client name containing ".."
+    # or a path separator used to reach the storage layer unvalidated,
+    # raising an opaque ValueError deep inside LocalFilesystemStorage
+    # instead of a clear, catchable message raised up front — and nothing
+    # in the chat pipeline caught it, so it crashed the whole turn.
+    with pytest.raises(InvalidClientName):
+        get_or_create_client(rest, storage, CONFIG, bad_name)
+
+    # And critically: no client row or folder was created before the
+    # rejection — validation happens before any side effect.
+    assert rest.select("clients") == []
+
+
+def test_get_or_create_client_accepts_ordinary_names(rest, storage):
+    # Guard against the validation being overzealous — ordinary names with
+    # spaces, ampersands, periods (a real client name, not a path attack)
+    # must still work.
+    client = get_or_create_client(rest, storage, CONFIG, "Smith & Co.")
+    assert client["name"] == "Smith & Co."

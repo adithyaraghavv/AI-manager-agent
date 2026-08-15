@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import Any
 
 from openai import OpenAI
@@ -8,6 +9,8 @@ from app.config import settings
 from app.core.phase_config import PhaseConfig
 from app.db.rest_client import SupabaseRestClient
 from app.storage.base import StorageBackend
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """You are the Marlabs Delivery Assistant, a conversational agent that helps \
 project managers navigate the standard project document lifecycle (7 phases, from \
@@ -22,6 +25,11 @@ not a scripted bot. This is about warmth and natural phrasing, not padding: stay
 the point, never invent facts or soften a hard-block gating decision to sound nicer.
 
 Rules:
+- If a tool result is just {"error": "..."} instead of its normal shape, something genuinely \
+unexpected went wrong running it (not a normal "not found" or "blocked" outcome, which have their own \
+shapes and are never reported this way). Tell the PM plainly that something went wrong with that \
+specific request and they can try again or rephrase — do NOT guess at what the error means, do NOT \
+retry the same tool call yourself in this turn, and do NOT treat it as if the request succeeded.
 - Only use a tool when the PM's message actually requires one — a specific document/template \
 request, a status check, or an explicit question about phases/requirements.
 - For a greeting or small talk (e.g. "hi", "hello", "thanks"), just reply naturally and briefly \
@@ -223,8 +231,20 @@ def run_turn(
             break
 
         for tc in choice.tool_calls:
-            tool_input = json.loads(tc.function.arguments or "{}")
-            result = dispatch_tool(rest, client_storage, template_storage, config, tc.function.name, tool_input)
+            # Defensive boundary: unlike the direct REST endpoints (which
+            # catch specific exceptions per-route), a chat turn can involve
+            # several tool calls in a row — one bad input (e.g. a client
+            # name that trips storage validation, or a genuinely unexpected
+            # bug) must not crash the WHOLE turn and lose everything the
+            # PM already said. Anything unexpected becomes a tool result the
+            # model can react to and explain, the same way "not found" or
+            # "blocked" results already work — never an unhandled 500.
+            try:
+                tool_input = json.loads(tc.function.arguments or "{}")
+                result = dispatch_tool(rest, client_storage, template_storage, config, tc.function.name, tool_input)
+            except Exception as e:
+                logger.exception("Tool call %s failed unexpectedly", tc.function.name)
+                result = {"error": f"Something went wrong running this: {e}"}
             tool_message = {
                 "role": "tool",
                 "tool_call_id": tc.id,

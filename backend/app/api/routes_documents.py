@@ -19,6 +19,7 @@ from app.services.document_service import (
     upload_document,
 )
 from app.services.search_service import search_documents
+from app.services.version_service import VersionNumberConflict
 from app.storage.base import StorageBackend
 
 router = APIRouter(prefix="/api", tags=["documents"])
@@ -90,6 +91,11 @@ async def upload_client_document(
         raise HTTPException(status_code=409, detail=e.decision.reason) from e
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    except VersionNumberConflict as e:
+        # Only reachable if every retry inside upload_document also lost the
+        # race — extremely unlikely, but a real conflict, not a bug, so 409
+        # rather than a raw 500.
+        raise HTTPException(status_code=409, detail=str(e)) from e
 
     return {
         "client_name": client_name,

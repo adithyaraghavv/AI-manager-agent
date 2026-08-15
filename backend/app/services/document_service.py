@@ -117,9 +117,28 @@ def upload_document(
     # path — build_filename's timestamp alone is only second-precision, so
     # two uploads in the same second would otherwise collide on disk and
     # silently overwrite each other despite getting distinct version rows.
-    version_number = version_service.next_version_number(rest, client["id"], doc_type)
-    stored_path = f"{folder}/v{version_number}_{filename}"
-    storage.save(stored_path, content)
+    #
+    # next_version_number reads-then-computes with no locking, so two
+    # uploads landing at the same moment could both reserve the same
+    # number — the DB's unique constraint catches that as a
+    # VersionNumberConflict rather than silently duplicating a row; retry
+    # with a freshly reserved number rather than surfacing that race to
+    # the PM as a raw failure.
+    version_number = stored_path = None
+    for attempt in range(version_service.MAX_VERSION_CONFLICT_RETRIES):
+        version_number = version_service.next_version_number(rest, client["id"], doc_type)
+        stored_path = f"{folder}/v{version_number}_{filename}"
+        storage.save(stored_path, content)
+        try:
+            version_service.record_version(
+                rest, client["id"], doc_type, version_number, stored_path, filename,
+                uploaded_by=uploaded_by, comment=comment,
+            )
+            break
+        except version_service.VersionNumberConflict:
+            if attempt == version_service.MAX_VERSION_CONFLICT_RETRIES - 1:
+                raise
+            continue
 
     record = rest.select_one("client_documents", client_id=client["id"], doc_type=doc_type)
     if record is None:
@@ -139,11 +158,6 @@ def upload_document(
             {"id": record["id"]},
             {"storage_path": stored_path, "filename": filename},
         )
-
-    version_service.record_version(
-        rest, client["id"], doc_type, version_number, stored_path, filename,
-        uploaded_by=uploaded_by, comment=comment,
-    )
 
     return UploadResult(
         stored_path=stored_path, filename=filename, phase_name=phase.name, version_number=version_number

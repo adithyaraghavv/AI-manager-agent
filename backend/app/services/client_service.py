@@ -2,6 +2,7 @@
 on first contact, and lookup of which documents already exist for a client."""
 from datetime import datetime, timedelta, timezone
 
+from app.core.client_name_validation import validate_client_name
 from app.core.phase_config import PhaseConfig
 from app.db.rest_client import SupabaseRestClient
 from app.storage.base import StorageBackend
@@ -22,7 +23,13 @@ def get_or_create_client(
     Only matches an ACTIVE (not soft-deleted) client — if "Acme" was deleted
     and someone later uploads for "Acme" again before the retention window's
     cleanup runs, this creates a fresh client rather than silently reviving
-    the deleted one."""
+    the deleted one.
+
+    Raises InvalidClientName (a plain ValueError subclass) for a name that
+    would break as a storage folder segment (contains "..", "/", or "\\") —
+    checked up front so the failure is a clear, catchable message instead of
+    a deep, opaque exception from the storage layer."""
+    validate_client_name(client_name)
     client = rest.select_one_ci_active("clients", "name", client_name)
     is_new = client is None
     if client is None:
