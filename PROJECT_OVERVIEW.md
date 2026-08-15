@@ -110,10 +110,12 @@ doing something the system doesn't actually support:
     back as "not stated," not a guess.
 11. **Draft an approval-chase reminder** — when a PM asks who they should
     reach out to for a specific document's approval (e.g. "whom should I
-    reach out to get the HLD approved"), this looks up who specifically
-    **approves** that document (not just who provides it — they can be
-    different people) and drafts a ready-to-copy reminder message
-    addressed to them — same "nothing auto-sent" principle as the
+    reach out to get the HLD approved"), the assistant first just answers
+    with the **approver's** name (not just whoever provides the document —
+    they can be different people) and offers to draft a reminder; only
+    once the PM confirms does it actually generate a ready-to-copy
+    reminder message addressed to them. Two-step by design — never drafts
+    on the first ask. Same "nothing auto-sent" principle as the
     Dashboard's copy-reminder button, just triggered from chat. If the
     SOW names an owner but not an approver, it says so plainly rather
     than treating the owner as a stand-in.
@@ -212,7 +214,7 @@ On top of the tools themselves:
 - Marlabs rebrand (logo, colors, typography)
 - Saved/reopenable chat history, drag-and-drop file attach, message
   avatars + animated typing indicator
-- 178 backend tests passing, no known dependency CVEs (checked via
+- 179 backend tests passing, no known dependency CVEs (checked via
   `pip-audit` / `npm audit`)
 
 ### Pending
@@ -256,7 +258,7 @@ On top of the tools themselves:
   app; one-off seed/cleanup scripts also use the REST API (not a direct
   connection) so they can be run from any network
 - Pydantic / pydantic-settings — request/response models, config
-- pytest — 178 tests covering gating logic, services, routes, and the seed
+- pytest — 179 tests covering gating logic, services, routes, and the seed
   scripts
 
 **Frontend**
@@ -353,6 +355,22 @@ why Supabase is accessed two different ways, and `docs/` for the original
 discovery documentation and database structure.
 
 ## Recent updates
+
+### 2026-08-13 21:30 UTC — Confirm before drafting an approval reminder
+
+Live testing feedback: asking "whom should I reach out to get the HLD
+approved" jumped straight to a fully drafted reminder card — too fast. The
+PM should get the name first and decide whether they actually want a
+reminder drafted.
+
+- Made this an explicit two-step flow in the system prompt: the first ask
+  gets an answer (just the approver's name, via `get_sow_summary`) plus an
+  offer ("want me to draft a ready-to-copy reminder to send them?").
+  `generate_approval_reminder` is now only called after the PM confirms
+  they want that — never on the PM's first message.
+- Nothing in the underlying tool changed — this was purely about when the
+  assistant decides to call it.
+- 179 backend tests passing (was 178).
 
 ### 2026-08-13 21:00 UTC — Split document ownership into owner vs. approver
 

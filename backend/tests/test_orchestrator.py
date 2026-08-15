@@ -152,12 +152,18 @@ def test_system_prompt_forbids_inventing_team_or_document_ownership():
 
 
 def test_system_prompt_distinguishes_reminder_generation_from_plain_ownership_question():
-    # generate_approval_reminder is for "who do I reach out to" intent
-    # (drafts a message); get_sow_summary is for a plain "who's responsible"
-    # fact question. Both must still refuse to invent a name for a document
-    # the SOW doesn't actually assign.
-    assert 'generate_approval_reminder is for "whom should I reach out to' in SYSTEM_PROMPT
-    assert "specifically targets the APPROVER" in SYSTEM_PROMPT
+    # get_sow_summary is for a plain "who's responsible" fact question.
+    # Both must still refuse to invent a name for a document the SOW
+    # doesn't actually assign.
+    assert 'Use get_sow_summary instead of generate_approval_reminder for a plain "who\'s responsible for X"' in SYSTEM_PROMPT
+
+
+def test_system_prompt_requires_confirmation_before_drafting_a_reminder():
+    # Live UX feedback: "whom should I reach out to" was jumping straight to
+    # a drafted reminder. It must be a two-step flow — name + offer first,
+    # reminder only after the PM explicitly says yes to that offer.
+    assert "is a TWO-STEP flow, never a one-shot straight to a drafted reminder" in SYSTEM_PROMPT
+    assert 'Never call generate_approval_reminder on the PM\'s first "whom should I reach out to" message' in SYSTEM_PROMPT
 
 
 def test_system_prompt_distinguishes_document_owner_from_approver():

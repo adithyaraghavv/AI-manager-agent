@@ -258,20 +258,17 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "function": {
             "name": "generate_approval_reminder",
             "description": (
-                "Use when the PM asks who they should reach out to / chase / contact to get a specific "
-                "document APPROVED (e.g. 'whom should I reach out to get the BRD approved', 'who do I "
-                "chase for the HLD sign-off') and wants a ready-to-send reminder — not just the name. "
-                "This specifically targets the APPROVER role (from get_sow_summary's "
-                "document_responsibilities: {'owner': ..., 'approver': ...}), since that's who actually "
-                "needs to act before the document counts as approved — not necessarily the same person "
-                "who authored/provided it. Drafts a copy-paste-ready reminder addressed to the approver, "
-                "so the PM can copy it and send it themselves — nothing is sent automatically. If the "
-                "SOW doesn't name an approver for that document (even if it names an owner), found comes "
-                "back false with a plain reason; NEVER invent a name or draft a reminder to someone the "
-                "document doesn't actually name as the approver. If the PM is just asking who owns or is "
-                "responsible for a document (not asking to reach out or for a reminder), get_sow_summary "
-                "is usually the better fit — this tool is specifically for the 'draft me something to "
-                "send to get this approved' case."
+                "Drafts a copy-paste-ready reminder message addressed to a document's APPROVER (from "
+                "get_sow_summary's document_responsibilities: {'owner': ..., 'approver': ...}) so the PM "
+                "can copy it and send it themselves — nothing is sent automatically. IMPORTANT — only "
+                "call this AFTER the PM has explicitly confirmed they want a reminder drafted (e.g. "
+                "'yes', 'please', 'go ahead and draft it', 'generate it'). Do NOT call this the first "
+                "time a PM asks 'whom should I reach out to get X approved' — that first question should "
+                "be answered with get_sow_summary (just the approver's name), followed by an offer like "
+                "'want me to draft a ready-to-copy reminder to send them?'. Only once the PM says yes to "
+                "that offer do you call this tool. If the SOW doesn't name an approver for that document "
+                "(even if it names an owner), found comes back false with a plain reason; NEVER invent a "
+                "name or draft a reminder to someone the document doesn't actually name as the approver."
             ),
             "parameters": {
                 "type": "object",
