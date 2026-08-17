@@ -356,6 +356,16 @@ discovery documentation and database structure.
 
 ## Recent updates
 
+### 2026-08-17 UTC — Fix: nanoid transitive dependency vulnerability
+
+Dependabot flagged `nanoid` 3.3.16 (a transitive dev dependency pulled in via
+`vite`/`@vitejs/plugin-react`) for a known infinite-loop bug when its
+generator functions are called with a size of 0 — fixed upstream in 3.3.18.
+Dependabot couldn't auto-upgrade it because of a conflicting dependency
+constraint further up the chain, so pinned it directly via npm's
+`overrides` field in `frontend/package.json` instead. `npm audit` now
+reports 0 vulnerabilities; build and lint both verified clean afterward.
+
 ### 2026-08-13 22:45 UTC — Codebase-wide bug pass: 3 real issues fixed
 
 Went through the whole codebase looking for anything that could fail —
