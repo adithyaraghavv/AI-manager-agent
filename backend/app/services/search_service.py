@@ -15,6 +15,7 @@ class DocumentSearchResult:
     doc_type: str
     filename: str
     phase_name: str
+    version_count: int
 
 
 def search_documents(rest: SupabaseRestClient, query: str) -> list[DocumentSearchResult]:
@@ -43,12 +44,14 @@ def search_documents(rest: SupabaseRestClient, query: str) -> list[DocumentSearc
             if client is None or client.get("deleted_at") is not None:
                 continue
             client_name = client["name"]
+        version_count = len(rest.select("document_versions", client_id=doc["client_id"], doc_type=doc["doc_type"]))
         results.append(
             DocumentSearchResult(
                 client_name=client_name,
                 doc_type=doc["doc_type"],
                 filename=doc["filename"],
                 phase_name=doc["phase_name"],
+                version_count=version_count,
             )
         )
 

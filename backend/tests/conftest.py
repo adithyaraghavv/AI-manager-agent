@@ -1,9 +1,31 @@
 import sys
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import pytest  # noqa: E402
+
+
+def _fs_is_case_sensitive() -> bool:
+    """Runtime check — Linux ext4 is case-sensitive, macOS APFS/HFS+ and
+    Windows NTFS are case-insensitive by default. Tests that assert two
+    identically-named-but-differently-cased files/folders are distinct only
+    make sense on the former."""
+    with tempfile.TemporaryDirectory() as td:
+        probe = Path(td) / "casetest_lower"
+        probe.touch()
+        return not (Path(td) / "CASETEST_LOWER").exists()
+
+
+requires_case_sensitive_fs = pytest.mark.skipif(
+    not _fs_is_case_sensitive(),
+    reason=(
+        "requires a case-sensitive filesystem — the invariant being tested "
+        "protects against a Linux (ext4) bug that can't reproduce on macOS "
+        "APFS/HFS+ or Windows NTFS. CI runs on ubuntu-latest which is case-sensitive."
+    ),
+)
 
 
 class FakeSupabaseRestClient:

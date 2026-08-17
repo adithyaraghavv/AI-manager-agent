@@ -26,11 +26,29 @@ function persist(entries) {
 export function useChatHistory() {
   const [entries, setEntries] = useState(load)
 
-  const saveEntry = useCallback((id, title, messages) => {
+  // `autoTitle` is derived fresh from the first user message on every save. Once a PM
+  // renames a conversation by hand, titleIsCustom keeps that name from being silently
+  // overwritten by the next auto-save.
+  const saveEntry = useCallback((id, autoTitle, messages) => {
     setEntries((prev) => {
-      const updated = [{ id, title, messages, updatedAt: new Date().toISOString() }, ...prev.filter((e) => e.id !== id)]
+      const existing = prev.find((e) => e.id === id)
+      const title = existing?.titleIsCustom ? existing.title : autoTitle
+      const updated = [
+        { id, title, titleIsCustom: existing?.titleIsCustom ?? false, messages, updatedAt: new Date().toISOString() },
+        ...prev.filter((e) => e.id !== id),
+      ]
       persist(updated)
       return updated.slice(0, MAX_ENTRIES)
+    })
+  }, [])
+
+  const renameEntry = useCallback((id, title) => {
+    const trimmed = title.trim()
+    if (!trimmed) return
+    setEntries((prev) => {
+      const updated = prev.map((e) => (e.id === id ? { ...e, title: trimmed, titleIsCustom: true } : e))
+      persist(updated)
+      return updated
     })
   }, [])
 
@@ -42,5 +60,5 @@ export function useChatHistory() {
     })
   }, [])
 
-  return { entries, saveEntry, deleteEntry }
+  return { entries, saveEntry, renameEntry, deleteEntry }
 }

@@ -5,6 +5,9 @@ Greenfield build. See `/docs/tech_stack_and_structure.md` for the design rationa
 ## Setup
 
 ```bash
+git clone https://github.com/Marlabs-Innovations-Private-Limited/RAG-agent.git
+cd RAG-agent
+git checkout pullingado
 cd backend
 pip install -r requirements.txt
 cp .env.example .env   # fill in OPENAI_API_KEY, DATABASE_URL, SUPABASE_URL, SUPABASE_KEY
@@ -26,6 +29,10 @@ Day-to-day, prefer running `npm run dev` from `/frontend` instead — it starts 
 frontend together in one terminal (see `/frontend/README.md`). Run the command above directly only
 when you want the backend on its own (e.g. `npm run dev:backend` from `/frontend` does the same
 thing).
+
+**Verify it's working:** open `http://localhost:5173` (or hit `http://localhost:8000/health`
+directly if running the backend alone) and send a chat message like "list phases". A reply back
+confirms the whole chain — backend, Supabase, OpenAI — is wired up correctly.
 
 ## Tests
 

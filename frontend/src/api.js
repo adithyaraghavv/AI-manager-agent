@@ -13,10 +13,12 @@ export async function sendChat(messages) {
   return res.json()
 }
 
-export async function uploadDocument(clientName, docType, file) {
+export async function uploadDocument(clientName, docType, file, uploadedBy, comment) {
   const form = new FormData()
   form.append('doc_type', docType)
   form.append('file', file)
+  if (uploadedBy) form.append('uploaded_by', uploadedBy)
+  if (comment) form.append('comment', comment)
 
   const res = await fetch(`${BASE}/clients/${encodeURIComponent(clientName)}/documents`, {
     method: 'POST',
@@ -81,6 +83,37 @@ export async function deleteClient(clientName) {
 
 export function templateDownloadUrl(docType, clientName) {
   return `${BASE}/templates/${encodeURIComponent(docType)}/download?client_name=${encodeURIComponent(clientName)}`
+}
+
+export async function getDocumentVersions(clientName, docType) {
+  const res = await fetch(
+    `${BASE}/clients/${encodeURIComponent(clientName)}/documents/${encodeURIComponent(docType)}/versions`
+  )
+  if (!res.ok) throw new Error(`Failed to load version history (${res.status})`)
+  const body = await res.json()
+  return body.versions
+}
+
+export async function restoreDocumentVersion(clientName, docType, versionNumber, uploadedBy) {
+  const form = new FormData()
+  if (uploadedBy) form.append('uploaded_by', uploadedBy)
+
+  const res = await fetch(
+    `${BASE}/clients/${encodeURIComponent(clientName)}/documents/${encodeURIComponent(docType)}/versions/${versionNumber}/restore`,
+    { method: 'POST', body: form }
+  )
+  const raw = await res.text()
+  let body
+  try {
+    body = JSON.parse(raw)
+  } catch {
+    if (!res.ok) throw new Error(`Restore failed (${res.status}): ${raw || 'no response body'}`)
+    throw new Error(`Restore succeeded but response was not valid JSON: ${raw}`)
+  }
+  if (!res.ok) {
+    throw new Error(body.detail || `Restore failed (${res.status})`)
+  }
+  return body
 }
 
 export async function checkHealth() {

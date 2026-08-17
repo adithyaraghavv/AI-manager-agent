@@ -73,3 +73,15 @@ def test_search_does_not_duplicate_results(rest):
     results = search_documents(rest, "Acme")
     filenames = [r.filename for r in results]
     assert len(filenames) == len(set(filenames))
+
+
+def test_search_reports_version_count(rest):
+    acme, _ = _seed(rest)
+    rest.insert("document_versions", {"client_id": acme["id"], "doc_type": "MSA", "version_number": 1})
+    rest.insert("document_versions", {"client_id": acme["id"], "doc_type": "MSA", "version_number": 2})
+    rest.insert("document_versions", {"client_id": acme["id"], "doc_type": "SOW", "version_number": 1})
+
+    results = search_documents(rest, "Acme")
+    counts = {r.doc_type: r.version_count for r in results}
+    assert counts["MSA"] == 2
+    assert counts["SOW"] == 1

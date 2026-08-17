@@ -1,18 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { deleteClient, sendChat, uploadDocument } from '../api'
-import { useChatHistory } from '../hooks/useChatHistory'
 import AttachUploadCard from './AttachUploadCard'
-import ChatHistoryMenu from './ChatHistoryMenu'
 import DeleteConfirmCard from './DeleteConfirmCard'
 import DeleteResult from './DeleteResult'
 import ToolActivity from './ToolActivity'
 import UploadResult from './UploadResult'
 
-function BubbleAvatar({ role }) {
+function BubbleAvatar({ role, hidden }) {
+  if (hidden) return <span className="bubble-avatar bubble-avatar--spacer" aria-hidden="true" />
   if (role === 'user') {
     return (
       <span className="bubble-avatar bubble-avatar--user" aria-hidden="true">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
           <path
             d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"
             stroke="currentColor"
@@ -25,16 +24,102 @@ function BubbleAvatar({ role }) {
       </span>
     )
   }
+  // Marlabs-branded mark for the assistant, not a generic robot icon —
+  // brand-gradient circle with the wordmark's "M", same navy/blue as the
+  // header logo.
   return (
     <span className="bubble-avatar bubble-avatar--assistant" aria-hidden="true">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-        <rect x="3" y="10" width="18" height="10" rx="3" stroke="currentColor" strokeWidth="1.8" />
-        <path d="M12 10V6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        <circle cx="12" cy="4" r="1.6" fill="currentColor" />
-        <circle cx="8.5" cy="15" r="1.3" fill="currentColor" />
-        <circle cx="15.5" cy="15" r="1.3" fill="currentColor" />
-      </svg>
+      M
     </span>
+  )
+}
+
+function CopyButton({ text }) {
+  const [copied, setCopied] = useState(false)
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // Clipboard permission denied or unavailable — nothing useful to do,
+      // fail silently rather than show a scary error for a convenience action.
+    }
+  }
+
+  return (
+    <button type="button" className="bubble__copy" onClick={handleCopy} title="Copy message">
+      {copied ? (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M5 13l4 4L19 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      ) : (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <rect x="9" y="9" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.6" />
+          <path d="M5 15V5a2 2 0 012-2h10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        </svg>
+      )}
+      <span className="sr-only">{copied ? 'Copied' : 'Copy message'}</span>
+    </button>
+  )
+}
+
+// Editable title shown above the message list — mirrors the entry's name in the
+// sidebar. Editing is disabled until a conversation actually has a chatId (i.e.
+// at least one message has been sent), since there's nothing to rename yet.
+function ChatTitleBar({ title, onRename }) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(title || '')
+  const inputRef = useRef(null)
+
+  useEffect(() => {
+    if (editing) inputRef.current?.focus()
+  }, [editing])
+
+  if (!title) return null
+
+  function commit() {
+    setEditing(false)
+    if (draft.trim() && draft.trim() !== title) onRename(draft.trim())
+    else setDraft(title)
+  }
+
+  if (editing) {
+    return (
+      <div className="chat-panel__title-bar">
+        <input
+          ref={inputRef}
+          className="chat-panel__title-input"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commit()
+            if (e.key === 'Escape') {
+              setDraft(title)
+              setEditing(false)
+            }
+          }}
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div className="chat-panel__title-bar">
+      <button
+        type="button"
+        className="chat-panel__title"
+        onClick={() => {
+          setDraft(title)
+          setEditing(true)
+        }}
+        title="Click to rename"
+      >
+        {title}
+      </button>
+    </div>
   )
 }
 
@@ -79,41 +164,31 @@ function inferUploadContext(messages) {
   return { clientName, docType }
 }
 
-export default function ChatPanel() {
-  const [messages, setMessages] = useState([])
+export default function ChatPanel({ messages, setMessages, chatTitle, onRenameTitle }) {
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState(null)
   const [pendingFile, setPendingFile] = useState(null)
   const [pendingDelete, setPendingDelete] = useState(null)
   const [dragActive, setDragActive] = useState(false)
-  const [showHistory, setShowHistory] = useState(false)
-  const [chatId, setChatId] = useState(null)
   const scrollRef = useRef(null)
   const fileInputRef = useRef(null)
+  const textareaRef = useRef(null)
   const dragDepth = useRef(0)
-  const chatIdRef = useRef(null)
-  const { entries: chatHistory, saveEntry, deleteEntry } = useChatHistory()
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages, pendingFile])
 
-  // Auto-save to the local chat history sidebar after every exchange that has
-  // real user content — a fresh chatId is minted on the first user message, so
-  // reloads/edits to the same conversation update one entry instead of piling
-  // up duplicates.
+  // Auto-grow the composer only as far as the content actually needs —
+  // starts at one line, expands with typed content, and collapses back
+  // down (not left tall) once the message is sent or cleared.
   useEffect(() => {
-    const userMessages = messages.filter((m) => m.role === 'user')
-    if (userMessages.length === 0) return
-
-    if (!chatIdRef.current) {
-      chatIdRef.current = Date.now()
-      setChatId(chatIdRef.current)
-    }
-    const title = extractText(userMessages[0].content).slice(0, 60) || 'New chat'
-    saveEntry(chatIdRef.current, title, messages)
-  }, [messages, saveEntry])
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [input])
 
   // Shared by both a fresh send and a retry — `outgoing` already contains
   // the user's message (appended by the caller), so this never duplicates
@@ -169,32 +244,6 @@ export default function ChatPanel() {
   function handleRetry() {
     const outgoing = messages.filter((m) => m.role !== 'upload-result' && m.role !== 'delete-result')
     sendToBackend(outgoing)
-  }
-
-  function handleNewChat() {
-    chatIdRef.current = null
-    setChatId(null)
-    setMessages([])
-    setInput('')
-    setError(null)
-    setPendingFile(null)
-    setPendingDelete(null)
-  }
-
-  function handleLoadChat(entry) {
-    if (chatIdRef.current === entry.id) return
-    chatIdRef.current = entry.id
-    setChatId(entry.id)
-    setMessages(entry.messages)
-    setInput('')
-    setError(null)
-    setPendingFile(null)
-    setPendingDelete(null)
-  }
-
-  function handleDeleteChat(id) {
-    deleteEntry(id)
-    if (chatIdRef.current === id) handleNewChat()
   }
 
   function handleKeyDown(e) {
@@ -271,7 +320,6 @@ export default function ChatPanel() {
   }
 
   const uploadContext = pendingFile ? inferUploadContext(messages) : null
-  const hasConversation = messages.length > 0 || pendingFile || pendingDelete
 
   return (
     <div
@@ -297,99 +345,74 @@ export default function ChatPanel() {
           </div>
         </div>
       )}
-      {(hasConversation || chatHistory.length > 0) && (
-        <div className="chat-panel__topbar">
-          <div className="chat-panel__history-wrap">
-            <button
-              type="button"
-              className="chat-panel__history-toggle"
-              onClick={() => setShowHistory((s) => !s)}
-              disabled={chatHistory.length === 0}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path
-                  d="M3 12a9 9 0 109-9M3 12l3-3M3 12l3 3M12 7v5l3 3"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              History
-            </button>
-            {showHistory && (
-              <ChatHistoryMenu
-                entries={chatHistory}
-                activeId={chatId}
-                onLoad={handleLoadChat}
-                onDelete={handleDeleteChat}
-                onClose={() => setShowHistory(false)}
-              />
-            )}
-          </div>
-          {hasConversation && (
-            <button type="button" className="chat-panel__new-chat" onClick={handleNewChat}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-              New chat
-            </button>
-          )}
-        </div>
-      )}
+      <ChatTitleBar title={chatTitle} onRename={onRenameTitle} />
       <div className="chat-panel__messages" ref={scrollRef}>
+       <div className="chat-panel__messages-inner">
         {messages.length === 0 && !pendingFile && (
           <div className="bubble-row bubble-row--assistant">
             <BubbleAvatar role="assistant" />
             <div className="bubble bubble--assistant">
-              <div className="bubble__label">Agent</div>
               <div className="bubble__text">
-                Hi, I'm your delivery assistant. I can check a client's document status, hand over a
-                phase-appropriate template, or file a completed document for you — just ask, or
-                attach a file directly with the 📎 button below.
+                Hey! What can I help with — checking on a client, grabbing a template, or filing
+                something you've finished? You can also just drop a file in with the 📎 below if
+                that's easier.
               </div>
             </div>
           </div>
         )}
-        {messages.map((msg, i) => {
-          if (msg.role === 'tool') {
-            let result
-            try {
-              result = JSON.parse(msg.content)
-            } catch {
-              return null
+        {(() => {
+          let previousBubbleRole = null
+          return messages.map((msg, i) => {
+            if (msg.role === 'tool') {
+              previousBubbleRole = null
+              let result
+              try {
+                result = JSON.parse(msg.content)
+              } catch {
+                return null
+              }
+              return <ToolActivity key={i} name={msg.name} result={result} />
             }
-            return <ToolActivity key={i} name={msg.name} result={result} />
-          }
 
-          if (msg.role === 'upload-result') {
-            return <UploadResult key={i} result={msg.content.result} error={msg.content.error} />
-          }
+            if (msg.role === 'upload-result') {
+              previousBubbleRole = null
+              return <UploadResult key={i} result={msg.content.result} error={msg.content.error} />
+            }
 
-          if (msg.role === 'delete-result') {
+            if (msg.role === 'delete-result') {
+              previousBubbleRole = null
+              return (
+                <DeleteResult
+                  key={i}
+                  clientName={msg.content.clientName}
+                  error={msg.content.error}
+                  cancelled={msg.content.cancelled}
+                />
+              )
+            }
+
+            const text = extractText(msg.content)
+            if (msg.role === 'assistant' && !text) return null
+
+            // Consecutive messages from the same sender stack tightly with a
+            // single avatar (shown once, on the first of the run) instead of
+            // repeating "You"/"Agent" labels and an avatar on every bubble.
+            const grouped = previousBubbleRole === msg.role
+            previousBubbleRole = msg.role
+
             return (
-              <DeleteResult
-                key={i}
-                clientName={msg.content.clientName}
-                error={msg.content.error}
-                cancelled={msg.content.cancelled}
-              />
-            )
-          }
-
-          const text = extractText(msg.content)
-          if (msg.role === 'assistant' && !text) return null
-
-          return (
-            <div key={i} className={`bubble-row bubble-row--${msg.role}`}>
-              <BubbleAvatar role={msg.role} />
-              <div className={`bubble bubble--${msg.role}`}>
-                <div className="bubble__label">{msg.role === 'user' ? 'You' : 'Agent'}</div>
-                <div className="bubble__text">{text}</div>
+              <div key={i} className={`bubble-row bubble-row--${msg.role}${grouped ? ' bubble-row--grouped' : ''}`}>
+                <BubbleAvatar role={msg.role} hidden={grouped} />
+                <div className={`bubble bubble--${msg.role}`}>
+                  <div className="bubble__text-wrap">
+                    <div className="bubble__text">{text}</div>
+                    <CopyButton text={text} />
+                  </div>
+                </div>
               </div>
-            </div>
-          )
-        })}
+            )
+          })
+        })()}
         {sending && (
           <div className="bubble-row bubble-row--assistant">
             <BubbleAvatar role="assistant" />
@@ -412,6 +435,7 @@ export default function ChatPanel() {
         {pendingDelete && (
           <DeleteConfirmCard proposal={pendingDelete} onConfirm={handleDeleteConfirm} onCancel={handleDeleteCancel} />
         )}
+       </div>
       </div>
 
       {error && (
@@ -425,6 +449,7 @@ export default function ChatPanel() {
 
       <div className="chat-panel__input">
         <textarea
+          ref={textareaRef}
           className="chat-panel__textarea"
           value={input}
           onChange={(e) => setInput(e.target.value)}

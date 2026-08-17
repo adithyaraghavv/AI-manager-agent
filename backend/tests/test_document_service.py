@@ -1,12 +1,20 @@
 import pytest
 
+from tests.conftest import requires_case_sensitive_fs
+
 from app.core.phase_config import Phase, PhaseConfig
 from app.core.upload_validation import InvalidUpload, MAX_UPLOAD_SIZE_BYTES
+from app.services.client_service import (
+    get_or_create_client,
+    mark_document_not_applicable,
+    unmark_document_not_applicable,
+)
 from app.services.document_service import (
     ClientDocumentNotFound,
     GatingBlocked,
     TemplateFileMissing,
     TemplateNotFound,
+    get_document_location,
     get_stored_document,
     request_template,
     upload_document,
@@ -85,6 +93,7 @@ def test_reupload_same_doc_type_updates_existing_record_not_duplicate(rest, clie
     assert len(records) == 1
 
 
+@requires_case_sensitive_fs
 def test_upload_with_different_casing_files_under_the_same_client_and_folder(rest, client_storage, template_storage):
     # The exact bug this guards against: uploading as "Acme" then "acme" must
     # be treated as the SAME client and land in the SAME storage folder — not
@@ -130,3 +139,58 @@ def test_get_stored_document_with_record_but_no_local_file_gives_actionable_erro
 
     with pytest.raises(ClientDocumentNotFound, match="local storage"):
         get_stored_document(rest, client_storage, "Acme", "MSA")
+
+
+def test_get_document_location_returns_folder_not_filename(rest, client_storage, template_storage):
+    result = upload_document(rest, client_storage, CONFIG, "MSA", "Acme", b"filled msa", "pdf")
+
+    location = get_document_location(rest, "Acme", "MSA")
+
+    assert location.client_name == "Acme"
+    assert location.doc_type == "MSA"
+    assert location.folder_path == "Acme/01_Pre-requisites"
+    assert location.folder_path == result.stored_path.rsplit("/", 1)[0]
+    assert location.filename == result.filename
+
+
+def test_get_document_location_unknown_client_raises(rest, client_storage, template_storage):
+    with pytest.raises(ClientDocumentNotFound):
+        get_document_location(rest, "Ghost", "MSA")
+
+
+def test_get_document_location_unfiled_doc_type_raises(rest, client_storage, template_storage):
+    upload_document(rest, client_storage, CONFIG, "MSA", "Acme", b"filled msa", "pdf")
+
+    with pytest.raises(ClientDocumentNotFound):
+        get_document_location(rest, "Acme", "SOW")
+
+
+def test_not_applicable_document_unblocks_a_later_phase(rest, client_storage, template_storage):
+    # The exact real-world case this exists for: SOW genuinely doesn't apply
+    # to this client, so a later-phase template request must not stay
+    # permanently blocked on it forever.
+    _seed_template_row(rest, "BRD", "BRD.txt")
+    client = get_or_create_client(rest, client_storage, CONFIG, "Acme")
+
+    with pytest.raises(GatingBlocked):
+        request_template(rest, client_storage, template_storage, CONFIG, "BRD", "Acme")
+
+    upload_document(rest, client_storage, CONFIG, "MSA", "Acme", b"filled msa", "pdf")
+    mark_document_not_applicable(rest, client, "SOW", reason="Not applicable for this engagement")
+
+    # MSA filed + SOW marked not-applicable = phase 1 fully satisfied now.
+    result = request_template(rest, client_storage, template_storage, CONFIG, "BRD", "Acme")
+    assert result.content == b"mock BRD template"
+
+
+def test_unmarking_not_applicable_re_blocks_the_phase(rest, client_storage, template_storage):
+    _seed_template_row(rest, "BRD", "BRD.txt")
+    client = get_or_create_client(rest, client_storage, CONFIG, "Acme")
+    upload_document(rest, client_storage, CONFIG, "MSA", "Acme", b"filled msa", "pdf")
+    mark_document_not_applicable(rest, client, "SOW")
+    request_template(rest, client_storage, template_storage, CONFIG, "BRD", "Acme")  # confirm it's unblocked first
+
+    unmark_document_not_applicable(rest, client, "SOW")
+
+    with pytest.raises(GatingBlocked):
+        request_template(rest, client_storage, template_storage, CONFIG, "BRD", "Acme")
