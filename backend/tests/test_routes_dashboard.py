@@ -1,26 +1,15 @@
 from datetime import datetime, timezone
 
-from fastapi.testclient import TestClient
 
-from app.deps import get_rest_client
-from app.main import app
-from tests.conftest import FakeSupabaseRestClient
-
-
-def test_clients_status_route_serializes_correctly():
-    fake = FakeSupabaseRestClient()
+def test_clients_status_route_serializes_correctly(route_client):
+    client, fake, _ = route_client()
     client_row = fake.insert("clients", {"name": "Acme", "created_at": datetime.now(timezone.utc).isoformat()})
     fake.insert(
         "client_documents",
         {"client_id": client_row["id"], "doc_type": "MSA", "uploaded_at": datetime.now(timezone.utc).isoformat()},
     )
 
-    app.dependency_overrides[get_rest_client] = lambda: fake
-    try:
-        client = TestClient(app)
-        response = client.get("/api/clients/status")
-    finally:
-        app.dependency_overrides.pop(get_rest_client, None)
+    response = client.get("/api/clients/status")
 
     assert response.status_code == 200
     body = response.json()

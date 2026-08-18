@@ -125,3 +125,44 @@ class FakeSupabaseRestClient:
 @pytest.fixture
 def rest():
     return FakeSupabaseRestClient()
+
+
+@pytest.fixture
+def route_client(tmp_path):
+    """Factory fixture — wires FastAPI dependency overrides for a routes-layer
+    integration test and cleans them up afterwards.
+
+    Usage:
+        def test_something(route_client):
+            client, fake_rest, storage = route_client(config=CONFIG)
+            ...
+
+    Only pops the specific override keys it set — never `dependency_overrides.clear()`,
+    which would nuke any overrides installed by another (session-scoped) fixture.
+    """
+    from fastapi.testclient import TestClient
+
+    from app.deps import get_client_storage, get_config, get_rest_client
+    from app.main import app
+    from app.storage.local import LocalFilesystemStorage
+
+    installed_keys: list = []
+
+    def _make(config=None):
+        fake_rest = FakeSupabaseRestClient()
+        storage = LocalFilesystemStorage(tmp_path)
+
+        app.dependency_overrides[get_rest_client] = lambda: fake_rest
+        app.dependency_overrides[get_client_storage] = lambda: storage
+        installed_keys.extend([get_rest_client, get_client_storage])
+
+        if config is not None:
+            app.dependency_overrides[get_config] = lambda: config
+            installed_keys.append(get_config)
+
+        return TestClient(app), fake_rest, storage
+
+    yield _make
+
+    for key in installed_keys:
+        app.dependency_overrides.pop(key, None)
