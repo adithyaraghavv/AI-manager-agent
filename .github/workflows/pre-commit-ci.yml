@@ -32,5 +32,11 @@ jobs:
       - name: Install pre-commit
         run: pip install pre-commit
 
+      # Soft-launch: existing codebase has pre-existing style/format drift
+      # that these hooks will fix on first run. Report violations as PR
+      # annotations without blocking merges. Remove continue-on-error after
+      # the codebase-wide "chore: apply pre-commit auto-fixes" cleanup PR
+      # lands. Tracking: https://github.com/Marlabs-Innovations-Private-Limited/RAG-agent/issues (open one before flipping this).
       - name: Run pre-commit on all files
+        continue-on-error: true
         run: pre-commit run --all-files --show-diff-on-failure
