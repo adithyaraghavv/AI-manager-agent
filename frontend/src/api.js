@@ -1,5 +1,28 @@
 const BASE = '/api'
 
+/**
+ * Parse res.body as JSON. Throw with a caller-supplied label if:
+ * - the response is non-OK and the body has no JSON `.detail`
+ * - the response is OK but the body isn't valid JSON (proxy HTML error page, etc.)
+ *
+ * Server errors (500s, proxy errors) aren't always JSON — surface the raw text
+ * instead of failing again on JSON.parse and hiding the real error message.
+ */
+async function parseJsonOrRaise(res, label) {
+  const raw = await res.text()
+  let data
+  try {
+    data = raw ? JSON.parse(raw) : null
+  } catch {
+    if (!res.ok) throw new Error(`${label} failed (${res.status}): ${raw || 'no response body'}`)
+    throw new Error(`${label} succeeded but response was not valid JSON: ${raw}`)
+  }
+  if (!res.ok) {
+    throw new Error(data?.detail || `${label} failed (${res.status})`)
+  }
+  return data
+}
+
 export async function sendChat(messages) {
   const res = await fetch(`${BASE}/chat`, {
     method: 'POST',
@@ -25,21 +48,7 @@ export async function uploadDocument(clientName, docType, file, uploadedBy, comm
     body: form,
   })
 
-  const raw = await res.text()
-  let body
-  try {
-    body = JSON.parse(raw)
-  } catch {
-    // Server errors (500s, proxy errors) aren't always JSON — surface the raw text
-    // instead of failing again on JSON.parse and hiding the real error message.
-    if (!res.ok) throw new Error(`Upload failed (${res.status}): ${raw || 'no response body'}`)
-    throw new Error(`Upload succeeded but response was not valid JSON: ${raw}`)
-  }
-
-  if (!res.ok) {
-    throw new Error(body.detail || `Upload failed (${res.status})`)
-  }
-  return body
+  return parseJsonOrRaise(res, 'Upload')
 }
 
 export async function getPhases() {
@@ -67,18 +76,7 @@ export async function deleteClient(clientName) {
   const res = await fetch(`${BASE}/clients/${encodeURIComponent(clientName)}`, {
     method: 'DELETE',
   })
-  const raw = await res.text()
-  let body
-  try {
-    body = JSON.parse(raw)
-  } catch {
-    if (!res.ok) throw new Error(`Delete failed (${res.status}): ${raw || 'no response body'}`)
-    throw new Error(`Delete succeeded but response was not valid JSON: ${raw}`)
-  }
-  if (!res.ok) {
-    throw new Error(body.detail || `Delete failed (${res.status})`)
-  }
-  return body
+  return parseJsonOrRaise(res, 'Delete')
 }
 
 export function templateDownloadUrl(docType, clientName) {
@@ -102,18 +100,7 @@ export async function restoreDocumentVersion(clientName, docType, versionNumber,
     `${BASE}/clients/${encodeURIComponent(clientName)}/documents/${encodeURIComponent(docType)}/versions/${versionNumber}/restore`,
     { method: 'POST', body: form }
   )
-  const raw = await res.text()
-  let body
-  try {
-    body = JSON.parse(raw)
-  } catch {
-    if (!res.ok) throw new Error(`Restore failed (${res.status}): ${raw || 'no response body'}`)
-    throw new Error(`Restore succeeded but response was not valid JSON: ${raw}`)
-  }
-  if (!res.ok) {
-    throw new Error(body.detail || `Restore failed (${res.status})`)
-  }
-  return body
+  return parseJsonOrRaise(res, 'Restore')
 }
 
 export async function checkHealth() {
