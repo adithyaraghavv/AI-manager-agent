@@ -1,0 +1,188 @@
+name: Checks
+
+# Automated hygiene checks: lint, secrets, dependency audits, and SBOM.
+# Runs on every PR targeting main and on direct pushes to that branch.
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions: read-all
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-actions:
+    name: Lint GitHub Actions workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: actionlint
+        uses: rhysd/actionlint@v1.7.7
+
+  lint-shell:
+    name: Lint shell scripts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: shellcheck
+        uses: ludeeus/action-shellcheck@2.0.0
+        env:
+          SHELLCHECK_OPTS: -x
+        with:
+          scandir: "."
+          additional_files: "*.sh"
+
+  lint-docker:
+    name: Lint Dockerfiles
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect Dockerfiles
+        id: detect
+        run: |
+          set -euo pipefail
+          shopt -s globstar nullglob
+          matches=(**/Dockerfile*)
+          if [ "${#matches[@]}" -eq 0 ]; then
+            echo "found=false" >>"$GITHUB_OUTPUT"
+            echo "No Dockerfile found; skipping hadolint."
+          else
+            echo "found=true" >>"$GITHUB_OUTPUT"
+            printf 'Dockerfile candidates:\n'
+            printf '  - %s\n' "${matches[@]}"
+            echo "path=${matches[0]}" >>"$GITHUB_OUTPUT"
+          fi
+
+      - name: hadolint
+        if: steps.detect.outputs.found == 'true'
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: ${{ steps.detect.outputs.path }}
+          recursive: true
+
+  secrets-scan:
+    name: Secrets scan (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Install the gitleaks OSS binary directly instead of gitleaks-action.
+      # The Action moved to a paid model for org repos in v2 — the CLI is unaffected.
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: "8.21.2"
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C /tmp gitleaks
+          sudo install -m 0755 /tmp/gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+
+      - name: Run gitleaks
+        run: |
+          gitleaks detect --source . --redact --verbose --exit-code 1 --report-format sarif --report-path gitleaks.sarif
+
+      - name: Upload gitleaks report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-sarif
+          path: gitleaks.sarif
+          if-no-files-found: ignore
+
+  python-audit:
+    name: Python dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/requirements.txt
+
+      - name: uv pip audit
+        run: |
+          set +e
+          uv pip install --system pip-audit
+          uv pip audit -r backend/requirements.txt | tee audit-report.txt
+          rc=${PIPESTATUS[0]}
+          if [ "$rc" -ne 0 ]; then
+            echo "::warning title=Python audit::pip-audit reported vulnerabilities (see job log)."
+          fi
+          exit 0
+
+  js-audit:
+    name: JS dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: npm audit
+        run: |
+          set +e
+          npm audit --production --audit-level=high | tee ../npm-audit.txt
+          rc=${PIPESTATUS[0]}
+          if [ "$rc" -ne 0 ]; then
+            echo "::warning title=JS audit::npm audit reported high-severity vulnerabilities (see job log)."
+          fi
+          exit 0
+
+  sbom:
+    name: Generate SBOM (SPDX)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate SPDX SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: spdx-json
+          artifact-name: sbom.spdx.json
+          output-file: sbom.spdx.json
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-spdx
+          path: sbom.spdx.json
+          if-no-files-found: error

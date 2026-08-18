@@ -1,0 +1,18 @@
+[project]
+name = "pm-document-assistant-backend"
+version = "0.1.0"
+description = "PM Document Assistant — FastAPI backend for the RAG agent."
+requires-python = ">=3.11"
+readme = "README.md"
+
+# Runtime dependencies are managed via backend/requirements.txt for now.
+# This file exists primarily to expose a single source of truth for the
+# backend package version that release-please can bump.
+dependencies = []
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = []
