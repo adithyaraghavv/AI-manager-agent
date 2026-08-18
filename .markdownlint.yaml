@@ -1,0 +1,11 @@
+# markdownlint configuration
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+---
+default: true
+
+# MD013: Line length — disabled to allow long lines in prose and tables.
+MD013: false
+
+# MD033: Inline HTML — disabled because Docusaurus and other markdown
+# renderers we use rely on inline HTML for layout and components.
+MD033: false
