@@ -7,7 +7,7 @@ tags: [ci, release, tooling]
 
 # What's new: CI/CD lifecycle + pre-commit hooks
 
-**TL;DR** — every PR to `pullingado` now runs a full slate of automated checks. Merges cut versions and publish container images without anyone reaching for the release console. Your local commits get the same lint / format / secret-scan rules so nothing gets caught in review that could have been caught on your laptop. Contributors write [Conventional Commits](https://www.conventionalcommits.org/); the changelog writes itself.
+**TL;DR** — every PR to `main` now runs a full slate of automated checks. Merges cut versions and publish container images without anyone reaching for the release console. Your local commits get the same lint / format / secret-scan rules so nothing gets caught in review that could have been caught on your laptop. Contributors write [Conventional Commits](https://www.conventionalcommits.org/); the changelog writes itself.
 
 Two PRs, one story:
 
@@ -20,10 +20,10 @@ Two PRs, one story:
 
 | Workflow | Trigger | What it catches |
 |---|---|---|
-| `pr-checks.yml` | PR to `pullingado` | Backend regression + feature tests + frontend build (already in place) |
-| `checks.yml` | PR + push to `pullingado` | actionlint, shellcheck, hadolint, gitleaks, `uv pip audit`, `npm audit`, SPDX SBOM |
-| `pre-commit-ci.yml` | PR + push to `pullingado` | Same hook stack that runs locally — as a safety net for contributors who haven't installed pre-commit |
-| `release-please.yml` | Push to `pullingado` | Opens/updates a "chore(main): release X.Y.Z" PR based on Conventional Commits since the last release |
+| `pr-checks.yml` | PR to `main` | Backend regression + feature tests + frontend build (already in place) |
+| `checks.yml` | PR + push to `main` | actionlint, shellcheck, hadolint, gitleaks, `uv pip audit`, `npm audit`, SPDX SBOM |
+| `pre-commit-ci.yml` | PR + push to `main` | Same hook stack that runs locally — as a safety net for contributors who haven't installed pre-commit |
+| `release-please.yml` | Push to `main` | Opens/updates a "chore(main): release X.Y.Z" PR based on Conventional Commits since the last release |
 | `package.yml` | GitHub release published | Builds a multi-arch (`linux/amd64,linux/arm64`) container of the backend and pushes it to `ghcr.io/<repo>/backend` tagged with the version and `latest` |
 
 All third-party actions are pinned to explicit version tags. Every job has a 15-minute timeout and a `concurrency` group so re-pushes cancel stale runs. Permissions default to read-only, and the two jobs that need write scope (release-please and container publish) declare exactly what they need.
@@ -102,7 +102,7 @@ Optional scope: `feat(auth): support device-code flow`.
 
 ## Cutting a release
 
-1. Merge Conventional-Commits PRs into `pullingado`.
+1. Merge Conventional-Commits PRs into `main`.
 2. `release-please` detects the new commits and opens (or updates) a **release PR** titled `chore(main): release X.Y.Z`. It contains the version bump in `pyproject.toml`, the manifest update, and a generated `CHANGELOG.md`.
 3. Review that PR and merge it. On merge, `release-please` creates the git tag and the GitHub release.
 4. The `package.yml` workflow fires on the release event and publishes the multi-arch container image to GHCR.

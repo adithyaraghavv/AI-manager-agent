@@ -37,7 +37,7 @@ Two PRs, one story.
 ## TL;DR
 
 - Every PR runs a full check slate — lint, tests, secrets, audits, SBOM.
-- Every merge to `pullingado` can cut a release without anyone touching a version file.
+- Every merge to `main` can cut a release without anyone touching a version file.
 - Local commits run the same lint / format / secret-scan rules — no more style nits caught in review.
 - Contributors write Conventional Commits; the changelog writes itself.
 
@@ -57,7 +57,7 @@ All actions pinned to explicit versions. Read-only permissions by default. 15-mi
 
 ---
 
-## What runs on merge to `pullingado`
+## What runs on merge to `main`
 
 - **`release-please.yml`** — reads Conventional Commits since last release, opens (or updates) a "chore(main): release X.Y.Z" PR with version bump + generated `CHANGELOG.md`.
 - **`package.yml`** — fires when a GitHub release is published. Builds a multi-arch (`linux/amd64,linux/arm64`) container of the backend and pushes to `ghcr.io/<repo>/backend`.
@@ -134,7 +134,7 @@ pre-commit autoupdate
 ## The release flow
 
 ```
-merge conv-commits to `pullingado`
+merge conv-commits to `main`
               |
               v
       release-please opens
