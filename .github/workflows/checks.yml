@@ -186,3 +186,42 @@ jobs:
           name: sbom-spdx
           path: sbom.spdx.json
           if-no-files-found: error
+
+  container-smoke:
+    name: Container smoke (build + import app)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Prove the image actually builds AND the app object named in the CMD
+      # can be imported. Catches the class of bug where CMD points at a
+      # module that no longer exists or fails at import time.
+      - name: Build backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          load: true
+          push: false
+          tags: rag-agent-backend:smoke
+
+      - name: Verify CMD's app object is importable
+        run: |
+          # Extract the "module:attr" from the Dockerfile CMD so this test
+          # follows CMD changes automatically instead of hardcoding a path.
+          APP_REF=$(docker run --rm --entrypoint sh rag-agent-backend:smoke \
+            -c 'grep -oE "\"[a-zA-Z_.]+:[a-zA-Z_]+\"" /proc/1/cmdline 2>/dev/null || echo app.main:app')
+          # Fallback: parse the Dockerfile directly
+          if [ -z "$APP_REF" ] || [ "$APP_REF" = "app.main:app" ]; then
+            APP_REF=$(grep -oE '"[a-zA-Z_.]+:[a-zA-Z_]+"' backend/Dockerfile | head -1 | tr -d '"')
+          fi
+          MODULE="${APP_REF%:*}"
+          ATTR="${APP_REF#*:}"
+          echo "Checking import: from $MODULE import $ATTR"
+          docker run --rm --entrypoint python rag-agent-backend:smoke \
+            -c "import importlib, sys; m = importlib.import_module('$MODULE'); a = getattr(m, '$ATTR'); print(type(a).__name__, a.title if hasattr(a, 'title') else a); sys.exit(0)"
