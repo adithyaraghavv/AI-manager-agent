@@ -29,12 +29,18 @@ class SupabaseRestClient:
             timeout=timeout,
         )
 
-    def select(self, table: str, **filters: object) -> list[dict]:
-        """Rows in `table` matching all filters (AND-combined equality)."""
-        params = {k: f"eq.{v}" for k, v in filters.items()}
+    def _get_rows(self, table: str, params: dict) -> list[dict]:
+        """Send a GET to `/{table}` with `params`, raise on HTTP error, return
+        the parsed JSON body. Shared boilerplate for every select* variant —
+        each caller's job is just to build the params dict for its filter shape."""
         response = self._client.get(f"/{table}", params=params)
         response.raise_for_status()
         return response.json()
+
+    def select(self, table: str, **filters: object) -> list[dict]:
+        """Rows in `table` matching all filters (AND-combined equality)."""
+        params = {k: f"eq.{v}" for k, v in filters.items()}
+        return self._get_rows(table, params)
 
     def select_one(self, table: str, **filters: object) -> dict | None:
         rows = self.select(table, **filters)
@@ -45,27 +51,19 @@ class SupabaseRestClient:
         resolve to the same row. Escapes ILIKE's wildcard characters (%, _, \\)
         so this stays an exact match, not a pattern search."""
         escaped = value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        params = {column: f"ilike.{escaped}"}
-        response = self._client.get(f"/{table}", params=params)
-        response.raise_for_status()
-        rows = response.json()
+        rows = self._get_rows(table, {column: f"ilike.{escaped}"})
         return rows[0] if rows else None
 
     def select_active(self, table: str, active_column: str = "deleted_at", **filters: object) -> list[dict]:
         """Like select(), but excludes soft-deleted rows (where `active_column` is set)."""
         params = {k: f"eq.{v}" for k, v in filters.items()}
         params[active_column] = "is.null"
-        response = self._client.get(f"/{table}", params=params)
-        response.raise_for_status()
-        return response.json()
+        return self._get_rows(table, params)
 
     def select_one_ci_active(self, table: str, column: str, value: str, active_column: str = "deleted_at") -> dict | None:
         """Same as select_one_ci, but additionally excludes soft-deleted rows."""
         escaped = value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        params = {column: f"ilike.{escaped}", active_column: "is.null"}
-        response = self._client.get(f"/{table}", params=params)
-        response.raise_for_status()
-        rows = response.json()
+        rows = self._get_rows(table, {column: f"ilike.{escaped}", active_column: "is.null"})
         return rows[0] if rows else None
 
     def select_ilike_any(self, table: str, columns: list[str], query: str) -> list[dict]:
@@ -84,9 +82,7 @@ class SupabaseRestClient:
         seen_ids: set = set()
         results: list[dict] = []
         for col in columns:
-            response = self._client.get(f"/{table}", params={col: f"ilike.*{escaped}*"})
-            response.raise_for_status()
-            for row in response.json():
+            for row in self._get_rows(table, {col: f"ilike.*{escaped}*"}):
                 row_id = row.get("id")
                 if row_id in seen_ids:
                     continue
