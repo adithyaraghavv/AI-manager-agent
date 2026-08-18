@@ -6,18 +6,8 @@ from app.core.phase_config import Phase, PhaseConfig
 CONFIG = PhaseConfig(
     [
         Phase(name="Pre-requisites", sequence=1, required_documents=("MSA", "SOW", "Pricing")),
-        Phase(
-            name="Requirement Analysis",
-            sequence=2,
-            required_documents=("BRD",),
-            previous_phase="Pre-requisites",
-        ),
-        Phase(
-            name="System Design",
-            sequence=3,
-            required_documents=("SRS",),
-            previous_phase="Requirement Analysis",
-        ),
+        Phase(name="Requirement Analysis", sequence=2, required_documents=("BRD",)),
+        Phase(name="System Design", sequence=3, required_documents=("SRS",)),
     ]
 )
 
