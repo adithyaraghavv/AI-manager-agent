@@ -17,6 +17,7 @@ from app.core.document_lookup import find_document_types
 from app.core.gating import missing_documents, resolve_phase_for_document
 from app.core.phase_config import PhaseConfig
 from app.db.rest_client import SupabaseRestClient
+from app.services import embedding_service
 from app.services.client_service import (
     existing_document_types,
     find_client,
@@ -286,6 +287,42 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "search_document_content",
+            "description": (
+                "Answer a question using the ACTUAL TEXT inside a client's document — not its "
+                "structured fields (that's get_sow_summary) and not the file itself (that's "
+                "request_template/get_document_versions). Returns the passages whose meaning "
+                "is closest to the question, pulled from the document's real content, for you to "
+                "answer from — quote or paraphrase only what these passages actually say, never "
+                "invent an answer if nothing relevant comes back. Use this for open-ended content "
+                "questions a plain field lookup can't answer, e.g. 'what does the SOW say about "
+                "termination', 'what does the BRD say about the acceptance criteria', 'is there "
+                "anything across Acme's documents about data retention'. Searches across every "
+                "embedded document type for the client unless doc_type narrows it to one. If a "
+                "document was uploaded before it had a chance to be indexed, it may not have "
+                "matches yet — if nothing comes back, say so plainly rather than assuming the "
+                "document has no such content."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "client_name": {"type": "string", "description": "The client's name."},
+                    "query": {
+                        "type": "string",
+                        "description": "The question or topic to search the document's content for.",
+                    },
+                    "doc_type": {
+                        "type": "string",
+                        "description": "Restrict the search to one document type, e.g. 'SOW'. Omit to search across all of the client's embedded documents.",
+                    },
+                },
+                "required": ["client_name", "query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "propose_delete_client",
             "description": (
                 "Look up a client and prepare to delete them. Deletion hides the client from everywhere "
@@ -476,6 +513,29 @@ def dispatch_tool(
             "owner": result.owner,
             "approver": result.approver,
             "reminder_message": result.reminder_message,
+        }
+
+    if tool_name == "search_document_content":
+        client_name = tool_input["client_name"]
+        query = tool_input["query"]
+        doc_type = tool_input.get("doc_type")
+        client = find_client(rest, client_name)
+        if client is None:
+            return {"found": False, "reason": f"No client named {client_name!r}"}
+        matches = embedding_service.search_document_content(rest, client["id"], query, doc_type=doc_type)
+        return {
+            "found": len(matches) > 0,
+            "client_name": client["name"],
+            "query": query,
+            "matches": [
+                {
+                    "doc_type": m.doc_type,
+                    "version_number": m.version_number,
+                    "content": m.content,
+                    "similarity": m.similarity,
+                }
+                for m in matches
+            ],
         }
 
     if tool_name == "propose_delete_client":

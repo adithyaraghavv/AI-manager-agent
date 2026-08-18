@@ -86,6 +86,41 @@ class FakeSupabaseRestClient:
         rows = self._tables.get(table, [])
         self._tables[table] = [r for r in rows if not all(r.get(k) == v for k, v in filters.items())]
 
+    def rpc(self, function_name: str, params: dict) -> list[dict]:
+        """Only simulates match_document_chunks (the one RPC this app uses) —
+        ranks document_chunks rows by cosine similarity in plain Python,
+        standing in for the real Postgres vector index."""
+        if function_name != "match_document_chunks":
+            raise ValueError(f"FakeSupabaseRestClient.rpc doesn't simulate {function_name!r}")
+
+        def cosine_similarity(a: list[float], b: list[float]) -> float:
+            dot = sum(x * y for x, y in zip(a, b))
+            norm_a = sum(x * x for x in a) ** 0.5
+            norm_b = sum(y * y for y in b) ** 0.5
+            return dot / (norm_a * norm_b) if norm_a and norm_b else 0.0
+
+        query_embedding = params["query_embedding"]
+        match_doc_type = params.get("match_doc_type")
+        match_count = params.get("match_count", 5)
+
+        candidates = [
+            row for row in self._tables.get("document_chunks", [])
+            if row["client_id"] == params["match_client_id"]
+            and (match_doc_type is None or row["doc_type"] == match_doc_type)
+        ]
+        ranked = sorted(candidates, key=lambda r: cosine_similarity(r["embedding"], query_embedding), reverse=True)
+        return [
+            {
+                "id": row["id"],
+                "doc_type": row["doc_type"],
+                "version_number": row["version_number"],
+                "chunk_index": row["chunk_index"],
+                "content": row["content"],
+                "similarity": cosine_similarity(row["embedding"], query_embedding),
+            }
+            for row in ranked[:match_count]
+        ]
+
 
 @pytest.fixture
 def rest():

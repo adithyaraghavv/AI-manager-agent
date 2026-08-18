@@ -116,5 +116,13 @@ class SupabaseRestClient:
         response = self._client.delete(f"/{table}", params=params)
         response.raise_for_status()
 
+    def rpc(self, function_name: str, params: dict) -> list[dict]:
+        """Calls a Postgres function exposed via PostgREST's /rpc/ endpoint —
+        for queries a plain select/filter can't express, e.g. vector
+        similarity search (see match_document_chunks)."""
+        response = self._client.post(f"/rpc/{function_name}", json=params)
+        response.raise_for_status()
+        return response.json()
+
     def close(self) -> None:
         self._client.close()

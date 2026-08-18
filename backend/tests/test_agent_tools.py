@@ -6,6 +6,7 @@ import pytest
 from app.agent.tools import dispatch_tool
 from app.core.phase_config import Phase, PhaseConfig
 from app.services.document_service import upload_document
+from app.services.client_service import get_or_create_client
 from app.storage.local import LocalFilesystemStorage
 
 CONFIG = PhaseConfig(
@@ -325,3 +326,51 @@ def test_generate_approval_reminder_dispatch_not_found_when_unassigned(rest, sto
 
     assert result["found"] is False
     assert "reminder_message" not in result
+
+
+# ---- search_document_content ----
+
+def test_search_document_content_unknown_client_returns_not_found(rest, storage):
+    result = dispatch_tool(
+        rest, storage, storage, CONFIG, "search_document_content",
+        {"client_name": "Ghost", "query": "termination clause"},
+    )
+    assert result["found"] is False
+
+
+def test_search_document_content_returns_matches_for_known_client(rest, storage):
+    client = get_or_create_client(rest, storage, CONFIG, "Acme")
+    rest.insert(
+        "document_chunks",
+        {"client_id": client["id"], "doc_type": "SOW", "version_number": 1, "chunk_index": 0,
+         "content": "Either party may terminate with 30 days written notice.", "embedding": [1.0, 0.0]},
+    )
+
+    with patch("app.services.embedding_service.OpenAI") as MockOpenAI:
+        MockOpenAI.return_value.embeddings.create.return_value = MagicMock(
+            data=[MagicMock(embedding=[1.0, 0.0])]
+        )
+        result = dispatch_tool(
+            rest, storage, storage, CONFIG, "search_document_content",
+            {"client_name": "Acme", "query": "how do I terminate the contract"},
+        )
+
+    assert result["found"] is True
+    assert result["client_name"] == "Acme"
+    assert "30 days written notice" in result["matches"][0]["content"]
+
+
+def test_search_document_content_no_matches_is_not_an_error(rest, storage):
+    get_or_create_client(rest, storage, CONFIG, "Acme")
+
+    with patch("app.services.embedding_service.OpenAI") as MockOpenAI:
+        MockOpenAI.return_value.embeddings.create.return_value = MagicMock(
+            data=[MagicMock(embedding=[1.0, 0.0])]
+        )
+        result = dispatch_tool(
+            rest, storage, storage, CONFIG, "search_document_content",
+            {"client_name": "Acme", "query": "anything"},
+        )
+
+    assert result["found"] is False
+    assert result["matches"] == []

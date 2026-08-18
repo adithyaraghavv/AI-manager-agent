@@ -51,7 +51,7 @@ what the AI says.
 
 ### Chatbot capabilities
 
-The assistant (OpenAI GPT-4o) has eleven tools it can call — it can
+The assistant (OpenAI GPT-4o) has twelve tools it can call — it can
 only ever do what these tools allow, nothing else, so it can't be talked into
 doing something the system doesn't actually support:
 
@@ -119,6 +119,21 @@ doing something the system doesn't actually support:
     Dashboard's copy-reminder button, just triggered from chat. If the
     SOW names an owner but not an approver, it says so plainly rather
     than treating the owner as a stand-in.
+12. **Search inside a document's actual content** — answers open-ended
+    questions a fixed-field lookup can't (e.g. "what does the SOW say
+    about termination," "is there a clause about data retention") by
+    finding the passages of the document whose *meaning* is closest to
+    the question — not a keyword match — and answering from those, never
+    inventing content that isn't actually in the document. This is
+    Retrieval-Augmented Generation (RAG): every uploaded document gets
+    split into small chunks, each chunk converted into a searchable
+    numeric representation (an "embedding") and stored via Supabase's
+    pgvector extension; a question gets embedded the same way and matched
+    against the closest chunks. Covers every document type (BRD, SOW, SRS,
+    HLD, LLD, etc.) and searches across all of a client's documents at
+    once unless narrowed to one type — so a question like "summarize
+    everything about Acme's project scope" can pull from multiple
+    documents in one answer.
 - Every tool result is re-checked fresh, every time — even if the PM asks
   the exact same thing twice in one conversation. Real state (a fixed file,
   a new upload, a newly filed document) can change between messages, so the
@@ -365,6 +380,66 @@ Dependabot couldn't auto-upgrade it because of a conflicting dependency
 constraint further up the chain, so pinned it directly via npm's
 `overrides` field in `frontend/package.json` instead. `npm audit` now
 reports 0 vulnerabilities; build and lint both verified clean afterward.
+
+### 2026-08-17 UTC — RAG pipeline, stage 2: every document type, backfilled
+
+Widens the RAG pipeline (see stage 1 below) from SOW-only to every
+document type — no redesign needed, the chunking/embedding/search
+machinery was already generic.
+
+- **Removed the SOW-only allowlist** in `embedding_service.py` — any
+  document a new upload files now gets chunked and embedded, as long as
+  its text can be extracted (same "best effort, never fatal" rule as
+  before).
+- **New one-off backfill script** (`app/db/backfill_embeddings.py`) —
+  documents uploaded before this shipped (or before their doc_type was in
+  scope, back when only SOW was indexed) don't get embedded retroactively
+  just by the code changing; this script embeds every active client's
+  current document versions in one pass. Idempotent (safe to re-run),
+  skips soft-deleted clients, and skips (without crashing) any document
+  whose local file isn't present on this environment.
+- **Cross-document search** — `search_document_content` already supported
+  omitting `doc_type` to search across everything for a client; now that
+  every type is actually indexed, a question like "summarize everything
+  about Acme's project scope" can genuinely pull from BRD + SOW + SRS
+  together instead of just SOW.
+- System prompt and tool description updated to drop the "SOW only"
+  caveat and clarify the "nothing found" case can mean not-yet-indexed,
+  not "the document has no such content."
+- 211 backend tests passing (was 206).
+
+### 2026-08-17 UTC — RAG pipeline, stage 1: search inside SOW content
+
+First step of the RAG (Retrieval-Augmented Generation) roadmap — the chat
+assistant can now answer questions using a document's actual text, not just
+its structured fields or the file itself.
+
+- **`document_chunks` table + pgvector.** A new Alembic migration enables
+  Postgres's `vector` extension (already supported by Supabase, no new
+  infrastructure) and creates `document_chunks`, plus a `match_document_chunks`
+  SQL function that ranks chunks by cosine similarity to a query embedding.
+- **`embedding_service.py`** — chunks a document's extracted text into
+  overlapping ~800-character pieces, embeds each chunk via OpenAI
+  (`text-embedding-3-small`), and stores them. Re-uploading the same
+  document version replaces its prior chunks rather than duplicating them.
+  Scoped to `EMBEDDABLE_DOC_TYPES = {"SOW"}` for stage 1 — widening this to
+  every document type later is a one-line change, not a redesign. Never
+  fails an upload: an out-of-scope doc type, unreadable file, or embedding
+  API error all just skip indexing rather than raising.
+- **Wired into upload** — `POST /api/clients/{client}/documents` now embeds
+  the document automatically right after a successful upload, no separate
+  step for the PM.
+- **New chat tool: `search_document_content`** — takes a client name, a
+  question, and an optional doc_type filter; returns the passages whose
+  meaning is closest to the question for the assistant to answer from. The
+  system prompt requires the assistant to only quote/paraphrase what the
+  returned passages actually say, and to say plainly when nothing relevant
+  comes back rather than guessing.
+- `SupabaseRestClient` gained an `rpc()` method (calls a Postgres function
+  via PostgREST's `/rpc/` endpoint — needed since a plain filtered select
+  can't express vector similarity ordering), with a matching simulation in
+  the test fake so this stays testable without a real database.
+- 206 backend tests passing (was 192).
 
 ### 2026-08-13 22:45 UTC — Codebase-wide bug pass: 3 real issues fixed
 

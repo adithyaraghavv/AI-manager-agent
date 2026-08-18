@@ -5,6 +5,7 @@ from app.core.phase_config import PhaseConfig
 from app.db.rest_client import SupabaseRestClient
 from app.deps import get_client_storage, get_config, get_rest_client, get_template_storage
 from app.core.upload_validation import InvalidUpload
+from app.services import embedding_service
 from app.services.client_service import delete_client, find_client
 from app.services.document_service import (
     ClientDocumentNotFound,
@@ -96,6 +97,13 @@ async def upload_client_document(
         # race — extremely unlikely, but a real conflict, not a bug, so 409
         # rather than a raw 500.
         raise HTTPException(status_code=409, detail=str(e)) from e
+
+    # RAG indexing — every document type, not just SOW (stage 2). Never
+    # blocks or fails the upload itself: embed_document swallows its own
+    # errors and returns 0 chunks rather than raising.
+    client = find_client(rest, client_name)
+    if client is not None:
+        embedding_service.embed_document(rest, client["id"], doc_type, result.version_number, content, extension)
 
     return {
         "client_name": client_name,
