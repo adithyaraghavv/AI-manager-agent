@@ -2,9 +2,9 @@ name: pre-commit
 
 on:
   pull_request:
-    branches: [pullingado]
+    branches: [main]
   push:
-    branches: [pullingado]
+    branches: [main]
 
 concurrency:
   group: pre-commit-${{ github.workflow }}-${{ github.ref }}
