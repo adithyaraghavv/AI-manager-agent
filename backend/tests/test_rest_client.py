@@ -158,3 +158,74 @@ def test_select_raises_on_http_error():
         assert False, "expected HTTPStatusError"
     except httpx.HTTPStatusError:
         pass
+
+
+def test_select_in_with_empty_values_makes_zero_http_calls():
+    # The whole point of the short-circuit — callers that pass an empty list
+    # (e.g. "look up parents for these 0 children") shouldn't pay a network
+    # round-trip to learn what they already know.
+    call_count = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal call_count
+        call_count += 1
+        return httpx.Response(200, json=[])
+
+    client = _client_with_transport(handler)
+    result = client.select_in("clients", "id", [])
+
+    assert result == []
+    assert call_count == 0
+
+
+def test_select_in_batches_ids_into_single_request():
+    captured_urls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured_urls.append(str(request.url))
+        return httpx.Response(200, json=[{"id": 1}, {"id": 2}, {"id": 3}])
+
+    client = _client_with_transport(handler)
+    rows = client.select_in("clients", "id", [1, 2, 3])
+
+    assert rows == [{"id": 1}, {"id": 2}, {"id": 3}]
+    assert len(captured_urls) == 1  # one round-trip, not three
+    # httpx URL-encodes commas and parens in the query string; either
+    # encoded or raw form is fine, both are valid PostgREST.
+    assert "id=in.%281%2C2%2C3%29" in captured_urls[0] or "id=in.(1,2,3)" in captured_urls[0]
+
+
+def test_select_in_escapes_string_values_containing_commas():
+    # PostgREST's in.(...) list is comma-separated, so a raw comma inside a
+    # value would be parsed as a value boundary. Wrap in double quotes and
+    # escape inner quotes/backslashes.
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["column_value"] = request.url.params["name"]
+        return httpx.Response(200, json=[])
+
+    client = _client_with_transport(handler)
+    client.select_in("clients", "name", ["Acme", "Foo, Inc.", 'Weird"Co'])
+
+    v = captured["column_value"]
+    assert v.startswith("in.(") and v.endswith(")")
+    inside = v[len("in.") + 1 : -1]
+    # "Acme" has no structural chars → stays bare; the other two get quoted.
+    assert inside == 'Acme,"Foo, Inc.","Weird\\"Co"'
+
+
+def test_select_in_chunks_large_value_lists_into_multiple_requests():
+    # 700 values > 500 chunk size → 2 requests (500 + 200). Keeps a single
+    # ?col=in.(...) filter under typical proxy URL-length limits.
+    captured_urls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured_urls.append(str(request.url))
+        return httpx.Response(200, json=[{"id": 1}])
+
+    client = _client_with_transport(handler)
+    rows = client.select_in("clients", "id", list(range(1, 701)))
+
+    assert len(captured_urls) == 2
+    assert len(rows) == 2  # one row per chunk from our fake handler
