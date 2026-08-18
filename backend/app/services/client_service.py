@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 from app.core.client_name_validation import validate_client_name
 from app.core.phase_config import PhaseConfig
+from app.core.timestamps import parse_supabase_ts
 from app.db.rest_client import SupabaseRestClient
 from app.storage.base import StorageBackend
 
@@ -133,9 +134,7 @@ def purge_deleted_clients(rest: SupabaseRestClient, storage: StorageBackend, old
         deleted_at = client.get("deleted_at")
         if not deleted_at:
             continue
-        deleted_ts = datetime.fromisoformat(deleted_at.replace("Z", "+00:00"))
-        if deleted_ts.tzinfo is None:
-            deleted_ts = deleted_ts.replace(tzinfo=timezone.utc)
+        deleted_ts = parse_supabase_ts(deleted_at)
         if deleted_ts > cutoff:
             continue
 

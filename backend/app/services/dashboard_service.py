@@ -11,14 +11,8 @@ from datetime import datetime, timezone
 from app.config import settings
 from app.core.gating import missing_documents
 from app.core.phase_config import PhaseConfig
+from app.core.timestamps import parse_supabase_ts
 from app.db.rest_client import SupabaseRestClient
-
-
-def _parse_timestamp(value: str) -> datetime:
-    ts = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    if ts.tzinfo is None:
-        ts = ts.replace(tzinfo=timezone.utc)
-    return ts
 
 
 @dataclass
@@ -54,9 +48,9 @@ def list_client_statuses(rest: SupabaseRestClient, config: PhaseConfig) -> list[
             else:
                 phases_complete += 1
 
-        timestamps = [_parse_timestamp(doc["uploaded_at"]) for doc in documents if doc.get("uploaded_at")]
+        timestamps = [parse_supabase_ts(doc["uploaded_at"]) for doc in documents if doc.get("uploaded_at")]
         if not timestamps and client.get("created_at"):
-            timestamps = [_parse_timestamp(client["created_at"])]
+            timestamps = [parse_supabase_ts(client["created_at"])]
         last_activity = max(timestamps) if timestamps else None
 
         days_since = (now - last_activity).total_seconds() / 86400 if last_activity else None
