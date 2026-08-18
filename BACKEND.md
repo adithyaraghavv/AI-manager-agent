@@ -1,5 +1,14 @@
 # DocuBot / MarBot — Backend Documentation
 
+> **STALE — do not trust the module layout below.**
+>
+> This document describes the legacy `backend/{main.py, routers/, services/, models/}`
+> tree, which has been deleted. The real FastAPI app lives at
+> **`backend/app/main.py:app`** with services under `backend/app/services/` and
+> routers under `backend/app/api/routes_*`. See
+> [`backend/README.md`](backend/README.md) for the current layout. This file is
+> kept only for historical context and will be rewritten separately.
+
 This document explains **what the backend does** (functionality delivered so far) and **how the code is organised**, module by module.
 
 ---
