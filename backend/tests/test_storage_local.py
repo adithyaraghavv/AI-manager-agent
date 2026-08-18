@@ -24,11 +24,11 @@ def test_get_missing_raises(storage):
         storage.get("missing.txt")
 
 
-def test_make_dir_and_list(storage):
+def test_make_dir_creates_nested_dirs(storage):
     storage.make_dir("Client1/01_Pre-requisites")
     storage.make_dir("Client1/02_Requirement Analysis")
-    entries = storage.list("Client1")
-    assert len(entries) == 2
+    assert storage.exists("Client1/01_Pre-requisites")
+    assert storage.exists("Client1/02_Requirement Analysis")
 
 
 def test_path_escape_blocked(storage):

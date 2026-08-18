@@ -22,14 +22,6 @@ class StorageBackend(ABC):
         """Whether `path` exists."""
 
     @abstractmethod
-    def list(self, prefix: str) -> list[str]:
-        """List paths under `prefix` (non-recursive is fine for callers' needs today)."""
-
-    @abstractmethod
-    def delete(self, path: str) -> None:
-        """Delete `path`. No-op if it doesn't exist."""
-
-    @abstractmethod
     def make_dir(self, path: str) -> None:
         """Ensure a directory exists at `path` (and any parents)."""
 
