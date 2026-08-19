@@ -41,15 +41,15 @@ def main() -> None:
         if args.dry_run:
             from datetime import datetime, timedelta, timezone
 
+            from app.core.timestamps import parse_supabase_ts
+
             cutoff = datetime.now(timezone.utc) - timedelta(days=args.older_than_days)
             candidates = []
             for client in rest.select("clients"):
                 deleted_at = client.get("deleted_at")
                 if not deleted_at:
                     continue
-                deleted_ts = datetime.fromisoformat(deleted_at.replace("Z", "+00:00"))
-                if deleted_ts.tzinfo is None:
-                    deleted_ts = deleted_ts.replace(tzinfo=timezone.utc)
+                deleted_ts = parse_supabase_ts(deleted_at)
                 if deleted_ts <= cutoff:
                     candidates.append(client["name"])
             if candidates:

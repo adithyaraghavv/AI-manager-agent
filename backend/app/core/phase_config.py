@@ -15,7 +15,6 @@ class Phase:
     name: str
     sequence: int
     required_documents: tuple[str, ...]
-    previous_phase: str | None = None
 
 
 class PhaseConfig:
@@ -37,15 +36,6 @@ class PhaseConfig:
         except KeyError:
             raise ValueError(f"Unknown phase: {name!r}") from None
 
-    def previous(self, phase: Phase) -> Phase | None:
-        if phase.sequence == 1:
-            return None
-        return self._phases[phase.sequence - 2]
-
-    def phases_up_to(self, phase: Phase) -> list[Phase]:
-        """All phases from sequence 1 through `phase`, inclusive."""
-        return [p for p in self._phases if p.sequence <= phase.sequence]
-
 
 def load_phase_config(path: Path) -> PhaseConfig:
     data = json.loads(Path(path).read_text())
@@ -54,7 +44,6 @@ def load_phase_config(path: Path) -> PhaseConfig:
             name=p["name"],
             sequence=p["sequence"],
             required_documents=tuple(p["required_documents"]),
-            previous_phase=p.get("previous_phase"),
         )
         for p in data["project_phases"]
     ]

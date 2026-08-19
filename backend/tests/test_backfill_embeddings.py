@@ -86,7 +86,9 @@ def test_backfill_skips_missing_local_files_without_crashing(rest, storage):
     upload_document(rest, storage, CONFIG, "MSA", "Acme", b"acme text", "txt")
     client = rest.select_one("clients", name="Acme")
     document = rest.select_one("client_documents", client_id=client["id"], doc_type="MSA")
-    storage.delete(document["storage_path"])
+    # Simulate a file that vanished from disk (e.g. a botched migration) without
+    # its DB row being cleaned up — backfill should notice and skip, not crash.
+    (storage.root / document["storage_path"]).unlink()
 
     stats = backfill(rest, storage)
 

@@ -31,17 +31,6 @@ class LocalFilesystemStorage(StorageBackend):
     def exists(self, path: str) -> bool:
         return self._resolve(path).exists()
 
-    def list(self, prefix: str) -> list[str]:
-        target = self._resolve(prefix)
-        if not target.is_dir():
-            return []
-        return sorted(str(p.relative_to(self.root)) for p in target.iterdir())
-
-    def delete(self, path: str) -> None:
-        target = self._resolve(path)
-        if target.is_file():
-            target.unlink()
-
     def make_dir(self, path: str) -> None:
         self._resolve(path).mkdir(parents=True, exist_ok=True)
 

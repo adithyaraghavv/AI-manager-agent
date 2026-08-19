@@ -1,3 +1,5 @@
+from typing import Protocol
+
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import Response
 
@@ -24,6 +26,27 @@ from app.services.version_service import VersionNumberConflict
 from app.storage.base import StorageBackend
 
 router = APIRouter(prefix="/api", tags=["documents"])
+
+
+class _Downloadable(Protocol):
+    """Structural type shared by TemplateResult and VersionContent — the two
+    dataclasses that back file-download endpoints. Kept local rather than
+    hoisted to a shared module because it exists only to type-hint the tiny
+    helper below."""
+    filename: str
+    content: bytes
+
+
+def _download_response(result: _Downloadable) -> Response:
+    """Uniform ``Content-Disposition: attachment`` response for the file
+    downloads served by this router. Every download handler was building the
+    same ``Response(...)`` triple by hand — one place to change the media
+    type or add ``filename*=`` encoding later."""
+    return Response(
+        content=result.content,
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{result.filename}"'},
+    )
 
 
 @router.get("/phases")
@@ -59,11 +82,7 @@ def download_template(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    return Response(
-        content=result.content,
-        media_type="application/octet-stream",
-        headers={"Content-Disposition": f'attachment; filename="{result.filename}"'},
-    )
+    return _download_response(result)
 
 
 @router.post("/clients/{client_name}/documents")
@@ -149,11 +168,7 @@ def download_client_document(
     except ClientDocumentNotFound as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
 
-    return Response(
-        content=result.content,
-        media_type="application/octet-stream",
-        headers={"Content-Disposition": f'attachment; filename="{result.filename}"'},
-    )
+    return _download_response(result)
 
 
 @router.get("/clients/{client_name}/documents/{doc_type}/versions")
@@ -197,11 +212,7 @@ def download_document_version_route(
     except ClientDocumentNotFound as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
 
-    return Response(
-        content=result.content,
-        media_type="application/octet-stream",
-        headers={"Content-Disposition": f'attachment; filename="{result.filename}"'},
-    )
+    return _download_response(result)
 
 
 @router.post("/clients/{client_name}/documents/{doc_type}/versions/{version_number}/restore")
