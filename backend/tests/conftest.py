@@ -70,6 +70,12 @@ class FakeSupabaseRestClient:
             if any(q in str(row.get(col, "")).lower() for col in columns)
         ]
 
+    def select_in(self, table: str, column: str, values) -> list[dict]:
+        if not values:
+            return []
+        wanted = set(values)
+        return [row for row in self._tables.get(table, []) if row.get(column) in wanted]
+
     def insert(self, table: str, data: dict) -> dict:
         row = {"id": self._next_id, **data}
         self._next_id += 1
