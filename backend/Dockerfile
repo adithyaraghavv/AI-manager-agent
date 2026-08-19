@@ -20,5 +20,6 @@ RUN uv pip install --system -r /app/requirements.txt
 
 EXPOSE 8000
 
-# The FastAPI app object lives in backend/main.py as `app`.
-CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# The FastAPI app object lives in backend/app/main.py as `app`.
+# backend/main.py is the legacy shell app scheduled for deletion — do not use it here.
+CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
