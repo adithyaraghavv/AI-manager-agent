@@ -3,7 +3,7 @@
 Run the server before testing:
 ```
 cd backend
-python -m uvicorn main:app --port 8000 --reload
+uv run uvicorn app.main:app --port 8000 --reload
 ```
 Open `frontend/index.html` in Live Server (port 5500) or double-click in a browser.
 
@@ -75,7 +75,7 @@ Open `frontend/index.html` in Live Server (port 5500) or double-click in a brows
 |---|--------|----------|
 | E1 | Send empty message | 400 error; chat shows friendly message |
 | E2 | Request `/api/templates/download/../../etc/passwd` | 404 or 403 (path traversal blocked) |
-| E3 | Request `/api/documents/client-file?path=../backend/main.py` | 403/404 (path traversal blocked) |
+| E3 | Request `/api/documents/client-file?path=../backend/app/main.py` | 403/404 (path traversal blocked) |
 | E4 | Chat: `hello` | Greeting response, no error |
 
 ---

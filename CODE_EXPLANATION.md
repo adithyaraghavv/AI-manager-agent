@@ -1,5 +1,14 @@
 # DocuBot / PM Document Assistant — Detailed Code Explanation
 
+> **STALE — do not trust the file paths below.**
+>
+> This document walks through the legacy `backend/{main.py, routers/, services/, models/}`
+> tree, which has been deleted. The real FastAPI app lives at
+> **`backend/app/main.py:app`** with services under `backend/app/services/` and
+> routers under `backend/app/api/routes_*`. See
+> [`backend/README.md`](backend/README.md) for the current layout. This file is
+> kept only for historical context and will be rewritten separately.
+
 This document is a deep, file‑by‑file walkthrough of the **backend** codebase in this workspace. It explains what every module does, how the pieces fit together, and how a request travels end‑to‑end (from a chat message to a downloaded template or a stored client document).
 
 ---
