@@ -14,7 +14,6 @@ entirely — this backend is the sole trusted access point (the frontend never
 talks to Supabase directly), so that's the correct key here. Never send this
 key to a browser/frontend.
 """
-
 from collections.abc import Sequence
 
 import httpx
@@ -25,6 +24,13 @@ import httpx
 # are UUIDs (~40 chars each including quoting/commas). Callers with tighter
 # limits can loop over their own chunks.
 _SELECT_IN_CHUNK_SIZE = 500
+
+# PostgREST's default max request body is 1 MiB (server-configurable). At 500
+# rows per batch, even a document_chunks row (a ~1.5k-dim embedding vector +
+# a short text chunk, ~10-15 KiB serialized) stays comfortably under that.
+# Callers embedding a single document rarely exceed a few hundred chunks, so
+# this only matters for very large batch inserts.
+_INSERT_MANY_CHUNK_SIZE = 500
 
 
 class SupabaseRestClient:
@@ -64,27 +70,19 @@ class SupabaseRestClient:
         rows = self._get_rows(table, {column: f"ilike.{escaped}"})
         return rows[0] if rows else None
 
-    def select_active(
-        self, table: str, active_column: str = "deleted_at", **filters: object
-    ) -> list[dict]:
+    def select_active(self, table: str, active_column: str = "deleted_at", **filters: object) -> list[dict]:
         """Like select(), but excludes soft-deleted rows (where `active_column` is set)."""
         params = {k: f"eq.{v}" for k, v in filters.items()}
         params[active_column] = "is.null"
         return self._get_rows(table, params)
 
-    def select_one_ci_active(
-        self, table: str, column: str, value: str, active_column: str = "deleted_at"
-    ) -> dict | None:
+    def select_one_ci_active(self, table: str, column: str, value: str, active_column: str = "deleted_at") -> dict | None:
         """Same as select_one_ci, but additionally excludes soft-deleted rows."""
         escaped = value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        rows = self._get_rows(
-            table, {column: f"ilike.{escaped}", active_column: "is.null"}
-        )
+        rows = self._get_rows(table, {column: f"ilike.{escaped}", active_column: "is.null"})
         return rows[0] if rows else None
 
-    def select_ilike_any(
-        self, table: str, columns: list[str], query: str
-    ) -> list[dict]:
+    def select_ilike_any(self, table: str, columns: list[str], query: str) -> list[dict]:
         """Rows in `table` where ANY of `columns` contains `query` (case-insensitive,
         substring match — not an exact match like select_one_ci).
 
@@ -159,13 +157,36 @@ class SupabaseRestClient:
         response.raise_for_status()
         return response.json()[0]
 
+    def insert_many(self, table: str, rows: Sequence[dict]) -> list[dict]:
+        """POST a list of rows in one request; return the inserted rows.
+
+        The point is doing an N-row insert in *one* HTTP round-trip instead of
+        N per-row POSTs — the counterpart to `select_in` on the write side,
+        for killing N+1 patterns in embed/backfill paths (see PR-3b). Returns
+        [] without any HTTP call when `rows` is empty.
+
+        Very large batches are split into multiple requests
+        (_INSERT_MANY_CHUNK_SIZE) to stay under PostgREST's default 1 MiB
+        request body cap; the returned list concatenates every chunk's
+        representation in insertion order."""
+        if not rows:
+            return []
+
+        inserted: list[dict] = []
+        rows_list = list(rows)
+        for start in range(0, len(rows_list), _INSERT_MANY_CHUNK_SIZE):
+            batch = rows_list[start : start + _INSERT_MANY_CHUNK_SIZE]
+            response = self._client.post(
+                f"/{table}", json=batch, headers={"Prefer": "return=representation"}
+            )
+            response.raise_for_status()
+            inserted.extend(response.json())
+        return inserted
+
     def update(self, table: str, match: dict, data: dict) -> dict:
         params = {k: f"eq.{v}" for k, v in match.items()}
         response = self._client.patch(
-            f"/{table}",
-            params=params,
-            json=data,
-            headers={"Prefer": "return=representation"},
+            f"/{table}", params=params, json=data, headers={"Prefer": "return=representation"}
         )
         response.raise_for_status()
         return response.json()[0]

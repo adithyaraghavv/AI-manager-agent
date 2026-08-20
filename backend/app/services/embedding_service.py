@@ -118,18 +118,20 @@ def embed_document(
         doc_type=doc_type,
         version_number=version_number,
     )
-    for index, (piece, embedding) in enumerate(zip(pieces, embeddings)):
-        rest.insert(
-            "document_chunks",
-            {
-                "client_id": client_id,
-                "doc_type": doc_type,
-                "version_number": version_number,
-                "chunk_index": index,
-                "content": piece,
-                "embedding": _format_vector(embedding),
-            },
-        )
+    # One batch insert instead of N per-chunk POSTs — a 50-chunk SOW used to
+    # cost 50 sequential HTTPS round-trips (each ~100-300ms), now it's one.
+    chunk_rows = [
+        {
+            "client_id": client_id,
+            "doc_type": doc_type,
+            "version_number": version_number,
+            "chunk_index": index,
+            "content": piece,
+            "embedding": _format_vector(embedding),
+        }
+        for index, (piece, embedding) in enumerate(zip(pieces, embeddings))
+    ]
+    rest.insert_many("document_chunks", chunk_rows)
     return len(pieces)
 
 

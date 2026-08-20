@@ -132,9 +132,7 @@ def test_select_ilike_any_queries_each_column_separately_not_via_or_syntax():
         return httpx.Response(200, json=[])
 
     client = _client_with_transport(handler)
-    client.select_ilike_any(
-        "client_documents", ["filename", "doc_type"], "x),deleted_at.is.null,(y"
-    )
+    client.select_ilike_any("client_documents", ["filename", "doc_type"], "x),deleted_at.is.null,(y")
 
     assert len(captured_urls) == 2  # one request per column
     for url in captured_urls:
@@ -144,16 +142,8 @@ def test_select_ilike_any_queries_each_column_separately_not_via_or_syntax():
 def test_select_ilike_any_merges_and_dedupes_results_across_columns():
     def handler(request: httpx.Request) -> httpx.Response:
         if "filename" in str(request.url):
-            return httpx.Response(
-                200,
-                json=[
-                    {"id": 1, "filename": "MSA.pdf"},
-                    {"id": 2, "filename": "MSA_2.pdf"},
-                ],
-            )
-        return httpx.Response(
-            200, json=[{"id": 2, "doc_type": "MSA"}]
-        )  # id=2 matches both columns
+            return httpx.Response(200, json=[{"id": 1, "filename": "MSA.pdf"}, {"id": 2, "filename": "MSA_2.pdf"}])
+        return httpx.Response(200, json=[{"id": 2, "doc_type": "MSA"}])  # id=2 matches both columns
 
     client = _client_with_transport(handler)
     rows = client.select_ilike_any("client_documents", ["filename", "doc_type"], "MSA")
@@ -162,9 +152,7 @@ def test_select_ilike_any_merges_and_dedupes_results_across_columns():
 
 
 def test_select_raises_on_http_error():
-    client = _client_with_transport(
-        lambda request: httpx.Response(401, json={"message": "unauthorized"})
-    )
+    client = _client_with_transport(lambda request: httpx.Response(401, json={"message": "unauthorized"}))
     try:
         client.select("clients", name="Acme")
         assert False, "expected HTTPStatusError"
@@ -204,10 +192,7 @@ def test_select_in_batches_ids_into_single_request():
     assert len(captured_urls) == 1  # one round-trip, not three
     # httpx URL-encodes commas and parens in the query string; either
     # encoded or raw form is fine, both are valid PostgREST.
-    assert (
-        "id=in.%281%2C2%2C3%29" in captured_urls[0]
-        or "id=in.(1,2,3)" in captured_urls[0]
-    )
+    assert "id=in.%281%2C2%2C3%29" in captured_urls[0] or "id=in.(1,2,3)" in captured_urls[0]
 
 
 def test_select_in_escapes_string_values_containing_commas():
@@ -244,3 +229,80 @@ def test_select_in_chunks_large_value_lists_into_multiple_requests():
 
     assert len(captured_urls) == 2
     assert len(rows) == 2  # one row per chunk from our fake handler
+
+
+def test_insert_many_with_empty_rows_makes_zero_http_calls():
+    # Callers that build a batch and discover it's empty (e.g. "no chunks
+    # extracted from this doc") shouldn't pay a network round-trip.
+    call_count = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal call_count
+        call_count += 1
+        return httpx.Response(200, json=[])
+
+    client = _client_with_transport(handler)
+    result = client.insert_many("document_chunks", [])
+
+    assert result == []
+    assert call_count == 0
+
+
+def test_insert_many_sends_all_rows_in_single_request_as_json_array():
+    # The whole point: N rows → 1 POST, not N POSTs. Body is a JSON array
+    # (that's how PostgREST distinguishes bulk from single-row inserts).
+    import json
+
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.setdefault("calls", 0)
+        captured["calls"] += 1
+        captured["method"] = request.method
+        captured["prefer"] = request.headers.get("prefer")
+        captured["body"] = json.loads(request.content)
+        # PostgREST returns one row per input row with server-assigned ids.
+        return httpx.Response(
+            201,
+            json=[{"id": i + 1, **row} for i, row in enumerate(captured["body"])],
+        )
+
+    client = _client_with_transport(handler)
+    rows = client.insert_many(
+        "document_chunks",
+        [
+            {"chunk_index": 0, "content": "a"},
+            {"chunk_index": 1, "content": "b"},
+            {"chunk_index": 2, "content": "c"},
+        ],
+    )
+
+    assert captured["calls"] == 1  # one round-trip, not three
+    assert captured["method"] == "POST"
+    assert captured["prefer"] == "return=representation"
+    assert isinstance(captured["body"], list) and len(captured["body"]) == 3
+    assert [r["chunk_index"] for r in rows] == [0, 1, 2]
+    assert all("id" in r for r in rows)
+
+
+def test_insert_many_chunks_large_batches_into_multiple_requests():
+    # 1500 rows > 500 chunk size → 3 requests (500 + 500 + 500). Keeps each
+    # POST body under PostgREST's default 1 MiB request cap. Returned list
+    # concatenates every chunk in insertion order.
+    call_count = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal call_count
+        call_count += 1
+        import json
+        body = json.loads(request.content)
+        return httpx.Response(201, json=[{"id": i, **row} for i, row in enumerate(body)])
+
+    client = _client_with_transport(handler)
+    rows = client.insert_many(
+        "document_chunks",
+        [{"chunk_index": i} for i in range(1500)],
+    )
+
+    assert call_count == 3
+    assert len(rows) == 1500
