@@ -6,6 +6,7 @@ the whole portfolio at a glance, including which clients are stuck and for
 how long. Read-only, no hard-block logic involved.
 """
 
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -32,11 +33,25 @@ def list_client_statuses(
     rest: SupabaseRestClient, config: PhaseConfig
 ) -> list[ClientStatus]:
     clients = rest.select_active("clients")
+    if not clients:
+        return []
+
+    # Batch-fetch every client's documents in one round-trip instead of one
+    # per client — same output shape, but 2 REST calls instead of 1 + N.
+    # PostgREST's `deleted_at is null` filter isn't wired into select_in, so
+    # we keep the soft-delete filter in Python below.
+    ids = [c["id"] for c in clients]
+    docs_rows = rest.select_in("client_documents", "client_id", ids)
+    docs_by_client: dict[object, list[dict]] = defaultdict(list)
+    for doc in docs_rows:
+        if doc.get("deleted_at") is None:
+            docs_by_client[doc["client_id"]].append(doc)
+
     now = datetime.now(timezone.utc)
     statuses = []
 
     for client in clients:
-        documents = rest.select("client_documents", client_id=client["id"])
+        documents = docs_by_client.get(client["id"], [])
         existing = {doc["doc_type"] for doc in documents}
 
         phases_complete = 0
