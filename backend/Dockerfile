@@ -28,7 +28,7 @@ COPY backend/pyproject.toml backend/uv.lock* ./
 
 # If a pyproject exists we prefer `uv sync --frozen` (project mode).
 # Otherwise fall back to compat mode against requirements.txt.
-RUN if [ -f pyproject.toml ]; then \
+RUN if [ -f uv.lock ]; then \
         uv sync --frozen --no-dev; \
     else \
         uv pip install --system -r requirements.txt; \
