@@ -113,13 +113,21 @@ class FakeSupabaseRestClient:
                 f"FakeSupabaseRestClient.rpc doesn't simulate {function_name!r}"
             )
 
+        def as_floats(vector) -> list[float]:
+            """embedding_service sends embeddings as pgvector's literal-text
+            format ("[0.1,0.2,...]") — parse that back into numbers so
+            cosine_similarity can do math on it, same as real Postgres would."""
+            if isinstance(vector, str):
+                return [float(x) for x in vector.strip("[]").split(",")]
+            return vector
+
         def cosine_similarity(a: list[float], b: list[float]) -> float:
             dot = sum(x * y for x, y in zip(a, b))
             norm_a = sum(x * x for x in a) ** 0.5
             norm_b = sum(y * y for y in b) ** 0.5
             return dot / (norm_a * norm_b) if norm_a and norm_b else 0.0
 
-        query_embedding = params["query_embedding"]
+        query_embedding = as_floats(params["query_embedding"])
         match_doc_type = params.get("match_doc_type")
         match_count = params.get("match_count", 5)
 
@@ -131,7 +139,7 @@ class FakeSupabaseRestClient:
         ]
         ranked = sorted(
             candidates,
-            key=lambda r: cosine_similarity(r["embedding"], query_embedding),
+            key=lambda r: cosine_similarity(as_floats(r["embedding"]), query_embedding),
             reverse=True,
         )
         return [
@@ -141,7 +149,7 @@ class FakeSupabaseRestClient:
                 "version_number": row["version_number"],
                 "chunk_index": row["chunk_index"],
                 "content": row["content"],
-                "similarity": cosine_similarity(row["embedding"], query_embedding),
+                "similarity": cosine_similarity(as_floats(row["embedding"]), query_embedding),
             }
             for row in ranked[:match_count]
         ]
@@ -188,6 +196,5 @@ def route_client(tmp_path):
         return TestClient(app), fake_rest, storage
 
     yield _make
-
     for key in installed_keys:
         app.dependency_overrides.pop(key, None)
