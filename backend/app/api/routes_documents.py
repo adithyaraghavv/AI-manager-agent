@@ -100,7 +100,7 @@ def download_template(
 
 
 @router.post("/clients/{client_name}/documents")
-async def upload_client_document(
+def upload_client_document(
     client_name: str,
     doc_type: str = Form(...),
     file: UploadFile = File(...),
@@ -110,8 +110,13 @@ async def upload_client_document(
     client_storage: StorageBackend = Depends(get_client_storage),
     config: PhaseConfig = Depends(get_config),
 ):
+    # Sync handler: FastAPI runs `def` (non-async) handlers in a threadpool,
+    # so this endpoint no longer blocks the event loop while the sync
+    # SupabaseRestClient makes its 3-5 sequential REST calls. Matches every
+    # other handler in this file, which are all sync. Starlette's UploadFile
+    # exposes a spooled temp file at .file — cheap sync read at our 50 MB cap.
     extension = file.filename.rsplit(".", 1)[-1] if "." in file.filename else "bin"
-    content = await file.read()
+    content = file.file.read()
 
     try:
         result = upload_document(
