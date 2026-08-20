@@ -225,3 +225,23 @@ jobs:
           echo "Checking import: from $MODULE import $ATTR"
           docker run --rm --entrypoint python rag-agent-backend:smoke \
             -c "import importlib, sys; m = importlib.import_module('$MODULE'); a = getattr(m, '$ATTR'); print(type(a).__name__, a.title if hasattr(a, 'title') else a); sys.exit(0)"
+
+
+  consistency:
+    name: Cross-config consistency
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      - name: Run consistency check
+        run: python tools/check_consistency.py --strict
