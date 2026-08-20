@@ -1,5 +1,6 @@
 import sys
 import tempfile
+from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -38,32 +39,46 @@ class FakeSupabaseRestClient:
     def __init__(self):
         self._tables: dict[str, list[dict]] = {}
         self._next_id = 1
+        # Per-method call counters — tests that guard against N+1 patterns
+        # (e.g. the dashboard batch-fetch) can assert exact round-trip counts
+        # by reading self.call_counts["select"] / ["select_in"] etc.
+        self.call_counts: dict[str, int] = defaultdict(int)
 
     def select(self, table: str, **filters) -> list[dict]:
+        self.call_counts["select"] += 1
         rows = self._tables.get(table, [])
         return [r for r in rows if all(r.get(k) == v for k, v in filters.items())]
 
     def select_one(self, table: str, **filters) -> dict | None:
-        rows = self.select(table, **filters)
-        return rows[0] if rows else None
+        self.call_counts["select_one"] += 1
+        rows = self._tables.get(table, [])
+        matches = [r for r in rows if all(r.get(k) == v for k, v in filters.items())]
+        return matches[0] if matches else None
 
     def select_one_ci(self, table: str, column: str, value: str) -> dict | None:
+        self.call_counts["select_one_ci"] += 1
         for row in self._tables.get(table, []):
             if str(row.get(column, "")).lower() == value.lower():
                 return row
         return None
 
     def select_active(self, table: str, active_column: str = "deleted_at", **filters) -> list[dict]:
-        rows = self.select(table, **filters)
-        return [r for r in rows if r.get(active_column) is None]
+        self.call_counts["select_active"] += 1
+        rows = self._tables.get(table, [])
+        return [
+            r for r in rows
+            if all(r.get(k) == v for k, v in filters.items()) and r.get(active_column) is None
+        ]
 
     def select_one_ci_active(self, table: str, column: str, value: str, active_column: str = "deleted_at") -> dict | None:
+        self.call_counts["select_one_ci_active"] += 1
         for row in self._tables.get(table, []):
             if str(row.get(column, "")).lower() == value.lower() and row.get(active_column) is None:
                 return row
         return None
 
     def select_ilike_any(self, table: str, columns: list[str], query: str) -> list[dict]:
+        self.call_counts["select_ilike_any"] += 1
         q = query.lower()
         return [
             row for row in self._tables.get(table, [])
@@ -71,6 +86,7 @@ class FakeSupabaseRestClient:
         ]
 
     def select_in(self, table: str, column: str, values) -> list[dict]:
+        self.call_counts["select_in"] += 1
         if not values:
             return []
         wanted = set(values)
