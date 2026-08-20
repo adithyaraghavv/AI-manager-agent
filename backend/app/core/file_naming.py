@@ -1,4 +1,5 @@
 """Fixed file naming convention: Marlabs_<DocType>_<ClientName>_<Timestamp>."""
+
 import re
 from datetime import datetime, timezone
 
@@ -12,7 +13,9 @@ def slugify(value: str) -> str:
     return slug
 
 
-def build_filename(doc_type: str, client_name: str, extension: str, timestamp: datetime | None = None) -> str:
+def build_filename(
+    doc_type: str, client_name: str, extension: str, timestamp: datetime | None = None
+) -> str:
     """Build a filename following the Marlabs_<DocType>_<ClientName>_<Timestamp> convention.
 
     `extension` should not include the leading dot (e.g. "pdf", "docx").

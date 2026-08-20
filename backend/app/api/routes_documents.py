@@ -5,7 +5,12 @@ from fastapi.responses import Response
 
 from app.core.phase_config import PhaseConfig
 from app.db.rest_client import SupabaseRestClient
-from app.deps import get_client_storage, get_config, get_rest_client, get_template_storage
+from app.deps import (
+    get_client_storage,
+    get_config,
+    get_rest_client,
+    get_template_storage,
+)
 from app.core.upload_validation import InvalidUpload
 from app.services import embedding_service
 from app.services.client_service import delete_client, find_client
@@ -33,6 +38,7 @@ class _Downloadable(Protocol):
     dataclasses that back file-download endpoints. Kept local rather than
     hoisted to a shared module because it exists only to type-hint the tiny
     helper below."""
+
     filename: str
     content: bytes
 
@@ -56,7 +62,11 @@ def list_phases(config: PhaseConfig = Depends(get_config)):
     memory, which is guaranteed to drift from the config eventually."""
     return {
         "phases": [
-            {"sequence": p.sequence, "name": p.name, "required_documents": list(p.required_documents)}
+            {
+                "sequence": p.sequence,
+                "name": p.name,
+                "required_documents": list(p.required_documents),
+            }
             for p in config.phases
         ]
     }
@@ -72,11 +82,15 @@ def download_template(
     config: PhaseConfig = Depends(get_config),
 ):
     try:
-        result = request_template(rest, client_storage, template_storage, config, doc_type, client_name)
+        result = request_template(
+            rest, client_storage, template_storage, config, doc_type, client_name
+        )
     except GatingBlocked as e:
         raise HTTPException(status_code=409, detail=e.decision.reason) from e
     except TemplateNotFound as e:
-        raise HTTPException(status_code=404, detail=f"No master template on file for '{doc_type}'") from e
+        raise HTTPException(
+            status_code=404, detail=f"No master template on file for '{doc_type}'"
+        ) from e
     except TemplateFileMissing as e:
         raise HTTPException(status_code=503, detail=str(e)) from e
     except ValueError as e:
@@ -101,8 +115,15 @@ async def upload_client_document(
 
     try:
         result = upload_document(
-            rest, client_storage, config, doc_type, client_name, content, extension,
-            uploaded_by=uploaded_by, comment=comment,
+            rest,
+            client_storage,
+            config,
+            doc_type,
+            client_name,
+            content,
+            extension,
+            uploaded_by=uploaded_by,
+            comment=comment,
         )
     except InvalidUpload as e:
         status = 413 if "too large" in e.message.lower() else 400
@@ -122,7 +143,9 @@ async def upload_client_document(
     # errors and returns 0 chunks rather than raising.
     client = find_client(rest, client_name)
     if client is not None:
-        embedding_service.embed_document(rest, client["id"], doc_type, result.version_number, content, extension)
+        embedding_service.embed_document(
+            rest, client["id"], doc_type, result.version_number, content, extension
+        )
 
     return {
         "client_name": client_name,
@@ -135,7 +158,11 @@ async def upload_client_document(
 
 @router.get("/documents/search")
 def search_documents_route(
-    q: str = Query(..., min_length=1, description="Search by client name, document type, or filename"),
+    q: str = Query(
+        ...,
+        min_length=1,
+        description="Search by client name, document type, or filename",
+    ),
     rest: SupabaseRestClient = Depends(get_rest_client),
 ):
     results = search_documents(rest, q)
@@ -199,7 +226,9 @@ def list_document_versions_route(
     }
 
 
-@router.get("/clients/{client_name}/documents/{doc_type}/versions/{version_number}/download")
+@router.get(
+    "/clients/{client_name}/documents/{doc_type}/versions/{version_number}/download"
+)
 def download_document_version_route(
     client_name: str,
     doc_type: str,
@@ -208,14 +237,18 @@ def download_document_version_route(
     client_storage: StorageBackend = Depends(get_client_storage),
 ):
     try:
-        result = get_document_version(rest, client_storage, client_name, doc_type, version_number)
+        result = get_document_version(
+            rest, client_storage, client_name, doc_type, version_number
+        )
     except ClientDocumentNotFound as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
 
     return _download_response(result)
 
 
-@router.post("/clients/{client_name}/documents/{doc_type}/versions/{version_number}/restore")
+@router.post(
+    "/clients/{client_name}/documents/{doc_type}/versions/{version_number}/restore"
+)
 def restore_document_version_route(
     client_name: str,
     doc_type: str,
@@ -230,7 +263,13 @@ def restore_document_version_route(
     version, including the one being replaced as "current"."""
     try:
         result = restore_document_version(
-            rest, client_storage, client_name, doc_type, version_number, uploaded_by=uploaded_by, comment=comment
+            rest,
+            client_storage,
+            client_name,
+            doc_type,
+            version_number,
+            uploaded_by=uploaded_by,
+            comment=comment,
         )
     except ClientDocumentNotFound as e:
         raise HTTPException(status_code=404, detail=str(e)) from e

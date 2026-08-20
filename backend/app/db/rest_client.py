@@ -14,6 +14,7 @@ entirely — this backend is the sole trusted access point (the frontend never
 talks to Supabase directly), so that's the correct key here. Never send this
 key to a browser/frontend.
 """
+
 from collections.abc import Sequence
 
 import httpx
@@ -63,19 +64,27 @@ class SupabaseRestClient:
         rows = self._get_rows(table, {column: f"ilike.{escaped}"})
         return rows[0] if rows else None
 
-    def select_active(self, table: str, active_column: str = "deleted_at", **filters: object) -> list[dict]:
+    def select_active(
+        self, table: str, active_column: str = "deleted_at", **filters: object
+    ) -> list[dict]:
         """Like select(), but excludes soft-deleted rows (where `active_column` is set)."""
         params = {k: f"eq.{v}" for k, v in filters.items()}
         params[active_column] = "is.null"
         return self._get_rows(table, params)
 
-    def select_one_ci_active(self, table: str, column: str, value: str, active_column: str = "deleted_at") -> dict | None:
+    def select_one_ci_active(
+        self, table: str, column: str, value: str, active_column: str = "deleted_at"
+    ) -> dict | None:
         """Same as select_one_ci, but additionally excludes soft-deleted rows."""
         escaped = value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        rows = self._get_rows(table, {column: f"ilike.{escaped}", active_column: "is.null"})
+        rows = self._get_rows(
+            table, {column: f"ilike.{escaped}", active_column: "is.null"}
+        )
         return rows[0] if rows else None
 
-    def select_ilike_any(self, table: str, columns: list[str], query: str) -> list[dict]:
+    def select_ilike_any(
+        self, table: str, columns: list[str], query: str
+    ) -> list[dict]:
         """Rows in `table` where ANY of `columns` contains `query` (case-insensitive,
         substring match — not an exact match like select_one_ci).
 
@@ -153,7 +162,10 @@ class SupabaseRestClient:
     def update(self, table: str, match: dict, data: dict) -> dict:
         params = {k: f"eq.{v}" for k, v in match.items()}
         response = self._client.patch(
-            f"/{table}", params=params, json=data, headers={"Prefer": "return=representation"}
+            f"/{table}",
+            params=params,
+            json=data,
+            headers={"Prefer": "return=representation"},
         )
         response.raise_for_status()
         return response.json()[0]

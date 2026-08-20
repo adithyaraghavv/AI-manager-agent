@@ -1,5 +1,6 @@
 """Client folder lifecycle: creation of the client row + full phase sub-structure
 on first contact, and lookup of which documents already exist for a client."""
+
 from datetime import datetime, timedelta, timezone
 
 from app.core.client_name_validation import validate_client_name
@@ -10,7 +11,10 @@ from app.storage.base import StorageBackend
 
 
 def get_or_create_client(
-    rest: SupabaseRestClient, storage: StorageBackend, config: PhaseConfig, client_name: str
+    rest: SupabaseRestClient,
+    storage: StorageBackend,
+    config: PhaseConfig,
+    client_name: str,
 ) -> dict:
     """Case-insensitive lookup — "Hillenbrand" and "hillenbrand" resolve to the
     same client, never two different ones. Callers must use the returned dict's
@@ -70,30 +74,51 @@ def satisfied_document_types(rest: SupabaseRestClient, client: dict) -> set[str]
     upload_document must pass to check_gate — never existing_document_types
     alone, or a not-applicable earlier-phase document would wrongly keep
     blocking every later phase forever."""
-    return existing_document_types(rest, client) | not_applicable_document_types(rest, client)
+    return existing_document_types(rest, client) | not_applicable_document_types(
+        rest, client
+    )
 
 
 def mark_document_not_applicable(
-    rest: SupabaseRestClient, client: dict, doc_type: str, reason: str | None = None, marked_by: str | None = None
+    rest: SupabaseRestClient,
+    client: dict,
+    doc_type: str,
+    reason: str | None = None,
+    marked_by: str | None = None,
 ) -> None:
     """Marks a document type as not required for this client. Idempotent —
     marking an already-marked doc_type just updates the reason/marked_by
     rather than erroring or duplicating."""
-    existing = rest.select_one("not_applicable_documents", client_id=client["id"], doc_type=doc_type)
+    existing = rest.select_one(
+        "not_applicable_documents", client_id=client["id"], doc_type=doc_type
+    )
     if existing is None:
         rest.insert(
             "not_applicable_documents",
-            {"client_id": client["id"], "doc_type": doc_type, "reason": reason, "marked_by": marked_by},
+            {
+                "client_id": client["id"],
+                "doc_type": doc_type,
+                "reason": reason,
+                "marked_by": marked_by,
+            },
         )
     else:
-        rest.update("not_applicable_documents", {"id": existing["id"]}, {"reason": reason, "marked_by": marked_by})
+        rest.update(
+            "not_applicable_documents",
+            {"id": existing["id"]},
+            {"reason": reason, "marked_by": marked_by},
+        )
 
 
-def unmark_document_not_applicable(rest: SupabaseRestClient, client: dict, doc_type: str) -> bool:
+def unmark_document_not_applicable(
+    rest: SupabaseRestClient, client: dict, doc_type: str
+) -> bool:
     """Reverses a not-applicable mark — the document type goes back to being
     treated as genuinely required/missing. Returns False (no-op, not an
     error) if it was never marked."""
-    existing = rest.select_one("not_applicable_documents", client_id=client["id"], doc_type=doc_type)
+    existing = rest.select_one(
+        "not_applicable_documents", client_id=client["id"], doc_type=doc_type
+    )
     if existing is None:
         return False
     rest.delete("not_applicable_documents", id=existing["id"])
@@ -108,7 +133,9 @@ def find_client(rest: SupabaseRestClient, client_name: str) -> dict | None:
     return rest.select_one_ci_active("clients", "name", client_name)
 
 
-def delete_client(rest: SupabaseRestClient, storage: StorageBackend, client: dict) -> None:
+def delete_client(
+    rest: SupabaseRestClient, storage: StorageBackend, client: dict
+) -> None:
     """Soft-deletes a client: marks it deleted (hiding it from every lookup —
     chat, dashboard, uploads, search) but keeps its database row, document
     records, and storage folder intact. A routine cleanup (see
@@ -122,7 +149,9 @@ def delete_client(rest: SupabaseRestClient, storage: StorageBackend, client: dic
     )
 
 
-def purge_deleted_clients(rest: SupabaseRestClient, storage: StorageBackend, older_than_days: int) -> list[str]:
+def purge_deleted_clients(
+    rest: SupabaseRestClient, storage: StorageBackend, older_than_days: int
+) -> list[str]:
     """Permanently removes clients soft-deleted more than `older_than_days` ago:
     their document records, database row, and storage folder. Irreversible.
     Meant to be run periodically (see app/db/cleanup_deleted_clients.py) — not

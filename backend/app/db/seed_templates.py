@@ -15,6 +15,7 @@ connection, since PostgREST has no schema-migration endpoint.
 Idempotent: safe to re-run. Existing placeholder files/rows are left as-is
 unless --force is passed, so it won't clobber real templates once they exist.
 """
+
 import argparse
 from pathlib import Path
 
@@ -57,7 +58,9 @@ def seed_templates(rest: SupabaseRestClient, force: bool = False) -> None:
         folder = f"{phase.sequence:02d}_{phase.name}"
         for doc_type in phase.required_documents:
             real_file = REAL_TEMPLATE_FILES.get(doc_type)
-            extension = real_file.rsplit(".", 1)[-1] if real_file else PLACEHOLDER_EXTENSION
+            extension = (
+                real_file.rsplit(".", 1)[-1] if real_file else PLACEHOLDER_EXTENSION
+            )
             filename = f"{slugify(doc_type)}.{extension}"
             storage_path = f"{folder}/{filename}"
 
@@ -70,15 +73,28 @@ def seed_templates(rest: SupabaseRestClient, force: bool = False) -> None:
 
             existing = rest.select_one("templates", doc_type=doc_type)
             if existing is None:
-                rest.insert("templates", {"doc_type": doc_type, "storage_path": storage_path, "filename": filename})
+                rest.insert(
+                    "templates",
+                    {
+                        "doc_type": doc_type,
+                        "storage_path": storage_path,
+                        "filename": filename,
+                    },
+                )
             elif force:
-                rest.update("templates", {"id": existing["id"]}, {"storage_path": storage_path, "filename": filename})
+                rest.update(
+                    "templates",
+                    {"id": existing["id"]},
+                    {"storage_path": storage_path, "filename": filename},
+                )
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--force", action="store_true", help="Overwrite existing placeholder files/DB rows"
+        "--force",
+        action="store_true",
+        help="Overwrite existing placeholder files/DB rows",
     )
     args = parser.parse_args()
 

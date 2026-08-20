@@ -23,8 +23,28 @@ def test_upload_route_accepts_uploader_and_comment(route_client):
 
 def test_list_versions_route_returns_full_history(route_client):
     client, fake_rest, storage = route_client(config=CONFIG)
-    upload_document(fake_rest, storage, CONFIG, "MSA", "Acme", b"v1", "pdf", uploaded_by="Priya", comment="First")
-    upload_document(fake_rest, storage, CONFIG, "MSA", "Acme", b"v2", "pdf", uploaded_by="Priya", comment="Second")
+    upload_document(
+        fake_rest,
+        storage,
+        CONFIG,
+        "MSA",
+        "Acme",
+        b"v1",
+        "pdf",
+        uploaded_by="Priya",
+        comment="First",
+    )
+    upload_document(
+        fake_rest,
+        storage,
+        CONFIG,
+        "MSA",
+        "Acme",
+        b"v2",
+        "pdf",
+        uploaded_by="Priya",
+        comment="Second",
+    )
 
     response = client.get("/api/clients/Acme/documents/MSA/versions")
 

@@ -9,6 +9,7 @@ document type that could plausibly match, so the agent can either proceed
 directly (one match) or ask a clarifying question (multiple matches)
 instead of guessing at request_template.
 """
+
 from dataclasses import dataclass
 
 from app.core.phase_config import PhaseConfig
@@ -33,5 +34,7 @@ def find_document_types(config: PhaseConfig, query: str) -> list[DocumentTypeMat
     for phase in config.phases:
         for doc_type in phase.required_documents:
             if q in doc_type.lower():
-                matches.append(DocumentTypeMatch(doc_type=doc_type, phase_name=phase.name))
+                matches.append(
+                    DocumentTypeMatch(doc_type=doc_type, phase_name=phase.name)
+                )
     return matches

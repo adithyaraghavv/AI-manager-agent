@@ -5,6 +5,7 @@ concept — it aggregates every client's progress so a manager/PM lead can see
 the whole portfolio at a glance, including which clients are stuck and for
 how long. Read-only, no hard-block logic involved.
 """
+
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -27,7 +28,9 @@ class ClientStatus:
     is_stale: bool
 
 
-def list_client_statuses(rest: SupabaseRestClient, config: PhaseConfig) -> list[ClientStatus]:
+def list_client_statuses(
+    rest: SupabaseRestClient, config: PhaseConfig
+) -> list[ClientStatus]:
     clients = rest.select_active("clients")
     now = datetime.now(timezone.utc)
     statuses = []
@@ -48,12 +51,18 @@ def list_client_statuses(rest: SupabaseRestClient, config: PhaseConfig) -> list[
             else:
                 phases_complete += 1
 
-        timestamps = [parse_supabase_ts(doc["uploaded_at"]) for doc in documents if doc.get("uploaded_at")]
+        timestamps = [
+            parse_supabase_ts(doc["uploaded_at"])
+            for doc in documents
+            if doc.get("uploaded_at")
+        ]
         if not timestamps and client.get("created_at"):
             timestamps = [parse_supabase_ts(client["created_at"])]
         last_activity = max(timestamps) if timestamps else None
 
-        days_since = (now - last_activity).total_seconds() / 86400 if last_activity else None
+        days_since = (
+            (now - last_activity).total_seconds() / 86400 if last_activity else None
+        )
         is_stale = (
             current_phase is not None
             and days_since is not None

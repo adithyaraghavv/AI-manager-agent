@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react'
-import { getDocumentVersions, restoreDocumentVersion } from '../api'
+import { useEffect, useState } from "react";
+import { getDocumentVersions, restoreDocumentVersion } from "../api";
 
 function formatDate(iso) {
-  if (!iso) return ''
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString()
+  if (!iso) return "";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
 }
 
 // Inline, expandable version history for one document — shown under a
@@ -13,43 +13,56 @@ function formatDate(iso) {
 // version's content forward as a brand-new version rather than deleting
 // anything, so this list only ever grows.
 export default function DocumentVersionHistory({ clientName, docType }) {
-  const [versions, setVersions] = useState(null)
-  const [error, setError] = useState(null)
-  const [restoringVersion, setRestoringVersion] = useState(null)
-  const [restoreName, setRestoreName] = useState('')
+  const [versions, setVersions] = useState(null);
+  const [error, setError] = useState(null);
+  const [restoringVersion, setRestoringVersion] = useState(null);
+  const [restoreName, setRestoreName] = useState("");
 
   useEffect(() => {
-    let cancelled = false
+    let cancelled = false;
     getDocumentVersions(clientName, docType)
       .then((data) => {
-        if (!cancelled) setVersions(data)
+        if (!cancelled) setVersions(data);
       })
       .catch((err) => {
-        if (!cancelled) setError(err.message)
-      })
+        if (!cancelled) setError(err.message);
+      });
     return () => {
-      cancelled = true
-    }
-  }, [clientName, docType])
+      cancelled = true;
+    };
+  }, [clientName, docType]);
 
   async function handleRestore(versionNumber) {
-    setRestoringVersion(versionNumber)
-    setError(null)
+    setRestoringVersion(versionNumber);
+    setError(null);
     try {
-      await restoreDocumentVersion(clientName, docType, versionNumber, restoreName)
-      const fresh = await getDocumentVersions(clientName, docType)
-      setVersions(fresh)
+      await restoreDocumentVersion(
+        clientName,
+        docType,
+        versionNumber,
+        restoreName,
+      );
+      const fresh = await getDocumentVersions(clientName, docType);
+      setVersions(fresh);
     } catch (err) {
-      setError(err.message)
+      setError(err.message);
     } finally {
-      setRestoringVersion(null)
+      setRestoringVersion(null);
     }
   }
 
-  if (error) return <div className="doc-versions doc-versions--error">{error}</div>
-  if (versions === null) return <div className="doc-versions doc-versions__loading">Loading versions…</div>
+  if (error)
+    return <div className="doc-versions doc-versions--error">{error}</div>;
+  if (versions === null)
+    return (
+      <div className="doc-versions doc-versions__loading">
+        Loading versions…
+      </div>
+    );
 
-  const latest = versions.length ? versions[versions.length - 1].version_number : null
+  const latest = versions.length
+    ? versions[versions.length - 1].version_number
+    : null;
 
   return (
     <div className="doc-versions">
@@ -66,12 +79,18 @@ export default function DocumentVersionHistory({ clientName, docType }) {
               <span className="doc-versions__badge">v{v.version_number}.0</span>
               <span className="doc-versions__meta">
                 {formatDate(v.uploaded_at)}
-                {v.uploaded_by ? ` · ${v.uploaded_by}` : ''}
+                {v.uploaded_by ? ` · ${v.uploaded_by}` : ""}
               </span>
-              {v.comment && <div className="doc-versions__comment">{v.comment}</div>}
+              {v.comment && (
+                <div className="doc-versions__comment">{v.comment}</div>
+              )}
             </div>
             <div className="doc-versions__item-actions">
-              <a href={v.download_url} download className="doc-versions__download">
+              <a
+                href={v.download_url}
+                download
+                className="doc-versions__download"
+              >
                 Download
               </a>
               {v.version_number !== latest && (
@@ -80,7 +99,9 @@ export default function DocumentVersionHistory({ clientName, docType }) {
                   onClick={() => handleRestore(v.version_number)}
                   disabled={restoringVersion !== null}
                 >
-                  {restoringVersion === v.version_number ? 'Restoring…' : 'Restore'}
+                  {restoringVersion === v.version_number
+                    ? "Restoring…"
+                    : "Restore"}
                 </button>
               )}
             </div>
@@ -88,5 +109,5 @@ export default function DocumentVersionHistory({ clientName, docType }) {
         ))}
       </ul>
     </div>
-  )
+  );
 }

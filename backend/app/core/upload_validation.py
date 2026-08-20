@@ -3,6 +3,7 @@
 Was previously unenforced — any file of any size could be uploaded. These
 limits mirror what the team's existing document tooling already enforces.
 """
+
 ALLOWED_EXTENSIONS = {"docx", "doc", "pdf", "xlsx", "pptx", "txt"}
 MAX_UPLOAD_SIZE_BYTES = 50 * 1024 * 1024  # 50 MB
 

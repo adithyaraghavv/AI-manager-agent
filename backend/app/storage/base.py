@@ -5,6 +5,7 @@ to the filesystem or a specific cloud SDK directly. Swapping local storage
 for SharePoint/Azure Blob later means writing one new implementation of this
 class — no changes anywhere else.
 """
+
 from abc import ABC, abstractmethod
 
 

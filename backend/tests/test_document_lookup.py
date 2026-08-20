@@ -3,11 +3,19 @@ from app.core.phase_config import Phase, PhaseConfig
 
 CONFIG = PhaseConfig(
     [
-        Phase(name="Pre-requisites", sequence=1, required_documents=("MSA", "SOW", "Pricing")),
+        Phase(
+            name="Pre-requisites",
+            sequence=1,
+            required_documents=("MSA", "SOW", "Pricing"),
+        ),
         Phase(
             name="Testing (STLC Integrated)",
             sequence=2,
-            required_documents=("Approved Test Plan", "Test Environment Ready", "Test Data Prepared"),
+            required_documents=(
+                "Approved Test Plan",
+                "Test Environment Ready",
+                "Test Data Prepared",
+            ),
         ),
         Phase(
             name="Deployment",

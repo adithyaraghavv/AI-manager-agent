@@ -7,6 +7,7 @@ trailing ``Z`` (UTC) and sometimes with a numeric offset. On Python 3.11+
 UTC because a bare timestamp from Postgres arrives without tzinfo and downstream
 code compares against ``datetime.now(timezone.utc)``.
 """
+
 from datetime import datetime, timezone
 
 

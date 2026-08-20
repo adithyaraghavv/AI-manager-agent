@@ -7,6 +7,7 @@ of silently mangling what the PM typed, this rejects the handful of
 characters that would either escape the storage root (".." path segments)
 or produce a confusing/unintended folder structure (path separators).
 """
+
 _DISALLOWED_SUBSTRINGS = ("..", "/", "\\")
 
 

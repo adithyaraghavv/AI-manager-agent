@@ -132,7 +132,9 @@ def test_select_ilike_any_queries_each_column_separately_not_via_or_syntax():
         return httpx.Response(200, json=[])
 
     client = _client_with_transport(handler)
-    client.select_ilike_any("client_documents", ["filename", "doc_type"], "x),deleted_at.is.null,(y")
+    client.select_ilike_any(
+        "client_documents", ["filename", "doc_type"], "x),deleted_at.is.null,(y"
+    )
 
     assert len(captured_urls) == 2  # one request per column
     for url in captured_urls:
@@ -142,8 +144,16 @@ def test_select_ilike_any_queries_each_column_separately_not_via_or_syntax():
 def test_select_ilike_any_merges_and_dedupes_results_across_columns():
     def handler(request: httpx.Request) -> httpx.Response:
         if "filename" in str(request.url):
-            return httpx.Response(200, json=[{"id": 1, "filename": "MSA.pdf"}, {"id": 2, "filename": "MSA_2.pdf"}])
-        return httpx.Response(200, json=[{"id": 2, "doc_type": "MSA"}])  # id=2 matches both columns
+            return httpx.Response(
+                200,
+                json=[
+                    {"id": 1, "filename": "MSA.pdf"},
+                    {"id": 2, "filename": "MSA_2.pdf"},
+                ],
+            )
+        return httpx.Response(
+            200, json=[{"id": 2, "doc_type": "MSA"}]
+        )  # id=2 matches both columns
 
     client = _client_with_transport(handler)
     rows = client.select_ilike_any("client_documents", ["filename", "doc_type"], "MSA")
@@ -152,7 +162,9 @@ def test_select_ilike_any_merges_and_dedupes_results_across_columns():
 
 
 def test_select_raises_on_http_error():
-    client = _client_with_transport(lambda request: httpx.Response(401, json={"message": "unauthorized"}))
+    client = _client_with_transport(
+        lambda request: httpx.Response(401, json={"message": "unauthorized"})
+    )
     try:
         client.select("clients", name="Acme")
         assert False, "expected HTTPStatusError"
@@ -192,7 +204,10 @@ def test_select_in_batches_ids_into_single_request():
     assert len(captured_urls) == 1  # one round-trip, not three
     # httpx URL-encodes commas and parens in the query string; either
     # encoded or raw form is fine, both are valid PostgREST.
-    assert "id=in.%281%2C2%2C3%29" in captured_urls[0] or "id=in.(1,2,3)" in captured_urls[0]
+    assert (
+        "id=in.%281%2C2%2C3%29" in captured_urls[0]
+        or "id=in.(1,2,3)" in captured_urls[0]
+    )
 
 
 def test_select_in_escapes_string_values_containing_commas():

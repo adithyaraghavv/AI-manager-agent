@@ -15,13 +15,14 @@ Written as raw SQL (not SQLAlchemy's op.create_table) because the `vector`
 column type isn't a stock SQLAlchemy type, and match_document_chunks is a
 stored function, not a table.
 """
+
 from typing import Sequence, Union
 
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = 'f4a9c2e7b8d1'
-down_revision: Union[str, Sequence[str], None] = 'e2b7c4a9f1d3'
+revision: str = "f4a9c2e7b8d1"
+down_revision: Union[str, Sequence[str], None] = "e2b7c4a9f1d3"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

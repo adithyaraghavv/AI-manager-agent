@@ -1,5 +1,6 @@
 """Local filesystem implementation of StorageBackend. Used for the POC;
 swapped for SharePoint/Blob storage once cloud access is available."""
+
 import shutil
 from pathlib import Path
 

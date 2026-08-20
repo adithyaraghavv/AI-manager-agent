@@ -7,6 +7,7 @@ guessed at. Any parse failure (corrupted file, scanned/image-only PDF with
 no text layer) returns None rather than raising — callers treat "couldn't
 extract text" as one uniform outcome regardless of why.
 """
+
 import io
 
 TEXT_EXTRACTABLE_EXTENSIONS = {"txt", "pdf", "docx"}

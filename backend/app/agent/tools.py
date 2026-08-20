@@ -11,6 +11,7 @@ conversation and tell the PM which REST endpoint to upload to (or the
 frontend attaches the file directly to POST /api/clients/{client}/documents);
 the actual write always goes through app.services.document_service directly.
 """
+
 from typing import Any
 
 from app.core.document_lookup import find_document_types
@@ -65,7 +66,12 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             ),
             "parameters": {
                 "type": "object",
-                "properties": {"client_name": {"type": "string", "description": "The client's name."}},
+                "properties": {
+                    "client_name": {
+                        "type": "string",
+                        "description": "The client's name.",
+                    }
+                },
                 "required": ["client_name"],
             },
         },
@@ -86,7 +92,10 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                         "type": "string",
                         "description": "Exact document type, e.g. 'Pricing', 'Approved HLD'.",
                     },
-                    "client_name": {"type": "string", "description": "The client's name."},
+                    "client_name": {
+                        "type": "string",
+                        "description": "The client's name.",
+                    },
                 },
                 "required": ["doc_type", "client_name"],
             },
@@ -109,7 +118,10 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "client_name": {"type": "string", "description": "The client's name."},
+                    "client_name": {
+                        "type": "string",
+                        "description": "The client's name.",
+                    },
                     "doc_type": {
                         "type": "string",
                         "description": "Exact document type, e.g. 'Approved HLD'.",
@@ -134,7 +146,10 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "client_name": {"type": "string", "description": "The client's name."},
+                    "client_name": {
+                        "type": "string",
+                        "description": "The client's name.",
+                    },
                     "doc_type": {
                         "type": "string",
                         "description": "Exact document type, e.g. 'Approved HLD'.",
@@ -161,7 +176,10 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "client_name": {"type": "string", "description": "The client's name."},
+                    "client_name": {
+                        "type": "string",
+                        "description": "The client's name.",
+                    },
                     "doc_type": {
                         "type": "string",
                         "description": "Exact document type, e.g. 'Business Requirement Document (BRD)'.",
@@ -187,7 +205,10 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "client_name": {"type": "string", "description": "The client's name."},
+                    "client_name": {
+                        "type": "string",
+                        "description": "The client's name.",
+                    },
                     "doc_type": {
                         "type": "string",
                         "description": "Exact document type, e.g. 'Business Requirement Document (BRD)'.",
@@ -248,7 +269,10 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "client_name": {"type": "string", "description": "The client's name."},
+                    "client_name": {
+                        "type": "string",
+                        "description": "The client's name.",
+                    },
                 },
                 "required": ["client_name"],
             },
@@ -274,7 +298,10 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "client_name": {"type": "string", "description": "The client's name."},
+                    "client_name": {
+                        "type": "string",
+                        "description": "The client's name.",
+                    },
                     "doc_type": {
                         "type": "string",
                         "description": "The document the PM needs approved/provided, as they phrased it, e.g. 'BRD' or 'HLD'.",
@@ -306,7 +333,10 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "client_name": {"type": "string", "description": "The client's name."},
+                    "client_name": {
+                        "type": "string",
+                        "description": "The client's name.",
+                    },
                     "query": {
                         "type": "string",
                         "description": "The question or topic to search the document's content for.",
@@ -335,7 +365,12 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             ),
             "parameters": {
                 "type": "object",
-                "properties": {"client_name": {"type": "string", "description": "The client's name."}},
+                "properties": {
+                    "client_name": {
+                        "type": "string",
+                        "description": "The client's name.",
+                    }
+                },
                 "required": ["client_name"],
             },
         },
@@ -354,7 +389,11 @@ def dispatch_tool(
     if tool_name == "list_phases":
         return {
             "phases": [
-                {"sequence": p.sequence, "name": p.name, "required_documents": list(p.required_documents)}
+                {
+                    "sequence": p.sequence,
+                    "name": p.name,
+                    "required_documents": list(p.required_documents),
+                }
                 for p in config.phases
             ]
         }
@@ -368,7 +407,11 @@ def dispatch_tool(
         status = []
         for phase in config.phases:
             missing = missing_documents(phase, satisfied)
-            na_in_phase = [d for d in phase.required_documents if d in not_applicable and d not in existing]
+            na_in_phase = [
+                d
+                for d in phase.required_documents
+                if d in not_applicable and d not in existing
+            ]
             status.append(
                 {
                     "phase": phase.name,
@@ -384,7 +427,9 @@ def dispatch_tool(
         doc_type = tool_input["doc_type"]
         client_name = tool_input["client_name"]
         try:
-            result = request_template(rest, client_storage, template_storage, config, doc_type, client_name)
+            result = request_template(
+                rest, client_storage, template_storage, config, doc_type, client_name
+            )
             return {
                 "allowed": True,
                 "filename": result.filename,
@@ -398,7 +443,10 @@ def dispatch_tool(
                 "missing_documents": list(e.decision.missing_documents),
             }
         except TemplateNotFound:
-            return {"allowed": False, "reason": f"No master template is on file yet for '{doc_type}'."}
+            return {
+                "allowed": False,
+                "reason": f"No master template is on file yet for '{doc_type}'.",
+            }
         except TemplateFileMissing as e:
             return {"allowed": False, "reason": str(e)}
         except ValueError as e:
@@ -455,7 +503,12 @@ def dispatch_tool(
             return {"ok": False, "reason": str(e)}
         client = get_or_create_client(rest, client_storage, config, client_name)
         mark_document_not_applicable(rest, client, doc_type, reason=reason)
-        return {"ok": True, "client_name": client["name"], "doc_type": doc_type, "reason": reason}
+        return {
+            "ok": True,
+            "client_name": client["name"],
+            "doc_type": doc_type,
+            "reason": reason,
+        }
 
     if tool_name == "unmark_document_not_applicable":
         client_name = tool_input["client_name"]
@@ -468,7 +521,12 @@ def dispatch_tool(
         if client is None:
             return {"ok": False, "reason": f"No client named {client_name!r}"}
         was_marked = unmark_document_not_applicable(rest, client, doc_type)
-        return {"ok": True, "client_name": client["name"], "doc_type": doc_type, "was_marked": was_marked}
+        return {
+            "ok": True,
+            "client_name": client["name"],
+            "doc_type": doc_type,
+            "was_marked": was_marked,
+        }
 
     if tool_name == "search_document_types":
         query = tool_input["query"]
@@ -476,7 +534,9 @@ def dispatch_tool(
         return {
             "query": query,
             "count": len(matches),
-            "matches": [{"doc_type": m.doc_type, "phase_name": m.phase_name} for m in matches],
+            "matches": [
+                {"doc_type": m.doc_type, "phase_name": m.phase_name} for m in matches
+            ],
         }
 
     if tool_name == "get_sow_summary":
@@ -501,11 +561,18 @@ def dispatch_tool(
         client_name = tool_input["client_name"]
         doc_type = tool_input["doc_type"]
         try:
-            result = generate_approval_reminder(rest, client_storage, client_name, doc_type)
+            result = generate_approval_reminder(
+                rest, client_storage, client_name, doc_type
+            )
         except SowExtractionFailed as e:
             return {"found": False, "reason": str(e)}
         if not result.found:
-            return {"found": False, "client_name": result.client_name, "doc_type": doc_type, "reason": result.reason}
+            return {
+                "found": False,
+                "client_name": result.client_name,
+                "doc_type": doc_type,
+                "reason": result.reason,
+            }
         return {
             "found": True,
             "client_name": result.client_name,
@@ -522,7 +589,9 @@ def dispatch_tool(
         client = find_client(rest, client_name)
         if client is None:
             return {"found": False, "reason": f"No client named {client_name!r}"}
-        matches = embedding_service.search_document_content(rest, client["id"], query, doc_type=doc_type)
+        matches = embedding_service.search_document_content(
+            rest, client["id"], query, doc_type=doc_type
+        )
         return {
             "found": len(matches) > 0,
             "client_name": client["name"],
@@ -546,7 +615,9 @@ def dispatch_tool(
 
         existing = existing_document_types(rest, client)
         satisfied = satisfied_document_types(rest, client)
-        phases_complete = sum(1 for phase in config.phases if not missing_documents(phase, satisfied))
+        phases_complete = sum(
+            1 for phase in config.phases if not missing_documents(phase, satisfied)
+        )
         return {
             "found": True,
             "needs_confirmation": True,

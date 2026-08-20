@@ -4,7 +4,7 @@
 
 - **Retrieval:** structured lookup, not RAG. The LLM is used only for conversational intent parsing (tool-calling), resolved against DB queries seeded from `sdlc_phase_config.json`.
 - **Database:** PostgreSQL (Supabase-hosted). `config/sdlc_phase_config.json` is the canonical source; the DB is a seeded projection of it, never hand-edited out of sync.
-- **Database access — two paths, deliberately:** Alembic + SQLAlchemy for schema migrations and one-off seed scripts only (rare operations, needs a direct connection to Supabase). The *running app* talks to Supabase's REST API instead (`app/db/rest_client.py`, plain HTTPS) for every request — a direct Postgres connection is a raw TCP connection to port 5432/6543, which some corporate networks block outright (confirmed on this project); the REST API is ordinary HTTPS, which those same networks don't block. See `backend/README.md`'s "Two ways to reach Supabase" section.
+- **Database access — two paths, deliberately:** Alembic + SQLAlchemy for schema migrations and one-off seed scripts only (rare operations, needs a direct connection to Supabase). The _running app_ talks to Supabase's REST API instead (`app/db/rest_client.py`, plain HTTPS) for every request — a direct Postgres connection is a raw TCP connection to port 5432/6543, which some corporate networks block outright (confirmed on this project); the REST API is ordinary HTTPS, which those same networks don't block. See `backend/README.md`'s "Two ways to reach Supabase" section.
 - **Storage:** abstracted behind a `StorageBackend` interface from day one. `LocalFilesystemStorage` for the POC; a `SharePointStorage`/Azure Blob implementation can be dropped in later with zero changes to agent/gating logic.
 
 ## Stack

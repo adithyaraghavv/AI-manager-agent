@@ -22,9 +22,13 @@ def clients_status(
                 "phases_complete": s.phases_complete,
                 "current_phase": s.current_phase,
                 "missing_documents": list(s.missing_documents),
-                "last_activity_at": s.last_activity_at.isoformat() if s.last_activity_at else None,
+                "last_activity_at": s.last_activity_at.isoformat()
+                if s.last_activity_at
+                else None,
                 "days_since_activity": (
-                    round(s.days_since_activity, 1) if s.days_since_activity is not None else None
+                    round(s.days_since_activity, 1)
+                    if s.days_since_activity is not None
+                    else None
                 ),
                 "is_stale": s.is_stale,
             }

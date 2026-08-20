@@ -225,13 +225,19 @@ def run_turn(
         response = _complete_with_tools(client, api_messages)
         choice = response.choices[0].message
 
-        assistant_message: dict[str, Any] = {"role": "assistant", "content": choice.content or ""}
+        assistant_message: dict[str, Any] = {
+            "role": "assistant",
+            "content": choice.content or "",
+        }
         if choice.tool_calls:
             assistant_message["tool_calls"] = [
                 {
                     "id": tc.id,
                     "type": "function",
-                    "function": {"name": tc.function.name, "arguments": tc.function.arguments},
+                    "function": {
+                        "name": tc.function.name,
+                        "arguments": tc.function.arguments,
+                    },
                 }
                 for tc in choice.tool_calls
             ]
@@ -252,7 +258,14 @@ def run_turn(
             # "blocked" results already work — never an unhandled 500.
             try:
                 tool_input = json.loads(tc.function.arguments or "{}")
-                result = dispatch_tool(rest, client_storage, template_storage, config, tc.function.name, tool_input)
+                result = dispatch_tool(
+                    rest,
+                    client_storage,
+                    template_storage,
+                    config,
+                    tc.function.name,
+                    tool_input,
+                )
             except Exception as e:
                 logger.exception("Tool call %s failed unexpectedly", tc.function.name)
                 result = {"error": f"Something went wrong running this: {e}"}

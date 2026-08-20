@@ -61,11 +61,11 @@ will serve real SharePoint files works identically today.
 No new configuration was needed — this was already designed to be
 config-driven:
 
-| Setting | Current (mock) | Production (later) |
-|---|---|---|
-| `TEMPLATE_STORE_PATH` (`.env`) | `../templates` (local folder) | SharePoint-backed path/URL |
-| Storage backend (`app/deps.py::get_template_storage`) | `LocalFilesystemStorage` | `SharePointStorage` (new class, same `StorageBackend` interface) |
-| `templates` DB table | Seeded by `app/db/seed_templates.py` (mock files) | Seeded by an equivalent script pointing at real SharePoint files, or updated directly |
+| Setting                                               | Current (mock)                                    | Production (later)                                                                    |
+| ----------------------------------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `TEMPLATE_STORE_PATH` (`.env`)                        | `../templates` (local folder)                     | SharePoint-backed path/URL                                                            |
+| Storage backend (`app/deps.py::get_template_storage`) | `LocalFilesystemStorage`                          | `SharePointStorage` (new class, same `StorageBackend` interface)                      |
+| `templates` DB table                                  | Seeded by `app/db/seed_templates.py` (mock files) | Seeded by an equivalent script pointing at real SharePoint files, or updated directly |
 
 ## 4. Test plan (already executed against this build)
 
@@ -78,7 +78,7 @@ config-driven:
    `Marlabs_<DocType>_<ClientName>_<Timestamp>` naming convention.
 4. **Re-request the phase-2 template** → now expect `200`.
 5. **Request a phase-3 template** (e.g. Approved SRS) → expect `409` still,
-   since only the phase-2 *template* was downloaded, not filed — confirms the
+   since only the phase-2 _template_ was downloaded, not filed — confirms the
    system tracks filed/uploaded documents, not merely requested ones.
 
 All five steps were run against a live instance of this build (Postgres +
@@ -91,7 +91,7 @@ local storage) and passed exactly as expected.
   `StorageBackend` and the `templates` DB table, never a hardcoded path.
   Swapping to production is a data/config change, not a code change.
 - **Placeholder files are `.txt`, not real Office documents.** Fine for
-  testing the request/gate/upload mechanics, but don't demo the *content* of
+  testing the request/gate/upload mechanics, but don't demo the _content_ of
   a template as if it were real — say explicitly it's a mock file if asked.
 - **No `SharePointStorage` implementation exists yet** — it needs writing
   once SharePoint API access/credentials are available (likely via Microsoft

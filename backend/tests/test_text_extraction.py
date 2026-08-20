@@ -7,7 +7,10 @@ from app.core.text_extraction import extract_text
 
 def test_extract_text_from_txt():
     content = "Contract value: $50,000\nScope: build a widget.".encode("utf-8")
-    assert extract_text(content, "txt") == "Contract value: $50,000\nScope: build a widget."
+    assert (
+        extract_text(content, "txt")
+        == "Contract value: $50,000\nScope: build a widget."
+    )
 
 
 def test_extract_text_from_txt_handles_bad_bytes_by_replacing_not_raising():

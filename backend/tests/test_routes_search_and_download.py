@@ -32,7 +32,9 @@ def test_search_requires_query_param(route_client):
 
 def test_download_stored_document_succeeds(route_client):
     client, fake_rest, storage = route_client(config=CONFIG)
-    upload_document(fake_rest, storage, CONFIG, "MSA", "Acme", b"filled msa content", "pdf")
+    upload_document(
+        fake_rest, storage, CONFIG, "MSA", "Acme", b"filled msa content", "pdf"
+    )
 
     response = client.get("/api/clients/Acme/documents/MSA/download")
 

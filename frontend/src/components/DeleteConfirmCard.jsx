@@ -1,13 +1,13 @@
-import { useState } from 'react'
+import { useState } from "react";
 
 export default function DeleteConfirmCard({ proposal, onConfirm, onCancel }) {
-  const [submitting, setSubmitting] = useState(false)
+  const [submitting, setSubmitting] = useState(false);
 
   async function handleConfirm() {
-    if (submitting) return
-    setSubmitting(true)
-    await onConfirm(proposal.client_name)
-    setSubmitting(false)
+    if (submitting) return;
+    setSubmitting(true);
+    await onConfirm(proposal.client_name);
+    setSubmitting(false);
   }
 
   return (
@@ -25,10 +25,13 @@ export default function DeleteConfirmCard({ proposal, onConfirm, onCancel }) {
           </svg>
         </span>
         <div>
-          <div className="delete-card__title">Delete {proposal.client_name}?</div>
+          <div className="delete-card__title">
+            Delete {proposal.client_name}?
+          </div>
           <p className="delete-card__body">
-            This hides them everywhere immediately (chat, dashboard, search, uploads). Their data is kept for
-            a recovery window before being permanently removed — this isn't instant or irreversible.
+            This hides them everywhere immediately (chat, dashboard, search,
+            uploads). Their data is kept for a recovery window before being
+            permanently removed — this isn't instant or irreversible.
           </p>
         </div>
       </div>
@@ -37,17 +40,28 @@ export default function DeleteConfirmCard({ proposal, onConfirm, onCancel }) {
           {proposal.phases_complete}/{proposal.total_phases} phases complete
         </span>
         <span className="delete-card__chip">
-          {proposal.document_count} document{proposal.document_count === 1 ? '' : 's'} on file
+          {proposal.document_count} document
+          {proposal.document_count === 1 ? "" : "s"} on file
         </span>
       </div>
       <div className="delete-card__actions">
-        <button className="delete-card__confirm" onClick={handleConfirm} disabled={submitting}>
-          {submitting ? 'Deleting…' : `Confirm & delete ${proposal.client_name}`}
+        <button
+          className="delete-card__confirm"
+          onClick={handleConfirm}
+          disabled={submitting}
+        >
+          {submitting
+            ? "Deleting…"
+            : `Confirm & delete ${proposal.client_name}`}
         </button>
-        <button className="delete-card__cancel" onClick={onCancel} disabled={submitting}>
+        <button
+          className="delete-card__cancel"
+          onClick={onCancel}
+          disabled={submitting}
+        >
           Cancel
         </button>
       </div>
     </div>
-  )
+  );
 }

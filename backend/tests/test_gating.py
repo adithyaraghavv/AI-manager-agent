@@ -5,7 +5,11 @@ from app.core.phase_config import Phase, PhaseConfig
 
 CONFIG = PhaseConfig(
     [
-        Phase(name="Pre-requisites", sequence=1, required_documents=("MSA", "SOW", "Pricing")),
+        Phase(
+            name="Pre-requisites",
+            sequence=1,
+            required_documents=("MSA", "SOW", "Pricing"),
+        ),
         Phase(name="Requirement Analysis", sequence=2, required_documents=("BRD",)),
         Phase(name="System Design", sequence=3, required_documents=("SRS",)),
     ]
@@ -25,7 +29,9 @@ def test_phase_2_blocked_when_phase_1_incomplete():
 
 
 def test_phase_2_allowed_when_phase_1_complete():
-    decision = check_gate(CONFIG, "Requirement Analysis", existing_documents={"MSA", "SOW", "Pricing"})
+    decision = check_gate(
+        CONFIG, "Requirement Analysis", existing_documents={"MSA", "SOW", "Pricing"}
+    )
     assert decision.allowed
 
 
@@ -67,4 +73,9 @@ def test_unknown_phase_raises():
 
 def test_noncontiguous_sequence_rejected():
     with pytest.raises(ValueError):
-        PhaseConfig([Phase(name="A", sequence=1, required_documents=()), Phase(name="B", sequence=3, required_documents=())])
+        PhaseConfig(
+            [
+                Phase(name="A", sequence=1, required_documents=()),
+                Phase(name="B", sequence=3, required_documents=()),
+            ]
+        )

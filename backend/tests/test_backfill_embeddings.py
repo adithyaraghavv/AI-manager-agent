@@ -34,7 +34,9 @@ def test_backfill_embeds_every_active_clients_documents(rest, storage):
     upload_document(rest, storage, CONFIG, "MSA", "Globex", b"globex msa text", "txt")
 
     with patch("app.services.embedding_service.OpenAI") as MockOpenAI:
-        MockOpenAI.return_value.embeddings.create.return_value = _mock_embeddings_response(1)
+        MockOpenAI.return_value.embeddings.create.return_value = (
+            _mock_embeddings_response(1)
+        )
         stats = backfill(rest, storage)
 
     assert stats["documents_seen"] == 4
@@ -49,7 +51,9 @@ def test_backfill_skips_soft_deleted_clients(rest, storage):
     delete_client(rest, storage, client)
 
     with patch("app.services.embedding_service.OpenAI") as MockOpenAI:
-        MockOpenAI.return_value.embeddings.create.return_value = _mock_embeddings_response(1)
+        MockOpenAI.return_value.embeddings.create.return_value = (
+            _mock_embeddings_response(1)
+        )
         stats = backfill(rest, storage)
 
     assert stats["documents_seen"] == 0
@@ -61,7 +65,9 @@ def test_backfill_uses_the_current_version_number(rest, storage):
     upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v2 current", "txt")
 
     with patch("app.services.embedding_service.OpenAI") as MockOpenAI:
-        MockOpenAI.return_value.embeddings.create.return_value = _mock_embeddings_response(1)
+        MockOpenAI.return_value.embeddings.create.return_value = (
+            _mock_embeddings_response(1)
+        )
         backfill(rest, storage)
 
     [row] = rest.select("document_chunks")
@@ -73,7 +79,9 @@ def test_backfill_is_safe_to_rerun(rest, storage):
     upload_document(rest, storage, CONFIG, "MSA", "Acme", b"acme text", "txt")
 
     with patch("app.services.embedding_service.OpenAI") as MockOpenAI:
-        MockOpenAI.return_value.embeddings.create.return_value = _mock_embeddings_response(1)
+        MockOpenAI.return_value.embeddings.create.return_value = (
+            _mock_embeddings_response(1)
+        )
         backfill(rest, storage)
         stats = backfill(rest, storage)
 
@@ -85,7 +93,9 @@ def test_backfill_is_safe_to_rerun(rest, storage):
 def test_backfill_skips_missing_local_files_without_crashing(rest, storage):
     upload_document(rest, storage, CONFIG, "MSA", "Acme", b"acme text", "txt")
     client = rest.select_one("clients", name="Acme")
-    document = rest.select_one("client_documents", client_id=client["id"], doc_type="MSA")
+    document = rest.select_one(
+        "client_documents", client_id=client["id"], doc_type="MSA"
+    )
     # Simulate a file that vanished from disk (e.g. a botched migration) without
     # its DB row being cleaned up — backfill should notice and skip, not crash.
     (storage.root / document["storage_path"]).unlink()
