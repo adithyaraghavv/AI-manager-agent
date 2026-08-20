@@ -65,6 +65,16 @@ def _embed(texts: list[str]) -> list[list[float]]:
     return [item.embedding for item in response.data]
 
 
+def _format_vector(embedding: list[float]) -> str:
+    """Postgres's `vector` column type (pgvector) expects its input as the
+    literal text "[0.1,0.2,...]" — sending a plain JSON array through
+    PostgREST gets encoded as a Postgres ARRAY literal instead ("{0.1,0.2}"),
+    which isn't valid syntax for `vector` and the database rejects with a
+    400. This must be used for every embedding sent to Supabase, both on
+    insert and as an RPC parameter."""
+    return "[" + ",".join(repr(float(x)) for x in embedding) + "]"
+
+
 def embed_document(
     rest: SupabaseRestClient,
     client_id: int,
@@ -82,6 +92,14 @@ def embed_document(
     to fail the upload itself.
     """
     text = extract_text(content, extension)
+    if not text:
+        return 0
+
+    # Postgres's text type flatly rejects a null byte ("22P05: unsupported
+    # Unicode escape sequence") — some PDFs' extracted text can contain one
+    # (a known pypdf quirk on certain malformed/scanned files), so strip it
+    # before it ever reaches the database rather than crash the insert.
+    text = text.replace("\x00", "")
     if not text:
         return 0
 
@@ -109,7 +127,7 @@ def embed_document(
                 "version_number": version_number,
                 "chunk_index": index,
                 "content": piece,
-                "embedding": embedding,
+                "embedding": _format_vector(embedding),
             },
         )
     return len(pieces)
@@ -137,7 +155,7 @@ def search_document_content(
     rows = rest.rpc(
         "match_document_chunks",
         {
-            "query_embedding": query_embedding,
+            "query_embedding": _format_vector(query_embedding),
             "match_client_id": client_id,
             "match_doc_type": doc_type,
             "match_count": top_k,
