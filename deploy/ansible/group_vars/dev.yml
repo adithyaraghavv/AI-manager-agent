@@ -1,0 +1,12 @@
+---
+# Dev overrides. Applied to hosts in the `dev` group (see the
+# `[dev:children]` block in inventory.dev.example.ini).
+#
+# DATABASE_URL defaults to the compose-internal `db` service so that a
+# fresh dev host talks to the pgvector container brought up by the same
+# compose stack. Override in ADO / vault if dev points at an external
+# managed postgres.
+
+environment_name: dev
+log_level: DEBUG
+database_url: postgresql+psycopg://postgres:postgres@db:5432/rag_agent

@@ -1,0 +1,188 @@
+# Azure DevOps pipeline for the RAG agent.
+#
+# Stages:
+#   1. Build_Test   — install deps, run backend pytest, build frontend
+#   2. Deploy_Dev   — auto-deploy to the dev App Service + Static Web App
+#   3. Deploy_Prd   — gated on the `rag-agent-prd` environment approval
+#
+# See docs/deploy-dev-prd.md for the full ADO setup (service connections,
+# variable groups, environment approvals).
+
+trigger:
+  branches:
+    include:
+      - main
+
+pr:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: ubuntu-latest
+
+stages:
+  - stage: Build_Test
+    displayName: Build and test
+    jobs:
+      - job: build_test
+        displayName: Backend pytest + frontend build
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: "3.13"
+            displayName: Use Python 3.13
+
+          - script: |
+              set -euo pipefail
+              curl -LsSf https://astral.sh/uv/install.sh | sh
+              echo "$HOME/.local/bin" >> "$GITHUB_PATH" || true
+              export PATH="$HOME/.local/bin:$PATH"
+              uv --version
+            displayName: Install uv
+
+          - script: |
+              set -euo pipefail
+              export PATH="$HOME/.local/bin:$PATH"
+              cd backend
+              # Prefer project-mode `uv sync` when a pyproject exists; fall
+              # back to compat mode against requirements.txt otherwise.
+              if [ -f pyproject.toml ]; then
+                uv sync
+              else
+                uv venv
+                uv pip install -r requirements.txt
+              fi
+              uv run pytest -q
+            displayName: Backend deps + pytest
+
+          - task: NodeTool@0
+            inputs:
+              versionSpec: "20.x"
+            displayName: Use Node 20
+
+          - script: |
+              set -euo pipefail
+              cd frontend
+              npm ci
+              npm run build
+            displayName: Frontend install + build
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              PathtoPublish: frontend/dist
+              ArtifactName: frontend-dist
+            displayName: Publish frontend build artifact
+
+  - stage: Deploy_Dev
+    displayName: Deploy to dev (ansible)
+    dependsOn: Build_Test
+    # Only deploy on merges to main — PR validation runs Build_Test
+    # only.
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    variables:
+      # ADO variable group holding dev-specific config + secrets. Must
+      # define at least: ANSIBLE_VAULT_PASS (secret) — plus whatever
+      # extra vars you inject on top of vault.yml.
+      - group: rag-agent-dev
+    jobs:
+      - deployment: deploy_dev_ansible
+        displayName: Ansible push to dev hosts
+        environment: rag-agent-dev
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - script: |
+                    set -euo pipefail
+                    python -m pip install --upgrade pip
+                    python -m pip install "ansible>=9,<11" "docker"
+                    ansible-galaxy collection install -r deploy/ansible/requirements.yml
+                  displayName: Install ansible + community.docker collection
+
+                - task: DownloadSecureFile@1
+                  name: devInventory
+                  displayName: Download dev ansible inventory
+                  inputs:
+                    # TODO(customer): upload the real dev inventory as a
+                    # secure file named `inventory.dev.ini` under
+                    # Pipelines -> Library -> Secure files.
+                    secureFile: inventory.dev.ini
+
+                - task: DownloadSecureFile@1
+                  name: devVault
+                  displayName: Download dev ansible vault
+                  inputs:
+                    # TODO(customer): upload the encrypted `vault.yml`
+                    # (ansible-vault encrypted) as a secure file. The
+                    # decryption password comes from ANSIBLE_VAULT_PASS.
+                    secureFile: vault.yml
+
+                - script: |
+                    set -euo pipefail
+                    cp "$(devInventory.secureFilePath)" inventory.dev.ini
+                    cp "$(devVault.secureFilePath)" vault.yml
+                    ansible-playbook \
+                      -i inventory.dev.ini \
+                      deploy/ansible/site.yml \
+                      --extra-vars @vault.yml \
+                      --vault-password-file <(echo "$(ANSIBLE_VAULT_PASS)")
+                  displayName: ansible-playbook (dev)
+                  env:
+                    ANSIBLE_VAULT_PASS: $(ANSIBLE_VAULT_PASS)
+
+  - stage: Deploy_Prd
+    displayName: Deploy to prd (ansible, manual approval)
+    dependsOn: Deploy_Dev
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    variables:
+      # ADO variable group holding prd-specific config + secrets. Must
+      # define at least: ANSIBLE_VAULT_PASS (secret).
+      - group: rag-agent-prd
+    jobs:
+      - deployment: deploy_prd_ansible
+        displayName: Ansible push to prd hosts
+        # The `rag-agent-prd` environment must be configured in ADO with a
+        # manual approval — that is what enforces the gate. Nothing about
+        # this YAML alone requires approval.
+        environment: rag-agent-prd
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - script: |
+                    set -euo pipefail
+                    python -m pip install --upgrade pip
+                    python -m pip install "ansible>=9,<11" "docker"
+                    ansible-galaxy collection install -r deploy/ansible/requirements.yml
+                  displayName: Install ansible + community.docker collection
+
+                - task: DownloadSecureFile@1
+                  name: prdInventory
+                  displayName: Download prd ansible inventory
+                  inputs:
+                    # TODO(customer): upload the real prd inventory as a
+                    # secure file named `inventory.prd.ini`.
+                    secureFile: inventory.prd.ini
+
+                - task: DownloadSecureFile@1
+                  name: prdVault
+                  displayName: Download prd ansible vault
+                  inputs:
+                    # TODO(customer): upload the encrypted prd
+                    # `vault.yml` as a secure file.
+                    secureFile: vault.yml
+
+                - script: |
+                    set -euo pipefail
+                    cp "$(prdInventory.secureFilePath)" inventory.prd.ini
+                    cp "$(prdVault.secureFilePath)" vault.yml
+                    ansible-playbook \
+                      -i inventory.prd.ini \
+                      deploy/ansible/site.yml \
+                      --extra-vars @vault.yml \
+                      --extra-vars "app_ref=$(Build.SourceVersion)" \
+                      --vault-password-file <(echo "$(ANSIBLE_VAULT_PASS)")
+                  displayName: ansible-playbook (prd)
+                  env:
+                    ANSIBLE_VAULT_PASS: $(ANSIBLE_VAULT_PASS)

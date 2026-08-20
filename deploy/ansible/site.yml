@@ -1,0 +1,13 @@
+---
+# Top-level playbook: provision the host, then bring up the compose stack.
+#
+# Ansible does the *push* (host prep, code sync, .env render, compose up);
+# docker-compose does the *run* on the target host. Keep the split clean —
+# no application logic in ansible, no host bootstrap in compose.
+- name: Provision RAG agent hosts and deploy the compose stack
+  hosts: all
+  become: true
+  gather_facts: true
+  roles:
+    - host_prep
+    - app_deploy

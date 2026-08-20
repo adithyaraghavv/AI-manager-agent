@@ -1,0 +1,43 @@
+---
+# app_deploy: sync the app repo onto the target host, render the .env from
+# ansible variables (secrets come from ansible-vault or ADO), then bring
+# the compose stack up.
+#
+# NOTE: this role uses `community.docker.docker_compose_v2`. Operators
+# should run `ansible-galaxy collection install -r requirements.yml`
+# (or `ansible-galaxy collection install community.docker` directly)
+# before invoking the playbook.
+
+- name: Ensure the application directory exists
+  ansible.builtin.file:
+    path: "{{ app_dir }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0755"
+
+- name: Clone or update the RAG agent repository
+  ansible.builtin.git:
+    repo: "{{ app_repo }}"
+    dest: "{{ app_dir }}"
+    version: "{{ app_ref }}"
+    force: true
+    update: true
+  become: true
+  become_user: "{{ app_user }}"
+
+- name: Render the backend .env from ansible variables
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ app_dir }}/backend/.env"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0600"
+
+- name: Bring the compose stack up
+  # Requires: ansible-galaxy collection install community.docker
+  community.docker.docker_compose_v2:
+    project_src: "{{ app_dir }}"
+    state: present
+    pull: always
+    remove_orphans: true

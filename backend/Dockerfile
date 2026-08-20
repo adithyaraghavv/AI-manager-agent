@@ -1,25 +1,43 @@
-# Minimal container for the PM Document Assistant FastAPI backend.
+# syntax=docker/dockerfile:1.7
 FROM python:3.13-slim
 
-# Non-interactive apt and unbuffered Python I/O for cleaner container logs.
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    UV_SYSTEM_PYTHON=1
+# Install uv (single static binary) from the official image
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+
+# System deps needed by common Python wheels (psycopg, cffi, etc.).
+# Version pins deliberately omitted so the base image's package snapshot
+# controls versions — pinning here would ratchet against Debian's stable
+# security channel and go stale fast. Follow-up if reproducibility matters:
+# switch to a distroless-style multi-stage build.
+# hadolint ignore=DL3008
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        libpq-dev \
+        curl \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Install uv (project-standard Python tooling).
-RUN pip install --no-cache-dir uv==0.5.11
+# Copy dependency manifest(s) first for better layer caching.
+# The uv.lock glob is tolerant: it matches zero files if the lockfile
+# has not been generated yet, so the build stays green during migration
+# to project-mode uv.
+COPY backend/requirements.txt ./
+COPY backend/pyproject.toml backend/uv.lock* ./
 
-# Copy backend source (build context is the repo root; see package.yml).
-COPY backend/ /app/
+# If a pyproject exists we prefer `uv sync --frozen` (project mode).
+# Otherwise fall back to compat mode against requirements.txt.
+RUN if [ -f pyproject.toml ]; then \
+        uv sync --frozen --no-dev; \
+    else \
+        uv pip install --system -r requirements.txt; \
+    fi
 
-# Install runtime deps into the system interpreter using uv.
-RUN uv pip install --system -r /app/requirements.txt
+# Copy the rest of the backend source tree.
+COPY backend/ ./
 
 EXPOSE 8000
 
-# The FastAPI app object lives in backend/app/main.py as `app`.
-# backend/main.py is the legacy shell app scheduled for deletion — do not use it here.
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Default command — overridden by docker-compose for the migrations service.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

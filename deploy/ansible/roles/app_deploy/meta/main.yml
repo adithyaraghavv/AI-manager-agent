@@ -1,0 +1,21 @@
+---
+galaxy_info:
+  role_name: app_deploy
+  author: Marlabs Innovations
+  description: >-
+    Sync the RAG agent repository onto the target host, render the backend
+    .env from ansible variables, and bring the docker-compose stack up.
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+  galaxy_tags:
+    - docker
+    - deploy
+    - rag
+
+dependencies:
+  - role: host_prep

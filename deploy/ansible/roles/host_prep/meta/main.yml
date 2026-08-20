@@ -1,0 +1,21 @@
+---
+galaxy_info:
+  role_name: host_prep
+  author: Marlabs Innovations
+  description: >-
+    Prepare an Ubuntu host to run the RAG agent docker-compose stack:
+    install docker engine + compose plugin, create the app user, join the
+    docker group.
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+  galaxy_tags:
+    - docker
+    - provisioning
+    - rag
+
+dependencies: []

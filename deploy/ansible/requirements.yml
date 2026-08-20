@@ -1,0 +1,7 @@
+---
+# Ansible collections required by the deploy playbook.
+# Install locally with:
+#   ansible-galaxy collection install -r deploy/ansible/requirements.yml
+collections:
+  - name: community.docker
+    version: ">=3.10.0"
