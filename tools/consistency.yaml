@@ -1,0 +1,100 @@
+# Cross-config consistency ruleset.
+#
+# Each rule declares an `expected` value and one or more `checks`. A check
+# either targets a single `path` or a `glob` of files, applies a `regex`,
+# and validates every capture group against `expected` according to `mode`.
+#
+# Modes:
+#   exact    — every match must equal `expected`
+#   in_list  — the captured list literal must contain `expected`
+#   yaml_pr_branches — parse `on.pull_request.branches` from a workflow YAML
+#                      and require the resulting list to equal [expected]
+#
+# Only rules that currently pass on `main` are enforced. Rules that would
+# fail today are listed under the TODO section below and MUST NOT be added
+# until the underlying drift is fixed in a separate PR.
+
+rules:
+  python_version_dockerfile:
+    description: "Backend Dockerfile pins the same Python interpreter version as CI."
+    expected: "3.13"
+    mode: exact
+    checks:
+      - path: backend/Dockerfile
+        regex: 'FROM python:(\d+\.\d+)'
+
+  python_version_ci_matrix:
+    description: "CI matrix must include the interpreter version the Dockerfile pins."
+    expected: "3.13"
+    mode: in_list
+    checks:
+      - path: .github/workflows/ci.yml
+        regex: 'python-version:\s*\[([^\]]+)\]'
+
+  node_version:
+    description: "Node.js version is uniform across workflows."
+    expected: "20"
+    mode: exact
+    checks:
+      - glob: .github/workflows/*.yml
+        regex: 'node-version:\s*"(\d+)"'
+
+  action_checkout:
+    description: "actions/checkout is pinned to the same major everywhere."
+    expected: "v4"
+    mode: exact
+    checks:
+      - glob: .github/workflows/*.yml
+        regex: 'uses:\s*actions/checkout@(v\d+)'
+
+  action_setup_python:
+    description: "actions/setup-python is pinned to the same major everywhere."
+    expected: "v5"
+    mode: exact
+    checks:
+      - glob: .github/workflows/*.yml
+        regex: 'uses:\s*actions/setup-python@(v\d+)'
+
+  action_setup_node:
+    description: "actions/setup-node is pinned to the same major everywhere."
+    expected: "v4"
+    mode: exact
+    checks:
+      - glob: .github/workflows/*.yml
+        regex: 'uses:\s*actions/setup-node@(v\d+)'
+
+  action_upload_artifact:
+    description: "actions/upload-artifact is pinned to the same major everywhere."
+    expected: "v4"
+    mode: exact
+    checks:
+      - glob: .github/workflows/*.yml
+        regex: 'uses:\s*actions/upload-artifact@(v\d+)'
+
+  trigger_branch_pull_request:
+    description: "Every workflow that runs on pull_request targets 'main' only."
+    expected: "main"
+    mode: yaml_pr_branches
+    checks:
+      - glob: .github/workflows/*.yml
+
+# ---------------------------------------------------------------------------
+# Rules known to be inconsistent today. Do NOT enforce until the underlying
+# drift is fixed. Each entry names the offender and the follow-up that would
+# unblock enforcement.
+# ---------------------------------------------------------------------------
+# TODO:
+#   uv_version:
+#     Backend Dockerfile pins `uv==0.5.11`; other install paths use whatever
+#     `astral-sh/setup-uv@v3` resolves to. Enable once a single uv version is
+#     pinned across Dockerfile + CI setup step.
+#
+#   python_requires_pyproject:
+#     `backend/pyproject.toml` declares `requires-python = ">=3.11"` while the
+#     Dockerfile pins 3.13. These aren't strictly inconsistent (>=3.11 admits
+#     3.13) but a stricter rule could require the floor to match the CI matrix
+#     minimum. Deferred pending a decision on the supported floor.
+#
+#   node_engines_frontend:
+#     `frontend/package.json` does not currently declare an `engines.node`
+#     field. Once added, enforce it equals the workflow `node-version`.
