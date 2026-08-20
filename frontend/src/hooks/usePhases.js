@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { getPhases } from '../api'
+import { useEffect, useState } from "react";
+import { getPhases } from "../api";
 
 // Shared by every place that needs a picker of valid document types (attach-in-chat,
 // standalone upload form) — fetched from the backend, which reads it straight from
@@ -10,26 +10,26 @@ import { getPhases } from '../api'
 // session is enough regardless of how many components mount DocTypeSelect. Storing
 // the in-flight promise (not the resolved value) means concurrent mounts share the
 // same request instead of racing.
-let inflight = null
+let inflight = null;
 
 export function usePhases() {
-  const [phases, setPhases] = useState([])
-  const [error, setError] = useState(null)
+  const [phases, setPhases] = useState([]);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!inflight) inflight = getPhases()
-    let cancelled = false
+    if (!inflight) inflight = getPhases();
+    let cancelled = false;
     inflight
       .then((data) => {
-        if (!cancelled) setPhases(data)
+        if (!cancelled) setPhases(data);
       })
       .catch((err) => {
-        if (!cancelled) setError(err.message)
-      })
+        if (!cancelled) setError(err.message);
+      });
     return () => {
-      cancelled = true
-    }
-  }, [])
+      cancelled = true;
+    };
+  }, []);
 
-  return { phases, error }
+  return { phases, error };
 }

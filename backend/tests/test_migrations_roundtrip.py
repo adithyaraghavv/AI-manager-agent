@@ -10,6 +10,7 @@ Any of these silently breaking is exactly the failure mode migrations tests
 are designed to catch — a future amendment to a migration file that seems
 "just a rename" but actually diverges upgrade/downgrade.
 """
+
 from __future__ import annotations
 
 import os
@@ -26,10 +27,10 @@ ALEMBIC_INI = REPO_BACKEND / "alembic.ini"
 
 # The 4 new revisions introduced by PR #38. Order matters for the round-trip.
 PR38_REVISIONS = [
-    "b1e4b5b9006f",   # add_document_versions_table
-    "c7f2a1e9d3b4",   # add_not_applicable_documents_table
-    "d8a3f5c1e6b7",   # add_sow_metadata_table
-    "e2b7c4a9f1d3",   # add_team_and_doc_ownership_to_sow_metadata
+    "b1e4b5b9006f",  # add_document_versions_table
+    "c7f2a1e9d3b4",  # add_not_applicable_documents_table
+    "d8a3f5c1e6b7",  # add_sow_metadata_table
+    "e2b7c4a9f1d3",  # add_team_and_doc_ownership_to_sow_metadata
 ]
 
 
@@ -91,7 +92,9 @@ def test_upgrade_head_is_reachable_from_scratch(sqlite_db_path: Path) -> None:
     assert "not_applicable_documents" in snap
     assert "sow_metadata" in snap
     # sow_metadata should have the ownership columns from the 4th migration
-    assert "project_team" in snap["sow_metadata"] or "team" in " ".join(snap["sow_metadata"])
+    assert "project_team" in snap["sow_metadata"] or "team" in " ".join(
+        snap["sow_metadata"]
+    )
 
 
 def test_double_upgrade_is_idempotent(sqlite_db_path: Path) -> None:
@@ -127,6 +130,4 @@ def test_downgrade_one_step_is_reversible(sqlite_db_path: Path) -> None:
             )
         _try_upgrade(cfg, "head")
         after = _schema_snapshot(sqlite_db_path)
-    assert before == after, (
-        f"round-trip diverged: before={before} after={after}"
-    )
+    assert before == after, f"round-trip diverged: before={before} after={after}"

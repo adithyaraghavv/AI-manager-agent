@@ -2,6 +2,7 @@
 one-off seed scripts (app/db/seed.py, app/db/seed_templates.py). The running
 app's request path does not use this; see app/db/rest_client.py and
 README.md's "Two ways to reach Supabase" section for why."""
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 

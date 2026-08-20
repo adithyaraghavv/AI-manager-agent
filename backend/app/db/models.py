@@ -17,14 +17,18 @@ class Phase(Base):
     name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     sequence: Mapped[int] = mapped_column(unique=True, nullable=False)
 
-    required_documents: Mapped[list["RequiredDocument"]] = relationship(back_populates="phase")
+    required_documents: Mapped[list["RequiredDocument"]] = relationship(
+        back_populates="phase"
+    )
 
 
 class RequiredDocument(Base):
     """A document type required by a phase, e.g. 'MSA' under Pre-requisites."""
 
     __tablename__ = "required_documents"
-    __table_args__ = (UniqueConstraint("phase_id", "doc_type", name="uq_phase_doc_type"),)
+    __table_args__ = (
+        UniqueConstraint("phase_id", "doc_type", name="uq_phase_doc_type"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     phase_id: Mapped[int] = mapped_column(ForeignKey("phases.id"), nullable=False)
@@ -61,7 +65,9 @@ class ClientDocument(Base):
     in DocumentVersion, never overwritten or deleted."""
 
     __tablename__ = "client_documents"
-    __table_args__ = (UniqueConstraint("client_id", "doc_type", name="uq_client_doc_type"),)
+    __table_args__ = (
+        UniqueConstraint("client_id", "doc_type", name="uq_client_doc_type"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     client_id: Mapped[int] = mapped_column(ForeignKey("clients.id"), nullable=False)
@@ -82,7 +88,11 @@ class DocumentVersion(Base):
     this table is the source of truth for "what did version 2 look like."""
 
     __tablename__ = "document_versions"
-    __table_args__ = (UniqueConstraint("client_id", "doc_type", "version_number", name="uq_client_doc_version"),)
+    __table_args__ = (
+        UniqueConstraint(
+            "client_id", "doc_type", "version_number", name="uq_client_doc_version"
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     client_id: Mapped[int] = mapped_column(ForeignKey("clients.id"), nullable=False)
@@ -103,7 +113,9 @@ class NotApplicableDocument(Base):
     as missing), without actually creating a fake ClientDocument row."""
 
     __tablename__ = "not_applicable_documents"
-    __table_args__ = (UniqueConstraint("client_id", "doc_type", name="uq_client_doc_not_applicable"),)
+    __table_args__ = (
+        UniqueConstraint("client_id", "doc_type", name="uq_client_doc_not_applicable"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     client_id: Mapped[int] = mapped_column(ForeignKey("clients.id"), nullable=False)

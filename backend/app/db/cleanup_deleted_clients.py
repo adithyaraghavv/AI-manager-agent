@@ -11,6 +11,7 @@ SUPABASE_KEY in .env), not a direct Postgres connection — same reasoning as
 seed_templates.py and seed_demo_dashboard.py: this should be runnable from
 any network, not just ones that can reach Postgres directly.
 """
+
 import argparse
 
 from app.config import settings
@@ -53,13 +54,17 @@ def main() -> None:
                 if deleted_ts <= cutoff:
                     candidates.append(client["name"])
             if candidates:
-                print(f"Would permanently purge {len(candidates)} client(s): {', '.join(candidates)}")
+                print(
+                    f"Would permanently purge {len(candidates)} client(s): {', '.join(candidates)}"
+                )
             else:
                 print("Nothing to purge.")
         else:
             purged = purge_deleted_clients(rest, storage, args.older_than_days)
             if purged:
-                print(f"Permanently purged {len(purged)} client(s): {', '.join(purged)}")
+                print(
+                    f"Permanently purged {len(purged)} client(s): {', '.join(purged)}"
+                )
             else:
                 print("Nothing to purge.")
     finally:

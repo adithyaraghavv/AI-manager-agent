@@ -4,6 +4,7 @@
 names, sequence, and required documents. This module only reads it —
 nothing here should hardcode phase names or document lists.
 """
+
 import json
 from dataclasses import dataclass
 from functools import lru_cache
@@ -24,7 +25,9 @@ class PhaseConfig:
 
         sequences = [p.sequence for p in self._phases]
         if sequences != list(range(1, len(sequences) + 1)):
-            raise ValueError(f"Phase sequence numbers must be contiguous starting at 1, got {sequences}")
+            raise ValueError(
+                f"Phase sequence numbers must be contiguous starting at 1, got {sequences}"
+            )
 
     @property
     def phases(self) -> list[Phase]:

@@ -56,7 +56,7 @@ restarting Vite — use `npm run dev:backend` or `npm run dev:frontend` instead.
 - `src/api.js` — thin fetch wrapper for the backend API
 
 Note on the attach flow: the file itself never goes through the AI model — only the chat
-*conversation* does. Attaching a file goes straight to the upload REST endpoint, same as the
+_conversation_ does. Attaching a file goes straight to the upload REST endpoint, same as the
 standalone panel; the model just gets to see the resulting outcome (filed / blocked) like any
 other tool result. This was a deliberate choice, not an oversight — pushing binary content through
 an LLM tool-call would be wasteful and isn't necessary for the gating decision to work correctly.

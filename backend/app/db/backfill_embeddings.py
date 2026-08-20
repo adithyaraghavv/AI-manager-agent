@@ -18,6 +18,7 @@ Uses the same Supabase REST client the running app uses (SUPABASE_URL/
 SUPABASE_KEY in .env) — run wherever the app itself runs:
     python -m app.db.backfill_embeddings
 """
+
 from app.config import settings
 from app.db.rest_client import SupabaseRestClient
 from app.services import embedding_service
@@ -48,11 +49,20 @@ def backfill(rest: SupabaseRestClient, storage: StorageBackend) -> dict[str, int
             # always points at the CURRENT version, whose number is the
             # highest one recorded in document_versions for this doc_type
             # (see version_service.next_version_number, same logic minus the +1).
-            versions = rest.select("document_versions", client_id=client["id"], doc_type=document["doc_type"])
+            versions = rest.select(
+                "document_versions",
+                client_id=client["id"],
+                doc_type=document["doc_type"],
+            )
             version_number = max((v["version_number"] for v in versions), default=1)
 
             chunk_count = embedding_service.embed_document(
-                rest, client["id"], document["doc_type"], version_number, content, extension,
+                rest,
+                client["id"],
+                document["doc_type"],
+                version_number,
+                content,
+                extension,
             )
             if chunk_count:
                 stats["documents_embedded"] += 1

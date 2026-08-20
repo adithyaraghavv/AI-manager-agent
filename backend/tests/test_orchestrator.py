@@ -12,7 +12,9 @@ from app.storage.local import LocalFilesystemStorage
 def _bad_request_error(code: str) -> BadRequestError:
     request = httpx.Request("POST", "https://api.openai.com/x")
     response = httpx.Response(400, request=request)
-    return BadRequestError(code, response=response, body={"error": {"code": code, "message": "x"}})
+    return BadRequestError(
+        code, response=response, body={"error": {"code": code, "message": "x"}}
+    )
 
 
 def _plain_text_response(text: str) -> MagicMock:
@@ -24,7 +26,9 @@ def _plain_text_response(text: str) -> MagicMock:
     return response
 
 
-def _tool_call_response(name: str, arguments: dict, call_id: str = "call_1") -> MagicMock:
+def _tool_call_response(
+    name: str, arguments: dict, call_id: str = "call_1"
+) -> MagicMock:
     tool_call = MagicMock()
     tool_call.id = call_id
     tool_call.function.name = name
@@ -47,7 +51,10 @@ def test_plain_reply_with_no_tool_calls_is_appended_to_messages():
         messages = [{"role": "user", "content": "what's the status for Hillenbrand?"}]
         result = run_turn(None, None, None, None, messages)
 
-    assert result[-1] == {"role": "assistant", "content": "Hillenbrand is missing MSA, SOW, Pricing."}
+    assert result[-1] == {
+        "role": "assistant",
+        "content": "Hillenbrand is missing MSA, SOW, Pricing.",
+    }
     assert instance.chat.completions.create.call_count == 1
 
 
@@ -56,7 +63,9 @@ def test_system_prompt_forbids_fabricating_download_links():
     # the model invented plausible-looking but fake URLs (e.g.
     # "sandbox:/api/...") instead of calling get_document_versions and using
     # its real download_url. Every link must come from an actual tool result.
-    assert "NEVER invent, construct, guess, or reconstruct a download URL" in SYSTEM_PROMPT
+    assert (
+        "NEVER invent, construct, guess, or reconstruct a download URL" in SYSTEM_PROMPT
+    )
 
 
 def test_system_prompt_requires_exact_document_type_names():
@@ -82,7 +91,9 @@ def test_system_prompt_does_not_default_to_version_history_for_plain_requests():
     # (which would have handed over the master template to fill in). Adding
     # search_document_types confused which tool comes next after resolving
     # an ambiguous name.
-    assert "search_document_types ONLY resolves which exact document type" in SYSTEM_PROMPT
+    assert (
+        "search_document_types ONLY resolves which exact document type" in SYSTEM_PROMPT
+    )
     assert "means request_template" in SYSTEM_PROMPT
     assert "Do not default to get_document_versions" in SYSTEM_PROMPT
 
@@ -90,7 +101,10 @@ def test_system_prompt_does_not_default_to_version_history_for_plain_requests():
 def test_system_prompt_distinguishes_path_only_requests_from_document_requests():
     # get_document_location must only be used for an explicit "where is it
     # stored" question, never substituted for a plain "give me X" request.
-    assert "get_document_location is a DIFFERENT thing from requesting a document" in SYSTEM_PROMPT
+    assert (
+        "get_document_location is a DIFFERENT thing from requesting a document"
+        in SYSTEM_PROMPT
+    )
 
 
 def test_system_prompt_forbids_answering_from_stale_conversation_history():
@@ -114,7 +128,10 @@ def test_system_prompt_asks_for_a_warm_natural_tone_not_a_terse_bot():
 
 
 def test_system_prompt_distinguishes_not_applicable_from_missing_in_status():
-    assert "get_client_status's missing_documents excludes anything marked not-applicable" in SYSTEM_PROMPT
+    assert (
+        "get_client_status's missing_documents excludes anything marked not-applicable"
+        in SYSTEM_PROMPT
+    )
 
 
 def test_system_prompt_forbids_using_not_applicable_as_a_gate_workaround():
@@ -131,13 +148,19 @@ def test_system_prompt_self_corrects_on_unrecognized_doc_type_for_mark_unmark():
     # the exact name and retrying, which read to the PM as "this was never
     # marked" when it actually had been.
     assert "don't just relay that as failure" in SYSTEM_PROMPT
-    assert "call search_document_types with the PM's phrase to resolve the" in SYSTEM_PROMPT
+    assert (
+        "call search_document_types with the PM's phrase to resolve the"
+        in SYSTEM_PROMPT
+    )
 
 
 def test_system_prompt_distinguishes_sow_content_questions_from_file_requests():
     # get_sow_summary answers questions ABOUT the SOW (value, dates, scope);
     # a plain "give me the SOW" must still mean the file itself.
-    assert "get_sow_summary is ALSO different from requesting the SOW file" in SYSTEM_PROMPT
+    assert (
+        "get_sow_summary is ALSO different from requesting the SOW file"
+        in SYSTEM_PROMPT
+    )
     assert "never fill in a guess" in SYSTEM_PROMPT
 
 
@@ -154,7 +177,10 @@ def test_system_prompt_forbids_silently_dropping_null_team_or_ownership_from_the
     # project team or document ownership," but the assistant's own written
     # reply just went quiet on those two fields instead of saying so itself —
     # reads as an incomplete, templated answer rather than a real summary.
-    assert "your own written reply must explicitly cover team assignments and document responsibilities every time" in SYSTEM_PROMPT
+    assert (
+        "your own written reply must explicitly cover team assignments and document responsibilities every time"
+        in SYSTEM_PROMPT
+    )
     assert "is incomplete, not concise" in SYSTEM_PROMPT
 
 
@@ -163,7 +189,10 @@ def test_system_prompt_forbids_inventing_team_or_document_ownership():
     # providing each document. Both are exactly the kind of thing the model
     # could plausibly guess wrong (a name, a role, "who usually owns this") —
     # guard against fabrication here as strictly as any other SOW field.
-    assert "team_assignments and document_responsibilities (both owner and approver) are exactly as" in SYSTEM_PROMPT
+    assert (
+        "team_assignments and document_responsibilities (both owner and approver) are exactly as"
+        in SYSTEM_PROMPT
+    )
     assert "never infer one from context" in SYSTEM_PROMPT
 
 
@@ -171,15 +200,24 @@ def test_system_prompt_distinguishes_reminder_generation_from_plain_ownership_qu
     # get_sow_summary is for a plain "who's responsible" fact question.
     # Both must still refuse to invent a name for a document the SOW
     # doesn't actually assign.
-    assert 'Use get_sow_summary instead of generate_approval_reminder for a plain "who\'s responsible for X"' in SYSTEM_PROMPT
+    assert (
+        'Use get_sow_summary instead of generate_approval_reminder for a plain "who\'s responsible for X"'
+        in SYSTEM_PROMPT
+    )
 
 
 def test_system_prompt_requires_confirmation_before_drafting_a_reminder():
     # Live UX feedback: "whom should I reach out to" was jumping straight to
     # a drafted reminder. It must be a two-step flow — name + offer first,
     # reminder only after the PM explicitly says yes to that offer.
-    assert "is a TWO-STEP flow, never a one-shot straight to a drafted reminder" in SYSTEM_PROMPT
-    assert 'Never call generate_approval_reminder on the PM\'s first "whom should I reach out to" message' in SYSTEM_PROMPT
+    assert (
+        "is a TWO-STEP flow, never a one-shot straight to a drafted reminder"
+        in SYSTEM_PROMPT
+    )
+    assert (
+        'Never call generate_approval_reminder on the PM\'s first "whom should I reach out to" message'
+        in SYSTEM_PROMPT
+    )
 
 
 def test_system_prompt_requires_the_reminder_offer_every_time_not_just_sometimes():
@@ -187,8 +225,14 @@ def test_system_prompt_requires_the_reminder_offer_every_time_not_just_sometimes
     # skipping the "want me to draft a reminder?" offer entirely. The rule
     # must be unambiguous that the offer is mandatory every time, not
     # optional phrasing the model can skip when it doesn't feel needed.
-    assert "is NOT COMPLETE until it also explicitly offers to draft one — every single time" in SYSTEM_PROMPT
-    assert "A step-1 reply that gives the name and stops there, with no offer, is missing a required part" in SYSTEM_PROMPT
+    assert (
+        "is NOT COMPLETE until it also explicitly offers to draft one — every single time"
+        in SYSTEM_PROMPT
+    )
+    assert (
+        "A step-1 reply that gives the name and stops there, with no offer, is missing a required part"
+        in SYSTEM_PROMPT
+    )
 
 
 def test_system_prompt_forbids_claiming_reminder_ready_without_a_real_tool_call():
@@ -197,8 +241,14 @@ def test_system_prompt_forbids_claiming_reminder_ready_without_a_real_tool_call(
     # generate_approval_reminder — nothing was generated, but it claimed
     # there was. Same class of failure as fabricating an upload/deletion
     # outcome, just showing up in the new reminder feature.
-    assert "you MUST actually call generate_approval_reminder in that same turn before saying anything about it being ready" in SYSTEM_PROMPT
-    assert "Saying a reminder is ready when no tool call actually ran is exactly the kind of fabricated outcome" in SYSTEM_PROMPT
+    assert (
+        "you MUST actually call generate_approval_reminder in that same turn before saying anything about it being ready"
+        in SYSTEM_PROMPT
+    )
+    assert (
+        "Saying a reminder is ready when no tool call actually ran is exactly the kind of fabricated outcome"
+        in SYSTEM_PROMPT
+    )
 
 
 def test_system_prompt_distinguishes_document_owner_from_approver():
@@ -207,7 +257,10 @@ def test_system_prompt_distinguishes_document_owner_from_approver():
     # assistant must not conflate the two or use the owner as a stand-in
     # approver unless the tool result itself says they're the same party.
     assert 'entries have an "owner"' in SYSTEM_PROMPT
-    assert "do NOT treat the owner as a stand-in approver unless the tool result itself says" in SYSTEM_PROMPT
+    assert (
+        "do NOT treat the owner as a stand-in approver unless the tool result itself says"
+        in SYSTEM_PROMPT
+    )
 
 
 def test_run_turn_survives_a_tool_call_that_raises_instead_of_crashing(rest, tmp_path):
@@ -216,15 +269,24 @@ def test_run_turn_survives_a_tool_call_that_raises_instead_of_crashing(rest, tmp
     # Before the fix, nothing caught this and the whole turn crashed with
     # an unhandled exception. Now it must become a graceful tool result the
     # model can react to, and the turn continues normally.
-    config = PhaseConfig([Phase(name="Pre-requisites", sequence=1, required_documents=("MSA",))])
+    config = PhaseConfig(
+        [Phase(name="Pre-requisites", sequence=1, required_documents=("MSA",))]
+    )
     storage = LocalFilesystemStorage(tmp_path)
 
-    tool_call_response = _tool_call_response("get_client_status", {"client_name": "../Escaped"})
-    final_response = _plain_text_response("That client name isn't valid — could you try it without special characters?")
+    tool_call_response = _tool_call_response(
+        "get_client_status", {"client_name": "../Escaped"}
+    )
+    final_response = _plain_text_response(
+        "That client name isn't valid — could you try it without special characters?"
+    )
 
     with patch("app.agent.orchestrator.OpenAI") as MockOpenAI:
         instance = MockOpenAI.return_value
-        instance.chat.completions.create.side_effect = [tool_call_response, final_response]
+        instance.chat.completions.create.side_effect = [
+            tool_call_response,
+            final_response,
+        ]
 
         messages = [{"role": "user", "content": "check status for ../Escaped"}]
         result = run_turn(rest, storage, storage, config, messages)
@@ -233,7 +295,10 @@ def test_run_turn_survives_a_tool_call_that_raises_instead_of_crashing(rest, tmp
     assert len(tool_messages) == 1
     content = json.loads(tool_messages[0]["content"])
     assert "error" in content
-    assert result[-1]["content"] == "That client name isn't valid — could you try it without special characters?"
+    assert (
+        result[-1]["content"]
+        == "That client name isn't valid — could you try it without special characters?"
+    )
     # And critically: no client row was left behind by the failed attempt.
     assert rest.select("clients") == []
 

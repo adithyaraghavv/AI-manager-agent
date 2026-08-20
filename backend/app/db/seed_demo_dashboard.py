@@ -12,6 +12,7 @@ Uses the same Supabase REST client the running app uses (SUPABASE_URL/
 SUPABASE_KEY in .env) — not a direct Postgres connection — since this is
 meant to be run wherever the app itself runs, on any network.
 """
+
 import argparse
 from datetime import datetime, timedelta, timezone
 
@@ -27,21 +28,27 @@ def _iso(dt: datetime) -> str:
     return dt.isoformat()
 
 
-def seed_demo_dashboard(rest: SupabaseRestClient, client_name: str, days_stale: int) -> None:
+def seed_demo_dashboard(
+    rest: SupabaseRestClient, client_name: str, days_stale: int
+) -> None:
     config = get_phase_config()
     prereqs = config.phases[0]  # "Pre-requisites" — filed and done
     backdate = datetime.now(timezone.utc) - timedelta(days=days_stale)
 
     client = rest.select_one("clients", name=client_name)
     if client is None:
-        client = rest.insert("clients", {"name": client_name, "created_at": _iso(backdate)})
+        client = rest.insert(
+            "clients", {"name": client_name, "created_at": _iso(backdate)}
+        )
     else:
         rest.update("clients", {"id": client["id"]}, {"created_at": _iso(backdate)})
 
     for doc_type in prereqs.required_documents:
         filename = build_filename(doc_type, client_name, "txt", timestamp=backdate)
         storage_path = f"{client_name}/{prereqs.sequence:02d}_{prereqs.name}/{filename}"
-        record = rest.select_one("client_documents", client_id=client["id"], doc_type=doc_type)
+        record = rest.select_one(
+            "client_documents", client_id=client["id"], doc_type=doc_type
+        )
         if record is None:
             rest.insert(
                 "client_documents",
@@ -55,7 +62,11 @@ def seed_demo_dashboard(rest: SupabaseRestClient, client_name: str, days_stale: 
                 },
             )
         else:
-            rest.update("client_documents", {"id": record["id"]}, {"uploaded_at": _iso(backdate)})
+            rest.update(
+                "client_documents",
+                {"id": record["id"]},
+                {"uploaded_at": _iso(backdate)},
+            )
 
 
 def main() -> None:

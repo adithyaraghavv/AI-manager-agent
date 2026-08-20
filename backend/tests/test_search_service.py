@@ -6,15 +6,33 @@ def _seed(rest):
     globex = rest.insert("clients", {"name": "Globex"})
     rest.insert(
         "client_documents",
-        {"client_id": acme["id"], "phase_name": "Pre-requisites", "doc_type": "MSA", "storage_path": "Acme/MSA.pdf", "filename": "Marlabs_MSA_Acme_20260101.pdf"},
+        {
+            "client_id": acme["id"],
+            "phase_name": "Pre-requisites",
+            "doc_type": "MSA",
+            "storage_path": "Acme/MSA.pdf",
+            "filename": "Marlabs_MSA_Acme_20260101.pdf",
+        },
     )
     rest.insert(
         "client_documents",
-        {"client_id": acme["id"], "phase_name": "Pre-requisites", "doc_type": "SOW", "storage_path": "Acme/SOW.pdf", "filename": "Marlabs_SOW_Acme_20260101.pdf"},
+        {
+            "client_id": acme["id"],
+            "phase_name": "Pre-requisites",
+            "doc_type": "SOW",
+            "storage_path": "Acme/SOW.pdf",
+            "filename": "Marlabs_SOW_Acme_20260101.pdf",
+        },
     )
     rest.insert(
         "client_documents",
-        {"client_id": globex["id"], "phase_name": "Pre-requisites", "doc_type": "MSA", "storage_path": "Globex/MSA.pdf", "filename": "Marlabs_MSA_Globex_20260101.pdf"},
+        {
+            "client_id": globex["id"],
+            "phase_name": "Pre-requisites",
+            "doc_type": "MSA",
+            "storage_path": "Globex/MSA.pdf",
+            "filename": "Marlabs_MSA_Globex_20260101.pdf",
+        },
     )
     return acme, globex
 
@@ -58,7 +76,9 @@ def test_search_blank_query_returns_empty(rest):
 
 def test_search_excludes_soft_deleted_clients(rest):
     acme, _ = _seed(rest)
-    rest.update("clients", {"id": acme["id"]}, {"deleted_at": "2026-01-01T00:00:00+00:00"})
+    rest.update(
+        "clients", {"id": acme["id"]}, {"deleted_at": "2026-01-01T00:00:00+00:00"}
+    )
 
     assert search_documents(rest, "Acme") == []
     # "MSA" matched both Acme and Globex before — only Globex's should remain now.
@@ -77,9 +97,18 @@ def test_search_does_not_duplicate_results(rest):
 
 def test_search_reports_version_count(rest):
     acme, _ = _seed(rest)
-    rest.insert("document_versions", {"client_id": acme["id"], "doc_type": "MSA", "version_number": 1})
-    rest.insert("document_versions", {"client_id": acme["id"], "doc_type": "MSA", "version_number": 2})
-    rest.insert("document_versions", {"client_id": acme["id"], "doc_type": "SOW", "version_number": 1})
+    rest.insert(
+        "document_versions",
+        {"client_id": acme["id"], "doc_type": "MSA", "version_number": 1},
+    )
+    rest.insert(
+        "document_versions",
+        {"client_id": acme["id"], "doc_type": "MSA", "version_number": 2},
+    )
+    rest.insert(
+        "document_versions",
+        {"client_id": acme["id"], "doc_type": "SOW", "version_number": 1},
+    )
 
     results = search_documents(rest, "Acme")
     counts = {r.doc_type: r.version_count for r in results}

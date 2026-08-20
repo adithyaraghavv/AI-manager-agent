@@ -17,7 +17,9 @@ class Settings(BaseSettings):
     # Used only for Alembic migrations and the one-off seed scripts — a rare,
     # occasional operation you can run from any network that reaches Supabase
     # directly (e.g. a hotspot), not something the running app depends on.
-    database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/delivery_agent"
+    database_url: str = (
+        "postgresql+psycopg://postgres:postgres@localhost:5432/delivery_agent"
+    )
 
     # Used by the running app for every chat/upload/download request, via
     # Supabase's REST API (app/db/rest_client.py) — plain HTTPS, so it works

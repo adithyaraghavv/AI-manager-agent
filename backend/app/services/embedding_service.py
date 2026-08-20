@@ -20,6 +20,7 @@ at all) don't get embedded retroactively just by this code shipping — see
 app.db.backfill_embeddings for the one-off script that indexes what's
 already on file.
 """
+
 from dataclasses import dataclass
 
 from openai import OpenAI
@@ -37,7 +38,9 @@ CHUNK_SIZE_CHARS = 800
 CHUNK_OVERLAP_CHARS = 100
 
 
-def chunk_text(text: str, chunk_size: int = CHUNK_SIZE_CHARS, overlap: int = CHUNK_OVERLAP_CHARS) -> list[str]:
+def chunk_text(
+    text: str, chunk_size: int = CHUNK_SIZE_CHARS, overlap: int = CHUNK_OVERLAP_CHARS
+) -> list[str]:
     """Splits `text` into overlapping fixed-size chunks, oldest-to-newest order."""
     text = text.strip()
     if not text:
@@ -91,7 +94,12 @@ def embed_document(
     except Exception:
         return 0
 
-    rest.delete("document_chunks", client_id=client_id, doc_type=doc_type, version_number=version_number)
+    rest.delete(
+        "document_chunks",
+        client_id=client_id,
+        doc_type=doc_type,
+        version_number=version_number,
+    )
     for index, (piece, embedding) in enumerate(zip(pieces, embeddings)):
         rest.insert(
             "document_chunks",

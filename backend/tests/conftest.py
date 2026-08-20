@@ -53,20 +53,30 @@ class FakeSupabaseRestClient:
                 return row
         return None
 
-    def select_active(self, table: str, active_column: str = "deleted_at", **filters) -> list[dict]:
+    def select_active(
+        self, table: str, active_column: str = "deleted_at", **filters
+    ) -> list[dict]:
         rows = self.select(table, **filters)
         return [r for r in rows if r.get(active_column) is None]
 
-    def select_one_ci_active(self, table: str, column: str, value: str, active_column: str = "deleted_at") -> dict | None:
+    def select_one_ci_active(
+        self, table: str, column: str, value: str, active_column: str = "deleted_at"
+    ) -> dict | None:
         for row in self._tables.get(table, []):
-            if str(row.get(column, "")).lower() == value.lower() and row.get(active_column) is None:
+            if (
+                str(row.get(column, "")).lower() == value.lower()
+                and row.get(active_column) is None
+            ):
                 return row
         return None
 
-    def select_ilike_any(self, table: str, columns: list[str], query: str) -> list[dict]:
+    def select_ilike_any(
+        self, table: str, columns: list[str], query: str
+    ) -> list[dict]:
         q = query.lower()
         return [
-            row for row in self._tables.get(table, [])
+            row
+            for row in self._tables.get(table, [])
             if any(q in str(row.get(col, "")).lower() for col in columns)
         ]
 
@@ -90,14 +100,18 @@ class FakeSupabaseRestClient:
 
     def delete(self, table: str, **filters) -> None:
         rows = self._tables.get(table, [])
-        self._tables[table] = [r for r in rows if not all(r.get(k) == v for k, v in filters.items())]
+        self._tables[table] = [
+            r for r in rows if not all(r.get(k) == v for k, v in filters.items())
+        ]
 
     def rpc(self, function_name: str, params: dict) -> list[dict]:
         """Only simulates match_document_chunks (the one RPC this app uses) —
         ranks document_chunks rows by cosine similarity in plain Python,
         standing in for the real Postgres vector index."""
         if function_name != "match_document_chunks":
-            raise ValueError(f"FakeSupabaseRestClient.rpc doesn't simulate {function_name!r}")
+            raise ValueError(
+                f"FakeSupabaseRestClient.rpc doesn't simulate {function_name!r}"
+            )
 
         def cosine_similarity(a: list[float], b: list[float]) -> float:
             dot = sum(x * y for x, y in zip(a, b))
@@ -110,11 +124,16 @@ class FakeSupabaseRestClient:
         match_count = params.get("match_count", 5)
 
         candidates = [
-            row for row in self._tables.get("document_chunks", [])
+            row
+            for row in self._tables.get("document_chunks", [])
             if row["client_id"] == params["match_client_id"]
             and (match_doc_type is None or row["doc_type"] == match_doc_type)
         ]
-        ranked = sorted(candidates, key=lambda r: cosine_similarity(r["embedding"], query_embedding), reverse=True)
+        ranked = sorted(
+            candidates,
+            key=lambda r: cosine_similarity(r["embedding"], query_embedding),
+            reverse=True,
+        )
         return [
             {
                 "id": row["id"],

@@ -8,6 +8,7 @@ callers must refuse the action outright when `allowed` is False.
 
 Pure functions only — no DB/storage/IO here, so this is trivially testable.
 """
+
 from dataclasses import dataclass
 
 from app.core.phase_config import Phase, PhaseConfig
@@ -29,10 +30,14 @@ class GatingDecision:
 
 def missing_documents(phase: Phase, existing_documents: set[str]) -> tuple[str, ...]:
     """Required documents for `phase` not present in `existing_documents`."""
-    return tuple(doc for doc in phase.required_documents if doc not in existing_documents)
+    return tuple(
+        doc for doc in phase.required_documents if doc not in existing_documents
+    )
 
 
-def check_gate(config: PhaseConfig, target_phase_name: str, existing_documents: set[str]) -> GatingDecision:
+def check_gate(
+    config: PhaseConfig, target_phase_name: str, existing_documents: set[str]
+) -> GatingDecision:
     """Can a document belonging to `target_phase_name` be requested/uploaded?
 
     Walks every earlier phase in sequence order (1, 2, ... up to the one right
@@ -47,7 +52,9 @@ def check_gate(config: PhaseConfig, target_phase_name: str, existing_documents: 
     for phase in earlier_phases:
         missing = missing_documents(phase, existing_documents)
         if missing:
-            return GatingDecision(allowed=False, blocking_phase=phase.name, missing_documents=missing)
+            return GatingDecision(
+                allowed=False, blocking_phase=phase.name, missing_documents=missing
+            )
 
     return GatingDecision(allowed=True)
 

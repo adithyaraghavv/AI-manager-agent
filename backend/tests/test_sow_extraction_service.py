@@ -33,7 +33,15 @@ def _mock_openai_response(fields: dict) -> MagicMock:
 
 
 def test_get_sow_summary_extracts_and_persists_fields(rest, storage):
-    upload_document(rest, storage, CONFIG, "SOW", "Acme", b"Contract value: $50,000. Ends Dec 2026.", "txt")
+    upload_document(
+        rest,
+        storage,
+        CONFIG,
+        "SOW",
+        "Acme",
+        b"Contract value: $50,000. Ends Dec 2026.",
+        "txt",
+    )
     fields = {
         "contract_value": "$50,000",
         "start_date": "Jan 2026",
@@ -47,7 +55,9 @@ def test_get_sow_summary_extracts_and_persists_fields(rest, storage):
     }
 
     with patch("app.services.sow_extraction_service.OpenAI") as MockOpenAI:
-        MockOpenAI.return_value.chat.completions.create.return_value = _mock_openai_response(fields)
+        MockOpenAI.return_value.chat.completions.create.return_value = (
+            _mock_openai_response(fields)
+        )
         result = get_sow_summary(rest, storage, "Acme")
 
     assert result.client_name == "Acme"
@@ -56,32 +66,47 @@ def test_get_sow_summary_extracts_and_persists_fields(rest, storage):
     assert result.end_date == "Dec 2026"
     assert result.scope_summary == "Build and deploy a delivery tracking tool."
     assert result.team_assignments == [{"name": "Jane Doe", "role": "Project Manager"}]
-    assert result.document_responsibilities["BRD"] == {"owner": "Client team", "approver": "Client team"}
-    assert result.document_responsibilities["HLD"] == {"owner": "Marlabs team", "approver": "Client Sponsor"}
+    assert result.document_responsibilities["BRD"] == {
+        "owner": "Client team",
+        "approver": "Client team",
+    }
+    assert result.document_responsibilities["HLD"] == {
+        "owner": "Marlabs team",
+        "approver": "Client Sponsor",
+    }
 
     client = rest.select_one("clients", name="Acme")
     stored = rest.select_one("sow_metadata", client_id=client["id"])
     assert stored["contract_value"] == "$50,000"
-    assert stored["team_assignments"] == [{"name": "Jane Doe", "role": "Project Manager"}]
-    assert stored["document_responsibilities"]["HLD"] == {"owner": "Marlabs team", "approver": "Client Sponsor"}
+    assert stored["team_assignments"] == [
+        {"name": "Jane Doe", "role": "Project Manager"}
+    ]
+    assert stored["document_responsibilities"]["HLD"] == {
+        "owner": "Marlabs team",
+        "approver": "Client Sponsor",
+    }
 
 
-def test_get_sow_summary_team_and_document_ownership_null_when_not_stated(rest, storage):
+def test_get_sow_summary_team_and_document_ownership_null_when_not_stated(
+    rest, storage
+):
     # The exact fabrication risk this guards against: a SOW that names no
     # project team and assigns no document ownership must come back with
     # both fields null, not an empty-but-invented team/ownership map.
     upload_document(rest, storage, CONFIG, "SOW", "Acme", b"a bare-bones SOW", "txt")
 
     with patch("app.services.sow_extraction_service.OpenAI") as MockOpenAI:
-        MockOpenAI.return_value.chat.completions.create.return_value = _mock_openai_response(
-            {
-                "contract_value": None,
-                "start_date": None,
-                "end_date": None,
-                "scope_summary": None,
-                "team_assignments": None,
-                "document_responsibilities": None,
-            }
+        MockOpenAI.return_value.chat.completions.create.return_value = (
+            _mock_openai_response(
+                {
+                    "contract_value": None,
+                    "start_date": None,
+                    "end_date": None,
+                    "scope_summary": None,
+                    "team_assignments": None,
+                    "document_responsibilities": None,
+                }
+            )
         )
         result = get_sow_summary(rest, storage, "Acme")
 
@@ -93,13 +118,27 @@ def test_get_sow_summary_re_extraction_overwrites_not_duplicates(rest, storage):
     upload_document(rest, storage, CONFIG, "SOW", "Acme", b"v1 content", "txt")
 
     with patch("app.services.sow_extraction_service.OpenAI") as MockOpenAI:
-        MockOpenAI.return_value.chat.completions.create.return_value = _mock_openai_response(
-            {"contract_value": "$10", "start_date": None, "end_date": None, "scope_summary": None}
+        MockOpenAI.return_value.chat.completions.create.return_value = (
+            _mock_openai_response(
+                {
+                    "contract_value": "$10",
+                    "start_date": None,
+                    "end_date": None,
+                    "scope_summary": None,
+                }
+            )
         )
         get_sow_summary(rest, storage, "Acme")
 
-        MockOpenAI.return_value.chat.completions.create.return_value = _mock_openai_response(
-            {"contract_value": "$20", "start_date": None, "end_date": None, "scope_summary": None}
+        MockOpenAI.return_value.chat.completions.create.return_value = (
+            _mock_openai_response(
+                {
+                    "contract_value": "$20",
+                    "start_date": None,
+                    "end_date": None,
+                    "scope_summary": None,
+                }
+            )
         )
         result = get_sow_summary(rest, storage, "Acme")
 
@@ -110,11 +149,20 @@ def test_get_sow_summary_re_extraction_overwrites_not_duplicates(rest, storage):
 
 
 def test_get_sow_summary_fields_can_be_null_when_sow_doesnt_state_them(rest, storage):
-    upload_document(rest, storage, CONFIG, "SOW", "Acme", b"a bare-bones SOW with no dates", "txt")
+    upload_document(
+        rest, storage, CONFIG, "SOW", "Acme", b"a bare-bones SOW with no dates", "txt"
+    )
 
     with patch("app.services.sow_extraction_service.OpenAI") as MockOpenAI:
-        MockOpenAI.return_value.chat.completions.create.return_value = _mock_openai_response(
-            {"contract_value": None, "start_date": None, "end_date": None, "scope_summary": "Unclear scope."}
+        MockOpenAI.return_value.chat.completions.create.return_value = (
+            _mock_openai_response(
+                {
+                    "contract_value": None,
+                    "start_date": None,
+                    "end_date": None,
+                    "scope_summary": "Unclear scope.",
+                }
+            )
         )
         result = get_sow_summary(rest, storage, "Acme")
 
@@ -135,8 +183,12 @@ def test_get_sow_summary_raises_for_unknown_client(rest, storage):
         get_sow_summary(rest, storage, "Ghost")
 
 
-def test_get_sow_summary_raises_when_file_type_unsupported_for_extraction(rest, storage):
-    upload_document(rest, storage, CONFIG, "SOW", "Acme", b"binary pptx content", "pptx")
+def test_get_sow_summary_raises_when_file_type_unsupported_for_extraction(
+    rest, storage
+):
+    upload_document(
+        rest, storage, CONFIG, "SOW", "Acme", b"binary pptx content", "pptx"
+    )
 
     with pytest.raises(SowExtractionFailed, match="Couldn't read text"):
         get_sow_summary(rest, storage, "Acme")
@@ -146,15 +198,20 @@ def test_generate_approval_reminder_finds_approver_and_drafts_message(rest, stor
     upload_document(rest, storage, CONFIG, "SOW", "Acme", b"SOW text", "txt")
 
     with patch("app.services.sow_extraction_service.OpenAI") as MockOpenAI:
-        MockOpenAI.return_value.chat.completions.create.return_value = _mock_openai_response(
-            {
-                "contract_value": None, "start_date": None, "end_date": None, "scope_summary": None,
-                "team_assignments": None,
-                "document_responsibilities": {
-                    "BRD": {"owner": "Client team", "approver": "Client team"},
-                    "HLD": {"owner": "Marlabs team", "approver": "Client Sponsor"},
-                },
-            }
+        MockOpenAI.return_value.chat.completions.create.return_value = (
+            _mock_openai_response(
+                {
+                    "contract_value": None,
+                    "start_date": None,
+                    "end_date": None,
+                    "scope_summary": None,
+                    "team_assignments": None,
+                    "document_responsibilities": {
+                        "BRD": {"owner": "Client team", "approver": "Client team"},
+                        "HLD": {"owner": "Marlabs team", "approver": "Client Sponsor"},
+                    },
+                }
+            )
         )
         result = generate_approval_reminder(rest, storage, "Acme", "HLD")
 
@@ -176,12 +233,19 @@ def test_generate_approval_reminder_falls_back_to_shared_owner_approver(rest, st
     upload_document(rest, storage, CONFIG, "SOW", "Acme", b"SOW text", "txt")
 
     with patch("app.services.sow_extraction_service.OpenAI") as MockOpenAI:
-        MockOpenAI.return_value.chat.completions.create.return_value = _mock_openai_response(
-            {
-                "contract_value": None, "start_date": None, "end_date": None, "scope_summary": None,
-                "team_assignments": None,
-                "document_responsibilities": {"BRD": {"owner": "Client team", "approver": "Client team"}},
-            }
+        MockOpenAI.return_value.chat.completions.create.return_value = (
+            _mock_openai_response(
+                {
+                    "contract_value": None,
+                    "start_date": None,
+                    "end_date": None,
+                    "scope_summary": None,
+                    "team_assignments": None,
+                    "document_responsibilities": {
+                        "BRD": {"owner": "Client team", "approver": "Client team"}
+                    },
+                }
+            )
         )
         result = generate_approval_reminder(rest, storage, "Acme", "BRD")
 
@@ -197,14 +261,22 @@ def test_generate_approval_reminder_matches_loosely_worded_doc_type(rest, storag
     upload_document(rest, storage, CONFIG, "SOW", "Acme", b"SOW text", "txt")
 
     with patch("app.services.sow_extraction_service.OpenAI") as MockOpenAI:
-        MockOpenAI.return_value.chat.completions.create.return_value = _mock_openai_response(
-            {
-                "contract_value": None, "start_date": None, "end_date": None, "scope_summary": None,
-                "team_assignments": None,
-                "document_responsibilities": {
-                    "Business Requirement Document (BRD)": {"owner": "Client team", "approver": "Client team"}
-                },
-            }
+        MockOpenAI.return_value.chat.completions.create.return_value = (
+            _mock_openai_response(
+                {
+                    "contract_value": None,
+                    "start_date": None,
+                    "end_date": None,
+                    "scope_summary": None,
+                    "team_assignments": None,
+                    "document_responsibilities": {
+                        "Business Requirement Document (BRD)": {
+                            "owner": "Client team",
+                            "approver": "Client team",
+                        }
+                    },
+                }
+            )
         )
         result = generate_approval_reminder(rest, storage, "Acme", "BRD")
 
@@ -213,19 +285,28 @@ def test_generate_approval_reminder_matches_loosely_worded_doc_type(rest, storag
     assert result.matched_doc_type == "Business Requirement Document (BRD)"
 
 
-def test_generate_approval_reminder_not_found_when_owner_named_but_no_approver(rest, storage):
+def test_generate_approval_reminder_not_found_when_owner_named_but_no_approver(
+    rest, storage
+):
     # The exact fabrication risk this guards against: the SOW names who
     # OWNS the document but doesn't say who approves it — the tool must not
     # quietly treat the owner as a stand-in approver.
     upload_document(rest, storage, CONFIG, "SOW", "Acme", b"SOW text", "txt")
 
     with patch("app.services.sow_extraction_service.OpenAI") as MockOpenAI:
-        MockOpenAI.return_value.chat.completions.create.return_value = _mock_openai_response(
-            {
-                "contract_value": None, "start_date": None, "end_date": None, "scope_summary": None,
-                "team_assignments": None,
-                "document_responsibilities": {"HLD": {"owner": "Marlabs team", "approver": None}},
-            }
+        MockOpenAI.return_value.chat.completions.create.return_value = (
+            _mock_openai_response(
+                {
+                    "contract_value": None,
+                    "start_date": None,
+                    "end_date": None,
+                    "scope_summary": None,
+                    "team_assignments": None,
+                    "document_responsibilities": {
+                        "HLD": {"owner": "Marlabs team", "approver": None}
+                    },
+                }
+            )
         )
         result = generate_approval_reminder(rest, storage, "Acme", "HLD")
 
@@ -238,12 +319,19 @@ def test_generate_approval_reminder_not_found_when_document_not_assigned(rest, s
     upload_document(rest, storage, CONFIG, "SOW", "Acme", b"SOW text", "txt")
 
     with patch("app.services.sow_extraction_service.OpenAI") as MockOpenAI:
-        MockOpenAI.return_value.chat.completions.create.return_value = _mock_openai_response(
-            {
-                "contract_value": None, "start_date": None, "end_date": None, "scope_summary": None,
-                "team_assignments": None,
-                "document_responsibilities": {"BRD": {"owner": "Client team", "approver": "Client team"}},
-            }
+        MockOpenAI.return_value.chat.completions.create.return_value = (
+            _mock_openai_response(
+                {
+                    "contract_value": None,
+                    "start_date": None,
+                    "end_date": None,
+                    "scope_summary": None,
+                    "team_assignments": None,
+                    "document_responsibilities": {
+                        "BRD": {"owner": "Client team", "approver": "Client team"}
+                    },
+                }
+            )
         )
         result = generate_approval_reminder(rest, storage, "Acme", "Deployment Plan")
 
@@ -256,11 +344,17 @@ def test_generate_approval_reminder_not_found_when_no_ownership_at_all(rest, sto
     upload_document(rest, storage, CONFIG, "SOW", "Acme", b"SOW text", "txt")
 
     with patch("app.services.sow_extraction_service.OpenAI") as MockOpenAI:
-        MockOpenAI.return_value.chat.completions.create.return_value = _mock_openai_response(
-            {
-                "contract_value": None, "start_date": None, "end_date": None, "scope_summary": None,
-                "team_assignments": None, "document_responsibilities": None,
-            }
+        MockOpenAI.return_value.chat.completions.create.return_value = (
+            _mock_openai_response(
+                {
+                    "contract_value": None,
+                    "start_date": None,
+                    "end_date": None,
+                    "scope_summary": None,
+                    "team_assignments": None,
+                    "document_responsibilities": None,
+                }
+            )
         )
         result = generate_approval_reminder(rest, storage, "Acme", "BRD")
 

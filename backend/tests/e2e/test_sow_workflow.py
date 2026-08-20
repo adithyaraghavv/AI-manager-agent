@@ -12,10 +12,10 @@ break under a real refactor:
   4. Extraction-fails: raises SowExtractionFailed with a helpful message
      (the operator-facing invariant PR #38 was careful to preserve).
 """
+
 from __future__ import annotations
 
 import json
-from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -70,9 +70,7 @@ def fake_rest() -> FakeSupabaseRestClient:
 @pytest.fixture
 def fake_storage() -> InMemoryStorage:
     return InMemoryStorage(
-        {
-            "clients/Acme/SOW/acme_sow_v1.docx": b"(placeholder DOCX bytes)"
-        }
+        {"clients/Acme/SOW/acme_sow_v1.docx": b"(placeholder DOCX bytes)"}
     )
 
 
@@ -97,7 +95,10 @@ def _patch_pipeline(fields: dict):
     # we don't need to mock it; the FakeSupabaseRestClient + InMemoryStorage
     # together satisfy its needs.
     return (
-        patch("app.services.sow_extraction_service.extract_text", return_value="mock SOW text with team, owner, approver"),
+        patch(
+            "app.services.sow_extraction_service.extract_text",
+            return_value="mock SOW text with team, owner, approver",
+        ),
         patch("app.services.sow_extraction_service.OpenAI"),
     )
 
@@ -105,12 +106,16 @@ def _patch_pipeline(fields: dict):
 def test_first_call_extracts_and_persists(fake_rest, fake_storage, fields):
     extract_patch, openai_patch = _patch_pipeline(fields)
     with extract_patch, openai_patch as MockOpenAI:
-        MockOpenAI.return_value.chat.completions.create.return_value = _mock_openai_response(fields)
+        MockOpenAI.return_value.chat.completions.create.return_value = (
+            _mock_openai_response(fields)
+        )
         result = get_sow_summary(fake_rest, fake_storage, "Acme")
 
     assert result is not None
     rows = fake_rest.select("sow_metadata", client_id=1)
-    assert len(rows) == 1, f"expected exactly one sow_metadata row, got {len(rows)}: {rows}"
+    assert (
+        len(rows) == 1
+    ), f"expected exactly one sow_metadata row, got {len(rows)}: {rows}"
     persisted = rows[0]
     # Round-trip check: what the LLM said should end up in the row
     assert persisted["contract_value"] == fields["contract_value"]
@@ -123,7 +128,9 @@ def test_repeat_call_is_idempotent(fake_rest, fake_storage, fields):
     switches to plain insert() and starts accumulating rows."""
     extract_patch, openai_patch = _patch_pipeline(fields)
     with extract_patch, openai_patch as MockOpenAI:
-        MockOpenAI.return_value.chat.completions.create.return_value = _mock_openai_response(fields)
+        MockOpenAI.return_value.chat.completions.create.return_value = (
+            _mock_openai_response(fields)
+        )
         get_sow_summary(fake_rest, fake_storage, "Acme")
         get_sow_summary(fake_rest, fake_storage, "Acme")
 
@@ -155,4 +162,6 @@ def test_extraction_failure_surfaces_helpful_message(fake_rest, fake_storage, fi
     msg = str(excinfo.value)
     assert "Acme" in msg
     # Should mention either the file type or the extraction problem
-    assert "extract" in msg.lower() or "file type" in msg.lower() or "text" in msg.lower()
+    assert (
+        "extract" in msg.lower() or "file type" in msg.lower() or "text" in msg.lower()
+    )

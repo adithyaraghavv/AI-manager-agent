@@ -1,16 +1,22 @@
-import { useState } from 'react'
-import DocTypeSelect from './DocTypeSelect'
+import { useState } from "react";
+import DocTypeSelect from "./DocTypeSelect";
 
-export default function AttachUploadCard({ file, initialClientName, initialDocType, onConfirm, onCancel }) {
-  const [clientName, setClientName] = useState(initialClientName || '')
-  const [docType, setDocType] = useState(initialDocType || '')
-  const [submitting, setSubmitting] = useState(false)
+export default function AttachUploadCard({
+  file,
+  initialClientName,
+  initialDocType,
+  onConfirm,
+  onCancel,
+}) {
+  const [clientName, setClientName] = useState(initialClientName || "");
+  const [docType, setDocType] = useState(initialDocType || "");
+  const [submitting, setSubmitting] = useState(false);
 
   async function handleConfirm() {
-    if (!clientName.trim() || !docType.trim() || submitting) return
-    setSubmitting(true)
-    await onConfirm(clientName.trim(), docType.trim())
-    setSubmitting(false)
+    if (!clientName.trim() || !docType.trim() || submitting) return;
+    setSubmitting(true);
+    await onConfirm(clientName.trim(), docType.trim());
+    setSubmitting(false);
   }
 
   return (
@@ -29,7 +35,9 @@ export default function AttachUploadCard({ file, initialClientName, initialDocTy
         </span>
         <div>
           <div className="upload-card__file">{file.name}</div>
-          <div className="upload-card__subtitle">Confirm the details below before filing this document</div>
+          <div className="upload-card__subtitle">
+            Confirm the details below before filing this document
+          </div>
         </div>
       </div>
       <div className="upload-card__row">
@@ -44,7 +52,11 @@ export default function AttachUploadCard({ file, initialClientName, initialDocTy
         </label>
         <label>
           Document type
-          <DocTypeSelect value={docType} onChange={setDocType} disabled={submitting} />
+          <DocTypeSelect
+            value={docType}
+            onChange={setDocType}
+            disabled={submitting}
+          />
         </label>
       </div>
       <div className="upload-card__actions">
@@ -53,12 +65,16 @@ export default function AttachUploadCard({ file, initialClientName, initialDocTy
           onClick={handleConfirm}
           disabled={submitting || !clientName.trim() || !docType.trim()}
         >
-          {submitting ? 'Uploading…' : 'Confirm & upload'}
+          {submitting ? "Uploading…" : "Confirm & upload"}
         </button>
-        <button className="upload-card__cancel" onClick={onCancel} disabled={submitting}>
+        <button
+          className="upload-card__cancel"
+          onClick={onCancel}
+          disabled={submitting}
+        >
           Cancel
         </button>
       </div>
     </div>
-  )
+  );
 }

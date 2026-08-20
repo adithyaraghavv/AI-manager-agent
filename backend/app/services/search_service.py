@@ -4,6 +4,7 @@ Read-only, no gating concept involved — same spirit as dashboard_service. A
 manager should be able to find a document without knowing which client
 folder it's filed under.
 """
+
 from dataclasses import dataclass
 
 from app.db.rest_client import SupabaseRestClient
@@ -18,7 +19,9 @@ class DocumentSearchResult:
     version_count: int
 
 
-def search_documents(rest: SupabaseRestClient, query: str) -> list[DocumentSearchResult]:
+def search_documents(
+    rest: SupabaseRestClient, query: str
+) -> list[DocumentSearchResult]:
     query = query.strip()
     if not query:
         return []
@@ -30,7 +33,12 @@ def search_documents(rest: SupabaseRestClient, query: str) -> list[DocumentSearc
         for c in rest.select_ilike_any("clients", ["name"], query)
         if c.get("deleted_at") is None
     }
-    matching_docs = {doc["id"]: doc for doc in rest.select_ilike_any("client_documents", ["filename", "doc_type"], query)}
+    matching_docs = {
+        doc["id"]: doc
+        for doc in rest.select_ilike_any(
+            "client_documents", ["filename", "doc_type"], query
+        )
+    }
 
     for client_id in matching_clients:
         for doc in rest.select("client_documents", client_id=client_id):
@@ -44,7 +52,13 @@ def search_documents(rest: SupabaseRestClient, query: str) -> list[DocumentSearc
             if client is None or client.get("deleted_at") is not None:
                 continue
             client_name = client["name"]
-        version_count = len(rest.select("document_versions", client_id=doc["client_id"], doc_type=doc["doc_type"]))
+        version_count = len(
+            rest.select(
+                "document_versions",
+                client_id=doc["client_id"],
+                doc_type=doc["doc_type"],
+            )
+        )
         results.append(
             DocumentSearchResult(
                 client_name=client_name,

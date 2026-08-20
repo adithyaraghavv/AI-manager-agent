@@ -3,6 +3,7 @@ new, immutable row in document_versions instead of overwriting the last one.
 client_documents (see client_service.py) always points at the current
 version — this module is the only thing that reads/writes the full history.
 """
+
 from dataclasses import dataclass
 
 import httpx
@@ -78,7 +79,16 @@ def record_version(
     is the actual source of truth here, this is just surfacing that as a
     typed exception the caller can retry on."""
     try:
-        row = _insert_version_row(rest, client_id, doc_type, version_number, storage_path, filename, uploaded_by, comment)
+        row = _insert_version_row(
+            rest,
+            client_id,
+            doc_type,
+            version_number,
+            storage_path,
+            filename,
+            uploaded_by,
+            comment,
+        )
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 409:
             raise VersionNumberConflict(
@@ -119,7 +129,9 @@ def _insert_version_row(
     )
 
 
-def list_versions(rest: SupabaseRestClient, client_id: int, doc_type: str) -> list[VersionInfo]:
+def list_versions(
+    rest: SupabaseRestClient, client_id: int, doc_type: str
+) -> list[VersionInfo]:
     """Every version on file for this client + doc type, oldest first."""
     rows = rest.select("document_versions", client_id=client_id, doc_type=doc_type)
     rows.sort(key=lambda r: r["version_number"])
@@ -137,11 +149,22 @@ def list_versions(rest: SupabaseRestClient, client_id: int, doc_type: str) -> li
 
 
 def get_version_content(
-    rest: SupabaseRestClient, storage: StorageBackend, client_id: int, doc_type: str, version_number: int
+    rest: SupabaseRestClient,
+    storage: StorageBackend,
+    client_id: int,
+    doc_type: str,
+    version_number: int,
 ) -> VersionContent:
-    row = rest.select_one("document_versions", client_id=client_id, doc_type=doc_type, version_number=version_number)
+    row = rest.select_one(
+        "document_versions",
+        client_id=client_id,
+        doc_type=doc_type,
+        version_number=version_number,
+    )
     if row is None:
-        raise DocumentVersionNotFound(f"No version {version_number} on file for doc type {doc_type!r}")
+        raise DocumentVersionNotFound(
+            f"No version {version_number} on file for doc type {doc_type!r}"
+        )
 
     try:
         content = storage.get(row["storage_path"])
@@ -150,4 +173,6 @@ def get_version_content(
             f"Version {version_number} of {doc_type!r} is on record but its file isn't present on this "
             "environment's local storage."
         ) from e
-    return VersionContent(filename=row["filename"], content=content, version_number=version_number)
+    return VersionContent(
+        filename=row["filename"], content=content, version_number=version_number
+    )

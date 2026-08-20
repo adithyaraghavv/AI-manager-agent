@@ -3,6 +3,7 @@
 Idempotent: safe to re-run. The JSON file is the source of truth — this
 script only projects it into the DB, it never writes back to the JSON.
 """
+
 from sqlalchemy.orm import Session
 
 from app.core.phase_config import get_phase_config

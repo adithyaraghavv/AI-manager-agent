@@ -19,4 +19,4 @@ Each client has its own sub-folder, mirroring the 7-phase structure defined in `
 - Client 2
 - Client 3
 
-*(Reproduced from the folder-tree screenshot in the original `Database_structure.docx`, showing a client folder expanded into its 7 phase sub-folders.)*
+_(Reproduced from the folder-tree screenshot in the original `Database_structure.docx`, showing a client folder expanded into its 7 phase sub-folders.)_

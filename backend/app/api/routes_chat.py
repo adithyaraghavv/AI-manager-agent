@@ -6,7 +6,12 @@ from pydantic import BaseModel, ConfigDict
 from app.agent.orchestrator import run_turn
 from app.core.phase_config import PhaseConfig
 from app.db.rest_client import SupabaseRestClient
-from app.deps import get_client_storage, get_config, get_rest_client, get_template_storage
+from app.deps import (
+    get_client_storage,
+    get_config,
+    get_rest_client,
+    get_template_storage,
+)
 from app.storage.base import StorageBackend
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])

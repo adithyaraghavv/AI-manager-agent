@@ -4,6 +4,7 @@ Small module, small blast radius, but it's on the critical path of every
 storage-touching endpoint — a permissive bug here becomes a path-traversal
 CVE. So we belt-and-brace it here.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -21,8 +22,8 @@ from app.core.client_name_validation import InvalidClientName, validate_client_n
         "Acme Inc",
         "acme-corp",
         "Acme_Corp_2026",
-        "Cliente-Acmé",           # unicode alphabetic
-        "A" * 100,                 # long-ish but plausible
+        "Cliente-Acmé",  # unicode alphabetic
+        "A" * 100,  # long-ish but plausible
     ],
 )
 def test_valid_names_are_accepted(name: str) -> None:
@@ -73,10 +74,10 @@ def test_none_raises_type_error_or_invalid_name() -> None:
 @pytest.mark.parametrize(
     "name",
     [
-        "'; DROP TABLE clients; --",   # SQL injection shape
-        "<script>alert(1)</script>",    # XSS shape
-        "${jndi:ldap://x}",             # log4shell shape
-        "Acme\x00Corp",                 # null byte
+        "'; DROP TABLE clients; --",  # SQL injection shape
+        "<script>alert(1)</script>",  # XSS shape
+        "${jndi:ldap://x}",  # log4shell shape
+        "Acme\x00Corp",  # null byte
     ],
 )
 def test_injection_shapes_do_not_silently_pass(name: str) -> None:

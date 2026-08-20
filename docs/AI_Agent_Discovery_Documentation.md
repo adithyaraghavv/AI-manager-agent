@@ -2,7 +2,7 @@
 
 **Marlabs — Delivery Team Automation Initiative**
 
-*Source: Discovery call between Tarun Prem Sai Singana and Adithya Raghav V | Compiled: 29 July 2026*
+_Source: Discovery call between Tarun Prem Sai Singana and Adithya Raghav V | Compiled: 29 July 2026_
 
 ---
 
@@ -24,17 +24,17 @@ Build a conversational AI agent for project managers that:
 
 Confirmed via the official phase configuration reference (`sdlc_phase_config.json`) provided by Tarun/Hames — this is the authoritative 7-phase structure the AI agent's gating logic is built against. Each phase lists the documents required before the project can move to the next phase; the first four phases (Pre-requisites through Implementation) were also independently confirmed in the discovery call.
 
-| Seq | Phase | Required documents (to move to the next phase) |
-|---|---|---|
-| 1 | Pre-requisites | MSA; SOW; Pricing; Kick-off Deck; Kick-off Meeting Invite |
-| 2 | Requirement Analysis | Business Requirement Document (BRD); Stakeholder Approvals; Clear Scope Definition |
-| 3 | System Design | Approved SRS; RTM Updated; Architecture Feasibility Study |
-| 4 | Implementation (Coding) | Approved HLD; Approved LLD; Development Environment Setup; Coding Standards Defined |
-| 5 | Testing (STLC Integrated) | Approved Test Plan; Test Environment Ready; Test Data Prepared |
-| 6 | Deployment | Signed-off Test Summary Report; Release Notes; Deployment Plan |
-| 7 | Maintenance | Deployed System in Production; SLA Agreements; Support Plan |
+| Seq | Phase                     | Required documents (to move to the next phase)                                      |
+| --- | ------------------------- | ----------------------------------------------------------------------------------- |
+| 1   | Pre-requisites            | MSA; SOW; Pricing; Kick-off Deck; Kick-off Meeting Invite                           |
+| 2   | Requirement Analysis      | Business Requirement Document (BRD); Stakeholder Approvals; Clear Scope Definition  |
+| 3   | System Design             | Approved SRS; RTM Updated; Architecture Feasibility Study                           |
+| 4   | Implementation (Coding)   | Approved HLD; Approved LLD; Development Environment Setup; Coding Standards Defined |
+| 5   | Testing (STLC Integrated) | Approved Test Plan; Test Environment Ready; Test Data Prepared                      |
+| 6   | Deployment                | Signed-off Test Summary Report; Release Notes; Deployment Plan                      |
+| 7   | Maintenance               | Deployed System in Production; SLA Agreements; Support Plan                         |
 
-> *This configuration file appears to be the actual machine-readable source the agent should reference for phase-gating logic — worth confirming with Tarun/Hames whether it is already wired into the POC or still needs to be integrated.*
+> _This configuration file appears to be the actual machine-readable source the agent should reference for phase-gating logic — worth confirming with Tarun/Hames whether it is already wired into the POC or still needs to be integrated._
 
 ## 4. How the AI Agent Is Meant to Work
 
@@ -58,7 +58,7 @@ This is the end-to-end interaction flow as walked through live in the demo:
 - When a PM uploads a completed document for a client that doesn't have a folder yet, the agent creates the client folder and the full phase sub-structure automatically, then files the document into the correct phase.
 - Storage today is local (the POC was demoed storing data on Tarun's machine). The intended end state is for this to live in SharePoint / the cloud, not locally — flagged explicitly by Tarun as a required next step, not yet built.
 
-> *This master-folder / per-client-folder model is also confirmed in a separate reference document (`Database_structure.docx` / `Database_structure.md`) shared by Tarun, which shows a master Template folder alongside a Clients folder containing one sub-folder per client (e.g. Client 1, Client 2, Client 3), matching the live demo.*
+> _This master-folder / per-client-folder model is also confirmed in a separate reference document (`Database_structure.docx` / `Database_structure.md`) shared by Tarun, which shows a master Template folder alongside a Clients folder containing one sub-folder per client (e.g. Client 1, Client 2, Client 3), matching the live demo._
 
 This was originally conceived internally as a "RAG agent" (retrieval-augmented generation) — the agent retrieves the right template/document from the template store rather than generating content from scratch. Whether a full RAG pipeline is actually needed is currently an open question (see Section 7) now that a team member ("Others") who was driving that direction has left.
 
@@ -109,4 +109,4 @@ One portion of the original call recording is still not available in the transcr
 
 - ~34:34–37:21 — further detail on the proposed daily/working-session cadence.
 
-> *If this section becomes available, it should be reviewed and this document updated accordingly.*
+> _If this section becomes available, it should be reviewed and this document updated accordingly._

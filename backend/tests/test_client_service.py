@@ -49,7 +49,10 @@ def test_delete_client_hides_it_but_keeps_data_intact(rest, storage):
     # Soft-delete: invisible to normal lookups, but nothing is actually erased —
     # this is the recovery window added per team review feedback.
     client = get_or_create_client(rest, storage, CONFIG, "Acme")
-    rest.insert("client_documents", {"client_id": client["id"], "doc_type": "MSA", "phase_name": "Pre-requisites"})
+    rest.insert(
+        "client_documents",
+        {"client_id": client["id"], "doc_type": "MSA", "phase_name": "Pre-requisites"},
+    )
     assert storage.exists("Acme")
 
     delete_client(rest, storage, client)
@@ -74,7 +77,10 @@ def test_get_or_create_after_delete_creates_a_new_client_not_a_revival(rest, sto
 
 def test_purge_removes_clients_past_the_retention_window(rest, storage):
     client = get_or_create_client(rest, storage, CONFIG, "Acme")
-    rest.insert("client_documents", {"client_id": client["id"], "doc_type": "MSA", "phase_name": "Pre-requisites"})
+    rest.insert(
+        "client_documents",
+        {"client_id": client["id"], "doc_type": "MSA", "phase_name": "Pre-requisites"},
+    )
     old_deletion = (datetime.now(timezone.utc) - timedelta(days=45)).isoformat()
     rest.update("clients", {"id": client["id"]}, {"deleted_at": old_deletion})
 
@@ -148,7 +154,9 @@ def test_find_client_is_case_insensitive(rest, storage):
 def test_mark_document_not_applicable_adds_to_satisfied_but_not_existing(rest, storage):
     client = get_or_create_client(rest, storage, CONFIG, "Acme")
 
-    mark_document_not_applicable(rest, client, "BRD", reason="Client provided finished requirements in the SOW")
+    mark_document_not_applicable(
+        rest, client, "BRD", reason="Client provided finished requirements in the SOW"
+    )
 
     # Not actually filed — existing_document_types (real filings) is untouched.
     assert existing_document_types(rest, client) == set()
@@ -164,7 +172,9 @@ def test_mark_document_not_applicable_is_idempotent(rest, storage):
     mark_document_not_applicable(rest, client, "BRD", reason="updated reason")
 
     # Still just one mark, not two — and the reason was updated, not duplicated.
-    rows = rest.select("not_applicable_documents", client_id=client["id"], doc_type="BRD")
+    rows = rest.select(
+        "not_applicable_documents", client_id=client["id"], doc_type="BRD"
+    )
     assert len(rows) == 1
     assert rows[0]["reason"] == "updated reason"
 
@@ -188,8 +198,12 @@ def test_unmark_document_not_applicable_no_op_if_never_marked(rest, storage):
     assert was_marked is False
 
 
-@pytest.mark.parametrize("bad_name", ["../Escaped", "Acme/../../etc", "Foo/Bar", "Foo\\Bar", "", "   "])
-def test_get_or_create_client_rejects_names_that_would_break_as_a_storage_path(rest, storage, bad_name):
+@pytest.mark.parametrize(
+    "bad_name", ["../Escaped", "Acme/../../etc", "Foo/Bar", "Foo\\Bar", "", "   "]
+)
+def test_get_or_create_client_rejects_names_that_would_break_as_a_storage_path(
+    rest, storage, bad_name
+):
     # The exact live bug this guards against: a client name containing ".."
     # or a path separator used to reach the storage layer unvalidated,
     # raising an opaque ValueError deep inside LocalFilesystemStorage

@@ -3,12 +3,12 @@
 This repo ships four GitHub Actions workflows that together cover build,
 test, security hygiene, versioning, and container publishing.
 
-| Workflow | File | Triggers |
-| --- | --- | --- |
-| Build & Test | `.github/workflows/ci.yml` | push to any branch, PRs into `main` |
-| Checks | `.github/workflows/checks.yml` | push to `main`, PRs into `main` |
-| Release Please | `.github/workflows/release-please.yml` | push to `main` |
-| Package | `.github/workflows/package.yml` | `release: published`, `workflow_dispatch` |
+| Workflow       | File                                   | Triggers                                  |
+| -------------- | -------------------------------------- | ----------------------------------------- |
+| Build & Test   | `.github/workflows/ci.yml`             | push to any branch, PRs into `main`       |
+| Checks         | `.github/workflows/checks.yml`         | push to `main`, PRs into `main`           |
+| Release Please | `.github/workflows/release-please.yml` | push to `main`                            |
+| Package        | `.github/workflows/package.yml`        | `release: published`, `workflow_dispatch` |
 
 ## Build & Test — `ci.yml`
 
@@ -43,6 +43,7 @@ read-only repo permissions.
   the `sbom-spdx` artifact.
 
 **When it fails:**
+
 - `actionlint` / `shellcheck` / `hadolint`: the annotation points at the
   exact line. Fix and push.
 - `gitleaks`: **rotate the credential first**, then remove it from the
@@ -83,6 +84,7 @@ without cutting a new release. The workflow takes an optional `tag`
 input; if omitted, it falls back to `manual-<shortsha>`.
 
 **When it fails:**
+
 - Auth error on push: confirm the repo's GHCR package (created on the
   first successful push) allows the `GITHUB_TOKEN` to write.
 - Buildx / QEMU flakiness: re-run the failed job.

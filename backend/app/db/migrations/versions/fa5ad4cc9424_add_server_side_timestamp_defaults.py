@@ -12,6 +12,7 @@ Postgres rejected inserts on these NOT NULL columns. Moving the default to the
 database itself (`server_default=now()`) fixes it for every access path, not just
 whichever one happens to remember to set it.
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -19,19 +20,19 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'fa5ad4cc9424'
-down_revision: Union[str, Sequence[str], None] = '50ec6baa0704'
+revision: str = "fa5ad4cc9424"
+down_revision: Union[str, Sequence[str], None] = "50ec6baa0704"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.alter_column('clients', 'created_at', server_default=sa.text('now()'))
-    op.alter_column('templates', 'uploaded_at', server_default=sa.text('now()'))
-    op.alter_column('client_documents', 'uploaded_at', server_default=sa.text('now()'))
+    op.alter_column("clients", "created_at", server_default=sa.text("now()"))
+    op.alter_column("templates", "uploaded_at", server_default=sa.text("now()"))
+    op.alter_column("client_documents", "uploaded_at", server_default=sa.text("now()"))
 
 
 def downgrade() -> None:
-    op.alter_column('clients', 'created_at', server_default=None)
-    op.alter_column('templates', 'uploaded_at', server_default=None)
-    op.alter_column('client_documents', 'uploaded_at', server_default=None)
+    op.alter_column("clients", "created_at", server_default=None)
+    op.alter_column("templates", "uploaded_at", server_default=None)
+    op.alter_column("client_documents", "uploaded_at", server_default=None)

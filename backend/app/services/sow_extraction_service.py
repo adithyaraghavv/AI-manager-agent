@@ -11,6 +11,7 @@ follows elsewhere in this app. The stored row is a cache of the last
 extraction for anything that later wants to query it directly, not a
 substitute for that.
 """
+
 import json
 from dataclasses import dataclass
 from datetime import datetime
@@ -79,7 +80,9 @@ class ApprovalReminderResult:
     reason: str | None = None
 
 
-def _match_document_responsibility(document_responsibilities: dict, requested_doc_type: str) -> tuple[str, dict] | None:
+def _match_document_responsibility(
+    document_responsibilities: dict, requested_doc_type: str
+) -> tuple[str, dict] | None:
     """Find the (matched_key, {"owner", "approver"}) entry for
     `requested_doc_type` in a document_responsibilities map. The PM's
     phrasing and the SOW's own wording for a document name rarely match
@@ -142,7 +145,9 @@ def _persist(rest: SupabaseRestClient, client_id: int, fields: dict) -> dict:
     return rest.update("sow_metadata", {"id": existing["id"]}, payload)
 
 
-def get_sow_summary(rest: SupabaseRestClient, storage: StorageBackend, client_name: str) -> SowMetadataResult:
+def get_sow_summary(
+    rest: SupabaseRestClient, storage: StorageBackend, client_name: str
+) -> SowMetadataResult:
     client = find_client(rest, client_name)
     if client is None:
         raise SowExtractionFailed(f"No client named {client_name!r}")
@@ -150,7 +155,9 @@ def get_sow_summary(rest: SupabaseRestClient, storage: StorageBackend, client_na
     try:
         document = get_stored_document(rest, storage, client_name, "SOW")
     except ClientDocumentNotFound as e:
-        raise SowExtractionFailed(f"No SOW is on file for {client['name']!r} yet.") from e
+        raise SowExtractionFailed(
+            f"No SOW is on file for {client['name']!r} yet."
+        ) from e
 
     extension = document.filename.rsplit(".", 1)[-1] if "." in document.filename else ""
     text = extract_text(document.content, extension)
@@ -232,5 +239,7 @@ def generate_approval_reminder(
         matched_doc_type=matched_doc_type,
         owner=owner,
         approver=approver,
-        reminder_message=_build_reminder_message(summary.client_name, matched_doc_type, approver),
+        reminder_message=_build_reminder_message(
+            summary.client_name, matched_doc_type, approver
+        ),
     )

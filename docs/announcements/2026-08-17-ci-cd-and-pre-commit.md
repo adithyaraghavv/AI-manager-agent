@@ -18,13 +18,13 @@ Two PRs, one story:
 
 ## What CI runs on every PR
 
-| Workflow | Trigger | What it catches |
-|---|---|---|
-| `pr-checks.yml` | PR to `main` | Backend regression + feature tests + frontend build (already in place) |
-| `checks.yml` | PR + push to `main` | actionlint, shellcheck, hadolint, gitleaks, `uv pip audit`, `npm audit`, SPDX SBOM |
-| `pre-commit-ci.yml` | PR + push to `main` | Same hook stack that runs locally — as a safety net for contributors who haven't installed pre-commit |
-| `release-please.yml` | Push to `main` | Opens/updates a "chore(main): release X.Y.Z" PR based on Conventional Commits since the last release |
-| `package.yml` | GitHub release published | Builds a multi-arch (`linux/amd64,linux/arm64`) container of the backend and pushes it to `ghcr.io/<repo>/backend` tagged with the version and `latest` |
+| Workflow             | Trigger                  | What it catches                                                                                                                                         |
+| -------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pr-checks.yml`      | PR to `main`             | Backend regression + feature tests + frontend build (already in place)                                                                                  |
+| `checks.yml`         | PR + push to `main`      | actionlint, shellcheck, hadolint, gitleaks, `uv pip audit`, `npm audit`, SPDX SBOM                                                                      |
+| `pre-commit-ci.yml`  | PR + push to `main`      | Same hook stack that runs locally — as a safety net for contributors who haven't installed pre-commit                                                   |
+| `release-please.yml` | Push to `main`           | Opens/updates a "chore(main): release X.Y.Z" PR based on Conventional Commits since the last release                                                    |
+| `package.yml`        | GitHub release published | Builds a multi-arch (`linux/amd64,linux/arm64`) container of the backend and pushes it to `ghcr.io/<repo>/backend` tagged with the version and `latest` |
 
 All third-party actions are pinned to explicit version tags. Every job has a 15-minute timeout and a `concurrency` group so re-pushes cancel stale runs. Permissions default to read-only, and the two jobs that need write scope (release-please and container publish) declare exactly what they need.
 
@@ -34,19 +34,19 @@ All third-party actions are pinned to explicit version tags. Every job has a 15-
 
 Runs on `git commit` locally, and on every PR via `pre-commit-ci.yml` in CI.
 
-| Hook | Scope | What it does |
-|---|---|---|
-| `trailing-whitespace`, `end-of-file-fixer`, `mixed-line-ending` | all files | Whitespace hygiene |
-| `check-yaml`, `check-json` | all files | Parse-time syntax check |
-| `check-added-large-files` (500 KB max) | all files | Blocks accidentally committed binaries |
-| `check-merge-conflict` | all files | Blocks unresolved conflict markers |
-| `ruff` (lint) + `ruff-format` | `backend/` | Python lint + format |
-| `prettier` | `frontend/`, `docs/` | JS/CSS/MD/YAML formatting |
-| `codespell` | all files | Common typos in code and prose |
-| `gitleaks` | all files | Secrets detection (API keys, tokens, private keys) |
-| `hadolint` | `Dockerfile*` | Docker best-practice lint |
-| `markdownlint` | `*.md` | Markdown style (with MD013 line-length and MD033 inline-HTML disabled for Docusaurus) |
-| `conventional-pre-commit` | commit message | Enforces `type(scope): subject` format |
+| Hook                                                            | Scope                | What it does                                                                          |
+| --------------------------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------- |
+| `trailing-whitespace`, `end-of-file-fixer`, `mixed-line-ending` | all files            | Whitespace hygiene                                                                    |
+| `check-yaml`, `check-json`                                      | all files            | Parse-time syntax check                                                               |
+| `check-added-large-files` (500 KB max)                          | all files            | Blocks accidentally committed binaries                                                |
+| `check-merge-conflict`                                          | all files            | Blocks unresolved conflict markers                                                    |
+| `ruff` (lint) + `ruff-format`                                   | `backend/`           | Python lint + format                                                                  |
+| `prettier`                                                      | `frontend/`, `docs/` | JS/CSS/MD/YAML formatting                                                             |
+| `codespell`                                                     | all files            | Common typos in code and prose                                                        |
+| `gitleaks`                                                      | all files            | Secrets detection (API keys, tokens, private keys)                                    |
+| `hadolint`                                                      | `Dockerfile*`        | Docker best-practice lint                                                             |
+| `markdownlint`                                                  | `*.md`               | Markdown style (with MD013 line-length and MD033 inline-HTML disabled for Docusaurus) |
+| `conventional-pre-commit`                                       | commit message       | Enforces `type(scope): subject` format                                                |
 
 Companion files: `.editorconfig` (so your editor matches the hooks before you even save) and `.markdownlint.yaml` (tuned for our Docusaurus setup).
 
@@ -84,17 +84,17 @@ SKIP=hookid git commit -m "…"
 
 The `conventional-pre-commit` hook enforces this format. `release-please` reads it to decide the semver bump and to write the changelog.
 
-| Prefix | When to use | Bumps |
-|---|---|---|
-| `feat:` | New user-visible feature | minor |
-| `fix:` | Bug fix | patch |
-| `docs:` | Docs only | none |
-| `chore:` | Config, deps, tooling — no user impact | none |
-| `ci:` | CI/CD pipeline changes | none |
-| `refactor:` | Behaviour-preserving code change | none |
-| `test:` | Tests only | none |
-| `perf:` | Performance improvement | patch |
-| `BREAKING CHANGE:` in body | Any breaking API change | major |
+| Prefix                     | When to use                            | Bumps |
+| -------------------------- | -------------------------------------- | ----- |
+| `feat:`                    | New user-visible feature               | minor |
+| `fix:`                     | Bug fix                                | patch |
+| `docs:`                    | Docs only                              | none  |
+| `chore:`                   | Config, deps, tooling — no user impact | none  |
+| `ci:`                      | CI/CD pipeline changes                 | none  |
+| `refactor:`                | Behaviour-preserving code change       | none  |
+| `test:`                    | Tests only                             | none  |
+| `perf:`                    | Performance improvement                | patch |
+| `BREAKING CHANGE:` in body | Any breaking API change                | major |
 
 Optional scope: `feat(auth): support device-code flow`.
 
@@ -113,14 +113,14 @@ No manual `git tag`. No manual changelog. If the commit history has the right sh
 
 ## When something fails
 
-| Failure | First place to look | Usual fix |
-|---|---|---|
-| `checks / lint-actions` red | Your changed workflow YAML | Run `actionlint` locally; fix reported issues |
-| `checks / secrets-scan` red | Recent commits | Rotate the leaked credential immediately, then `git filter-repo` to purge (ping platform) |
-| `checks / python-audit` warning | `backend/requirements.txt` | Update the vulnerable dep or add an exception if unfixable |
-| `pre-commit-ci` red | The failing hook's docs | Install pre-commit locally so this catches on commit, not in CI |
-| `release-please` isn't opening a PR | Your commit messages | Check they follow Conventional Commits — the hook enforces this on new commits, older ones may not |
-| `package` job red | Backend Dockerfile | Confirm `backend/Dockerfile` builds locally: `docker build backend/` |
+| Failure                             | First place to look        | Usual fix                                                                                          |
+| ----------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------- |
+| `checks / lint-actions` red         | Your changed workflow YAML | Run `actionlint` locally; fix reported issues                                                      |
+| `checks / secrets-scan` red         | Recent commits             | Rotate the leaked credential immediately, then `git filter-repo` to purge (ping platform)          |
+| `checks / python-audit` warning     | `backend/requirements.txt` | Update the vulnerable dep or add an exception if unfixable                                         |
+| `pre-commit-ci` red                 | The failing hook's docs    | Install pre-commit locally so this catches on commit, not in CI                                    |
+| `release-please` isn't opening a PR | Your commit messages       | Check they follow Conventional Commits — the hook enforces this on new commits, older ones may not |
+| `package` job red                   | Backend Dockerfile         | Confirm `backend/Dockerfile` builds locally: `docker build backend/`                               |
 
 ---
 

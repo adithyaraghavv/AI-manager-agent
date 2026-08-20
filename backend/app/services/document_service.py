@@ -4,14 +4,19 @@ Both functions enforce the gate deterministically (app.core.gating) before
 touching storage. Callers (API routes, agent tools) must not bypass this by
 calling storage directly.
 """
+
 from dataclasses import dataclass
 
 from app.core.file_naming import build_filename
 from app.core.gating import GatingDecision, check_gate, resolve_phase_for_document
 from app.core.phase_config import PhaseConfig
-from app.core.upload_validation import InvalidUpload, validate_upload
+from app.core.upload_validation import validate_upload
 from app.db.rest_client import SupabaseRestClient
-from app.services.client_service import find_client, get_or_create_client, satisfied_document_types
+from app.services.client_service import (
+    find_client,
+    get_or_create_client,
+    satisfied_document_types,
+)
 from app.services import version_service
 from app.storage.base import StorageBackend
 
@@ -33,6 +38,7 @@ class TemplateFileMissing(Exception):
     the database is shared across every environment, but each one's local
     file storage is its own). Distinct from TemplateNotFound (no record at
     all) so the fix that's actually needed is obvious from the message."""
+
     def __init__(self, doc_type: str):
         self.doc_type = doc_type
         super().__init__(
@@ -111,7 +117,9 @@ def upload_document(
     if not decision.allowed:
         raise GatingBlocked(decision)
 
-    filename = build_filename(doc_type=doc_type, client_name=canonical_name, extension=extension)
+    filename = build_filename(
+        doc_type=doc_type, client_name=canonical_name, extension=extension
+    )
     folder = f"{canonical_name}/{phase.sequence:02d}_{phase.name}"
     # Reserve the version number BEFORE saving, and fold it into the storage
     # path — build_filename's timestamp alone is only second-precision, so
@@ -126,13 +134,21 @@ def upload_document(
     # the PM as a raw failure.
     version_number = stored_path = None
     for attempt in range(version_service.MAX_VERSION_CONFLICT_RETRIES):
-        version_number = version_service.next_version_number(rest, client["id"], doc_type)
+        version_number = version_service.next_version_number(
+            rest, client["id"], doc_type
+        )
         stored_path = f"{folder}/v{version_number}_{filename}"
         storage.save(stored_path, content)
         try:
             version_service.record_version(
-                rest, client["id"], doc_type, version_number, stored_path, filename,
-                uploaded_by=uploaded_by, comment=comment,
+                rest,
+                client["id"],
+                doc_type,
+                version_number,
+                stored_path,
+                filename,
+                uploaded_by=uploaded_by,
+                comment=comment,
             )
             break
         except version_service.VersionNumberConflict:
@@ -140,7 +156,9 @@ def upload_document(
                 raise
             continue
 
-    record = rest.select_one("client_documents", client_id=client["id"], doc_type=doc_type)
+    record = rest.select_one(
+        "client_documents", client_id=client["id"], doc_type=doc_type
+    )
     if record is None:
         rest.insert(
             "client_documents",
@@ -160,7 +178,10 @@ def upload_document(
         )
 
     return UploadResult(
-        stored_path=stored_path, filename=filename, phase_name=phase.name, version_number=version_number
+        stored_path=stored_path,
+        filename=filename,
+        phase_name=phase.name,
+        version_number=version_number,
     )
 
 
@@ -183,32 +204,55 @@ def restore_document_version(
         raise ClientDocumentNotFound(f"No client named {client_name!r}")
 
     try:
-        old = version_service.get_version_content(rest, storage, client["id"], doc_type, version_number)
+        old = version_service.get_version_content(
+            rest, storage, client["id"], doc_type, version_number
+        )
     except version_service.DocumentVersionNotFound as e:
         raise ClientDocumentNotFound(str(e)) from e
 
-    record = rest.select_one("client_documents", client_id=client["id"], doc_type=doc_type)
+    record = rest.select_one(
+        "client_documents", client_id=client["id"], doc_type=doc_type
+    )
     if record is None:
-        raise ClientDocumentNotFound(f"No {doc_type!r} document on file for {client_name!r}")
+        raise ClientDocumentNotFound(
+            f"No {doc_type!r} document on file for {client_name!r}"
+        )
     phase_name = record["phase_name"]
 
     extension = old.filename.rsplit(".", 1)[-1] if "." in old.filename else "bin"
-    filename = build_filename(doc_type=doc_type, client_name=client["name"], extension=extension)
-    new_version_number = version_service.next_version_number(rest, client["id"], doc_type)
+    filename = build_filename(
+        doc_type=doc_type, client_name=client["name"], extension=extension
+    )
+    new_version_number = version_service.next_version_number(
+        rest, client["id"], doc_type
+    )
     folder_prefix = record["storage_path"].rsplit("/", 1)[0]
     stored_path = f"{folder_prefix}/v{new_version_number}_{filename}"
     storage.save(stored_path, old.content)
 
-    rest.update("client_documents", {"id": record["id"]}, {"storage_path": stored_path, "filename": filename})
+    rest.update(
+        "client_documents",
+        {"id": record["id"]},
+        {"storage_path": stored_path, "filename": filename},
+    )
 
     restore_comment = comment or f"Restored from version {version_number}"
     version_service.record_version(
-        rest, client["id"], doc_type, new_version_number, stored_path, filename,
-        uploaded_by=uploaded_by, comment=restore_comment,
+        rest,
+        client["id"],
+        doc_type,
+        new_version_number,
+        stored_path,
+        filename,
+        uploaded_by=uploaded_by,
+        comment=restore_comment,
     )
 
     return UploadResult(
-        stored_path=stored_path, filename=filename, phase_name=phase_name, version_number=new_version_number
+        stored_path=stored_path,
+        filename=filename,
+        phase_name=phase_name,
+        version_number=new_version_number,
     )
 
 
@@ -216,7 +260,9 @@ class ClientDocumentNotFound(Exception):
     pass
 
 
-def list_document_versions(rest: SupabaseRestClient, client_name: str, doc_type: str) -> list:
+def list_document_versions(
+    rest: SupabaseRestClient, client_name: str, doc_type: str
+) -> list:
     """Every version on file for a client's document, oldest first. Returns
     an empty list (not an error) if the client exists but has never filed
     this doc_type — callers decide how to phrase "no versions yet."""
@@ -227,13 +273,19 @@ def list_document_versions(rest: SupabaseRestClient, client_name: str, doc_type:
 
 
 def get_document_version(
-    rest: SupabaseRestClient, storage: StorageBackend, client_name: str, doc_type: str, version_number: int
+    rest: SupabaseRestClient,
+    storage: StorageBackend,
+    client_name: str,
+    doc_type: str,
+    version_number: int,
 ):
     client = find_client(rest, client_name)
     if client is None:
         raise ClientDocumentNotFound(f"No client named {client_name!r}")
     try:
-        return version_service.get_version_content(rest, storage, client["id"], doc_type, version_number)
+        return version_service.get_version_content(
+            rest, storage, client["id"], doc_type, version_number
+        )
     except version_service.DocumentVersionNotFound as e:
         raise ClientDocumentNotFound(str(e)) from e
 
@@ -246,7 +298,9 @@ class DocumentLocation:
     filename: str
 
 
-def get_document_location(rest: SupabaseRestClient, client_name: str, doc_type: str) -> DocumentLocation:
+def get_document_location(
+    rest: SupabaseRestClient, client_name: str, doc_type: str
+) -> DocumentLocation:
     """Where a filed document lives — a folder path, not the file itself.
     For a PM who just wants to know where something is (to browse it
     themselves later, e.g. once this is backed by a real SharePoint folder)
@@ -255,13 +309,20 @@ def get_document_location(rest: SupabaseRestClient, client_name: str, doc_type: 
     if client is None:
         raise ClientDocumentNotFound(f"No client named {client_name!r}")
 
-    record = rest.select_one("client_documents", client_id=client["id"], doc_type=doc_type)
+    record = rest.select_one(
+        "client_documents", client_id=client["id"], doc_type=doc_type
+    )
     if record is None:
-        raise ClientDocumentNotFound(f"No {doc_type!r} document on file for {client_name!r}")
+        raise ClientDocumentNotFound(
+            f"No {doc_type!r} document on file for {client_name!r}"
+        )
 
     folder_path = record["storage_path"].rsplit("/", 1)[0]
     return DocumentLocation(
-        client_name=client["name"], doc_type=doc_type, folder_path=folder_path, filename=record["filename"]
+        client_name=client["name"],
+        doc_type=doc_type,
+        folder_path=folder_path,
+        filename=record["filename"],
     )
 
 
@@ -279,9 +340,13 @@ def get_stored_document(
     if client is None:
         raise ClientDocumentNotFound(f"No client named {client_name!r}")
 
-    record = rest.select_one("client_documents", client_id=client["id"], doc_type=doc_type)
+    record = rest.select_one(
+        "client_documents", client_id=client["id"], doc_type=doc_type
+    )
     if record is None:
-        raise ClientDocumentNotFound(f"No {doc_type!r} document on file for {client_name!r}")
+        raise ClientDocumentNotFound(
+            f"No {doc_type!r} document on file for {client_name!r}"
+        )
 
     try:
         content = storage.get(record["storage_path"])

@@ -38,7 +38,8 @@ repos:
     rev: v2.3.0
     hooks:
       - id: codespell
-        args: [--ignore-words-list=cant,couldnt,ba,te,hist]
+        args: ["--ignore-words-list=cant,couldnt,ba,te,hist,lients"]
+        exclude: ^(frontend/package-lock\.json|.*\.lock|.*\.min\.(js|css))$
 
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.21.2

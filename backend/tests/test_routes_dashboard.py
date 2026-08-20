@@ -3,10 +3,17 @@ from datetime import datetime, timezone
 
 def test_clients_status_route_serializes_correctly(route_client):
     client, fake, _ = route_client()
-    client_row = fake.insert("clients", {"name": "Acme", "created_at": datetime.now(timezone.utc).isoformat()})
+    client_row = fake.insert(
+        "clients",
+        {"name": "Acme", "created_at": datetime.now(timezone.utc).isoformat()},
+    )
     fake.insert(
         "client_documents",
-        {"client_id": client_row["id"], "doc_type": "MSA", "uploaded_at": datetime.now(timezone.utc).isoformat()},
+        {
+            "client_id": client_row["id"],
+            "doc_type": "MSA",
+            "uploaded_at": datetime.now(timezone.utc).isoformat(),
+        },
     )
 
     response = client.get("/api/clients/status")
