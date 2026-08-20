@@ -1,0 +1,23 @@
+---
+# Placeholder secrets file. DO NOT commit real secrets to this path — copy
+# it to `vault.yml`, fill in real values, then encrypt with:
+#
+#     ansible-vault encrypt deploy/ansible/vault.yml
+#
+# At playbook time, pass the vault password either interactively:
+#
+#     ansible-playbook -i inventory.dev.ini site.yml \
+#         --extra-vars @vault.yml --ask-vault-pass
+#
+# or via a password file (used in CI):
+#
+#     ansible-playbook -i inventory.dev.ini site.yml \
+#         --extra-vars @vault.yml \
+#         --vault-password-file <(echo "$ANSIBLE_VAULT_PASS")
+#
+# Keys listed here mirror the ones referenced by roles/app_deploy/templates/env.j2.
+
+openai_api_key: "sk-REPLACE_ME"
+supabase_url: "https://REPLACE_ME.supabase.co"
+supabase_key: "REPLACE_ME"
+database_url: "postgresql+psycopg://user:pass@REPLACE_ME:5432/rag_agent"

@@ -1,0 +1,12 @@
+---
+# Real values live in ansible-vault or ADO variable groups. This file has
+# placeholders only — do not commit real secrets or production endpoints
+# here.
+#
+# The pipeline layers the real values on top via `--extra-vars @vault.yml`
+# (see azure-pipelines.yml) or via `--ask-vault-pass` when running the
+# playbook by hand.
+
+environment_name: prd
+log_level: INFO
+# database_url: set via vault / ADO variable group

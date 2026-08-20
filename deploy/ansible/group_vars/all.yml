@@ -1,0 +1,11 @@
+---
+# Non-secret defaults that apply to every host regardless of environment.
+# Environment-specific overrides live in dev.yml / prd.yml. Secrets live
+# in an ansible-vault file (see vault.example.yml) or in ADO variable
+# groups injected via --extra-vars.
+
+app_user: raguser
+app_dir: /opt/rag-agent
+app_repo: https://github.com/Marlabs-Innovations-Private-Limited/RAG-agent.git
+app_ref: main
+log_level: INFO
