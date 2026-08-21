@@ -16,8 +16,8 @@ import argparse
 
 from app.config import settings
 from app.db.rest_client import SupabaseRestClient
+from app.deps import get_client_storage
 from app.services.client_service import purge_deleted_clients
-from app.storage.local import LocalFilesystemStorage
 
 
 def main() -> None:
@@ -36,7 +36,7 @@ def main() -> None:
     args = parser.parse_args()
 
     rest = SupabaseRestClient(settings.supabase_url, settings.supabase_key)
-    storage = LocalFilesystemStorage(settings.client_store_path)
+    storage = get_client_storage()
 
     try:
         if args.dry_run:

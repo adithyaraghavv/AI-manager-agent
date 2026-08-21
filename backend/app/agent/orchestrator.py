@@ -197,13 +197,62 @@ wasted words, not "curt." A short, warm sentence beats a short, clipped one."""
 MODEL = "gpt-4o"
 MAX_TOOL_ROUNDS = 6
 
+MAX_HISTORY_TURNS = 6
 
-def _complete_with_tools(client: OpenAI, api_messages: list[dict[str, Any]]):
+_SMALL_TALK_PHRASES = {
+    "hi", "hello", "hey", "hi there", "hello there",
+    "thanks", "thank you", "thanks!", "thx",
+    "ok", "okay", "cool", "nice", "great", "awesome", "sounds good",
+    "bye", "goodbye",
+}
+
+_DOMAIN_KEYWORDS = (
+    "template", "document", "doc", "status", "phase", "upload", "file",
+    "version", "approve", "approval", "sow", "brd", "hld", "lld", "srs",
+    "client", "download", "restore", "search", "content",
+)
+
+
+def _trim_history(messages: list[dict[str, Any]], max_turns: int) -> list[dict[str, Any]]:
+    """Only the most recent `max_turns` user turns (a turn = one user message
+    plus everything the assistant did in response, including any tool calls/
+    results) get sent to the model — the UI still shows the full conversation.
+    Sending the model its whole ever-growing history on every turn makes it
+    more likely to anchor on an earlier answer instead of trusting a fresh
+    tool result, even when explicitly told not to (reproduced live: the same
+    question got a wrong, stale-sounding answer in a long-running chat but
+    the correct one in a fresh chat). Cutting only at user-message boundaries
+    keeps every tool_call paired with its tool result intact."""
+    user_indices = [i for i, m in enumerate(messages) if m.get("role") == "user"]
+    if len(user_indices) <= max_turns:
+        return messages
+    start = user_indices[-max_turns]
+    return messages[start:]
+
+
+def _is_small_talk(message: str) -> bool:
+    """A short greeting/closer with no domain keywords, matching the system
+    prompt's own "hi"/"hello"/"thanks" examples — anything else is treated
+    as a substantive request that must force a fresh tool call (see
+    force_tool_call in run_turn). Reproduced live: the model sometimes skips
+    calling a tool entirely and answers from memory of an earlier turn even
+    though the system prompt explicitly forbids that — tool_choice="auto"
+    only ever suggests calling a tool, it never requires it, so a stale
+    answer could slip through with zero tool call at all."""
+    normalized = message.strip().lower().rstrip("!.,?")
+    if normalized in _SMALL_TALK_PHRASES:
+        return True
+    return len(normalized.split()) <= 3 and not any(kw in normalized for kw in _DOMAIN_KEYWORDS)
+
+
+def _complete_with_tools(
+    client: OpenAI, api_messages: list[dict[str, Any]], tool_choice: str = "auto"
+):
     return client.chat.completions.create(
         model=MODEL,
         max_tokens=1024,
         tools=TOOL_DEFINITIONS,
-        tool_choice="auto",
+        tool_choice=tool_choice,
         messages=api_messages,
     )
 
@@ -219,10 +268,16 @@ def run_turn(
     return the updated message list with the assistant's reply appended."""
     client = OpenAI(api_key=settings.openai_api_key)
 
-    api_messages = [{"role": "system", "content": SYSTEM_PROMPT}, *messages]
+    api_messages = [{"role": "system", "content": SYSTEM_PROMPT}, *_trim_history(messages, MAX_HISTORY_TURNS)]
 
-    for _ in range(MAX_TOOL_ROUNDS):
-        response = _complete_with_tools(client, api_messages)
+    latest_user_message = next(
+        (m["content"] for m in reversed(messages) if m.get("role") == "user"), ""
+    )
+    force_tool_call = not _is_small_talk(latest_user_message)
+
+    for round_index in range(MAX_TOOL_ROUNDS):
+        tool_choice = "required" if (round_index == 0 and force_tool_call) else "auto"
+        response = _complete_with_tools(client, api_messages, tool_choice)
         choice = response.choices[0].message
 
         assistant_message: dict[str, Any] = {
