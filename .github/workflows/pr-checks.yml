@@ -1,0 +1,89 @@
+# Runs on every PR against a code-touching branch. Kept intentionally small
+# and independent of feat/ci-build-test's `ci.yml` (which will supersede this
+# after it merges to pullingado). This file exists so each in-flight feature
+# branch self-tests before that broader CI lands.
+name: pr-checks
+
+on:
+  push:
+    branches-ignore: [pullingado, main, gh-pages]
+  pull_request:
+
+concurrency:
+  group: pr-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  backend-regression:
+    name: backend regression (existing tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/requirements.txt
+      - name: Install backend deps
+        run: uv pip install --system -r backend/requirements.txt
+      - name: Run backend/tests
+        working-directory: backend
+        run: python -m pytest tests/ -q --maxfail=5
+
+  feature-tests:
+    name: feature tests (auto-discovered under tests/*/)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/requirements.txt
+      - name: Install backend deps (needed by most feature tests)
+        run: uv pip install --system -r backend/requirements.txt
+      - name: Discover and run tests/*/ suites
+        shell: bash
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          suites=(tests/*/)
+          if [ ${#suites[@]} -eq 0 ]; then
+            echo "No tests/*/ suites in this branch — nothing to run."
+            exit 0
+          fi
+          for dir in "${suites[@]}"; do
+            echo "::group::${dir}"
+            if [ -f "${dir}requirements-test.txt" ]; then
+              uv pip install --system -r "${dir}requirements-test.txt"
+            fi
+            python -m pytest "${dir}" -q --maxfail=5
+            echo "::endgroup::"
+          done
+
+  frontend-check:
+    name: frontend lint + build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install
+        working-directory: frontend
+        run: npm ci --no-fund --no-audit
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+      - name: Build
+        working-directory: frontend
+        run: npm run build

@@ -1,0 +1,7 @@
+# Test-only deps. Keep the runtime image slim by installing this file only
+# in CI / local test environments (e.g. `uv pip install -r requirements-test.txt`).
+-r requirements.txt
+
+# respx: httpx.Client mock/router used by the SharePoint backend tests to
+# assert exact Graph API calls without touching the network.
+respx>=0.21
