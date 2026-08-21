@@ -22,9 +22,8 @@ SUPABASE_KEY in .env) — run wherever the app itself runs:
 from app.config import settings
 from app.db.rest_client import SupabaseRestClient
 from app.services import embedding_service
+from app.deps import get_client_storage
 from app.storage.base import StorageBackend
-from app.storage.local import LocalFilesystemStorage
-
 
 def backfill(rest: SupabaseRestClient, storage: StorageBackend) -> dict[str, int]:
     """Returns {"documents_seen": N, "documents_embedded": N, "chunks_stored": N}
@@ -73,7 +72,7 @@ def backfill(rest: SupabaseRestClient, storage: StorageBackend) -> dict[str, int
 
 if __name__ == "__main__":
     rest_client = SupabaseRestClient(settings.supabase_url, settings.supabase_key)
-    client_storage = LocalFilesystemStorage(settings.client_store_path)
+    client_storage = get_client_storage()
 
     result = backfill(rest_client, client_storage)
     print(

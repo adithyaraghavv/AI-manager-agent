@@ -12,6 +12,10 @@ be run wherever the app itself runs, on any network, including ones that
 block direct DB ports. Only Alembic migrations still need a direct
 connection, since PostgREST has no schema-migration endpoint.
 
+Storage goes through get_template_storage() (the same DI factory the rest
+of the app uses), so this respects STORAGE_BACKEND — local or SharePoint —
+instead of always writing to disk.
+
 Idempotent: safe to re-run. Existing placeholder files/rows are left as-is
 unless --force is passed, so it won't clobber real templates once they exist.
 """
@@ -23,7 +27,7 @@ from app.config import settings
 from app.core.file_naming import slugify
 from app.core.phase_config import get_phase_config
 from app.db.rest_client import SupabaseRestClient
-from app.storage.local import LocalFilesystemStorage
+from app.deps import get_template_storage
 
 PLACEHOLDER_EXTENSION = "txt"
 
@@ -52,7 +56,7 @@ def _placeholder_content(doc_type: str, phase_name: str) -> bytes:
 
 def seed_templates(rest: SupabaseRestClient, force: bool = False) -> None:
     config = get_phase_config()
-    storage = LocalFilesystemStorage(settings.template_store_path)
+    storage = get_template_storage()
 
     for phase in config.phases:
         folder = f"{phase.sequence:02d}_{phase.name}"
