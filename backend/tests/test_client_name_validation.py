@@ -53,6 +53,29 @@ def test_path_traversal_attempts_rejected(name: str) -> None:
         validate_client_name(name)
 
 
+# ---------- SharePoint-forbidden characters ----------
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        'Acme "Inc"',
+        "Acme*Corp",
+        "Acme:Corp",
+        "Acme<Corp",
+        "Acme>Corp",
+        "Acme?Corp",
+        "Acme|Corp",
+      
+        "CON",
+        "com1",
+    ],
+)
+def test_sharepoint_forbidden_names_rejected(name: str) -> None:
+    with pytest.raises(InvalidClientName):
+        validate_client_name(name)
+
+
 # ---------- degenerate inputs ----------
 
 
