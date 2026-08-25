@@ -554,6 +554,22 @@ body {
   min-width: 0;
 }
 
+.bubble__link {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.bubble--user .bubble__link {
+  color: inherit;
+  text-decoration-color: currentColor;
+}
+
+.bubble__link:hover {
+  text-decoration-thickness: 2px;
+}
+
 .bubble--user {
   align-items: flex-end;
 }
