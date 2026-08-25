@@ -332,7 +332,15 @@ export default function ToolActivity({ name, result }) {
     setSettled(false);
     const timer = setTimeout(() => setSettled(true), 550);
     return () => clearTimeout(timer);
-  }, [name, result]);
+    // Depend on a stringified snapshot, not `result` itself: the caller
+    // re-parses `result` from JSON on every render, so it's a fresh object
+    // reference every time even when nothing actually changed — an
+    // unrelated parent re-render (e.g. typing in the chat input) would
+    // otherwise reset an already-settled card back to its "…ing" spinner
+    // state on every keystroke. Strings compare by value, so this only
+    // re-fires when the tool result's actual content changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name, JSON.stringify(result)]);
 
   const showDownload =
     settled &&
