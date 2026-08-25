@@ -141,7 +141,10 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "something is stored / for the folder / to browse it themselves — phrases like 'where "
                 "is it', 'what folder', 'just the path', not a plain request to get/download the "
                 "document. For an ordinary 'give me the X' request, use request_template or "
-                "get_document_versions instead — those hand over the actual file/link."
+                "get_document_versions instead — those hand over the actual file/link. The result may "
+                "include a web_url — a real clickable link to open the folder directly (when the "
+                "storage backend can provide one); the UI already renders this as a button, so don't "
+                "paste it yourself, and if it's null just don't mention a link at all."
             ),
             "parameters": {
                 "type": "object",
@@ -508,7 +511,7 @@ def dispatch_tool(
         client_name = tool_input["client_name"]
         doc_type = tool_input["doc_type"]
         try:
-            location = get_document_location(rest, client_name, doc_type)
+            location = get_document_location(rest, client_storage, client_name, doc_type)
         except ClientDocumentNotFound as e:
             return {"found": False, "reason": str(e)}
         return {
@@ -517,6 +520,7 @@ def dispatch_tool(
             "doc_type": location.doc_type,
             "folder_path": location.folder_path,
             "filename": location.filename,
+            "web_url": location.web_url,
         }
 
     if tool_name == "mark_document_not_applicable":

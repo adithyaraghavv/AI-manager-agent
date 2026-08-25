@@ -228,7 +228,7 @@ function ReminderCard({ approver, message }) {
   );
 }
 
-function PathCard({ folderPath }) {
+function PathCard({ folderPath, webUrl }) {
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
@@ -257,6 +257,16 @@ function PathCard({ folderPath }) {
       <button type="button" className="path-card__copy" onClick={handleCopy}>
         {copied ? "Copied" : "Copy"}
       </button>
+      {webUrl && (
+        <a
+          className="path-card__open"
+          href={webUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Open in SharePoint
+        </a>
+      )}
     </div>
   );
 }
@@ -358,7 +368,9 @@ export default function ToolActivity({ name, result }) {
         </span>
       </div>
       {showStatusCard && <StatusCard result={result} />}
-      {showPathCard && <PathCard folderPath={result.folder_path} />}
+      {showPathCard && (
+        <PathCard folderPath={result.folder_path} webUrl={result.web_url} />
+      )}
       {showSowCard && <SowSummaryCard result={result} />}
       {showReminderCard && (
         <ReminderCard

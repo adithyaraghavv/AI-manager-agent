@@ -296,15 +296,18 @@ class DocumentLocation:
     doc_type: str
     folder_path: str
     filename: str
+    web_url: str | None = None
 
 
 def get_document_location(
-    rest: SupabaseRestClient, client_name: str, doc_type: str
+    rest: SupabaseRestClient, storage: StorageBackend, client_name: str, doc_type: str
 ) -> DocumentLocation:
     """Where a filed document lives — a folder path, not the file itself.
     For a PM who just wants to know where something is (to browse it
-    themselves later, e.g. once this is backed by a real SharePoint folder)
-    rather than getting a direct download every time."""
+    themselves later) rather than getting a direct download every time.
+    web_url is a real, clickable link to that folder when the storage
+    backend can provide one (e.g. SharePoint); None otherwise — never
+    required, always best-effort."""
     client = find_client(rest, client_name)
     if client is None:
         raise ClientDocumentNotFound(f"No client named {client_name!r}")
@@ -323,6 +326,7 @@ def get_document_location(
         doc_type=doc_type,
         folder_path=folder_path,
         filename=record["filename"],
+        web_url=storage.web_url(folder_path),
     )
 
 

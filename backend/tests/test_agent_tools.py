@@ -238,6 +238,9 @@ def test_get_document_location_returns_folder_path(rest, storage):
     assert result["folder_path"] == "Acme/01_Pre-requisites"
     # Never a download_url — this tool is explicitly the "path only" answer.
     assert "download_url" not in result
+    # LocalFilesystemStorage can't provide a browsable URL — must be null,
+    # never fabricated.
+    assert result["web_url"] is None
 
 
 def test_get_document_location_unfiled_doc_reports_not_found(rest, storage):

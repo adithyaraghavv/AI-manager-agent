@@ -965,6 +965,23 @@ body {
   border-color: var(--accent);
 }
 
+.path-card__open {
+  flex-shrink: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--accent-contrast);
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 3px 9px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.path-card__open:hover {
+  opacity: 0.9;
+}
+
 /* File cards — the visual target for any downloadable file surfaced in the
    chat (a template, a specific document version), replacing bare text links. */
 

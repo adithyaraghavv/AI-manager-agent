@@ -286,6 +286,20 @@ class SharepointStorageBackend(StorageBackend):
                 )
             parent = child_full
 
+    def web_url(self, path: str) -> Optional[str]:
+        """Graph returns a real ``webUrl`` on every drive item — the exact
+        link SharePoint's own UI would show if you navigated there by hand.
+        Best-effort: any failure (network, permissions, item not found)
+        returns None rather than raising, since a missing link should never
+        break the caller's actual result."""
+        try:
+            resp = self._http.get(self._item_url(path), headers=self._headers())
+        except httpx.HTTPError:
+            return None
+        if resp.status_code != 200:
+            return None
+        return resp.json().get("webUrl")
+
     def delete_dir(self, path: str) -> None:
         # Refuse to wipe the configured root — same guard as LocalFilesystemStorage.
         # Blank/"." would otherwise resolve to the drive root (or root_path)

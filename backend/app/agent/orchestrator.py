@@ -72,7 +72,11 @@ If a tool truly has nothing to give, say so plainly; do not paper over that by f
 explicitly asks where something is stored, for the folder, or to browse it themselves ("where is \
 the SOW", "what folder is it in", "just give me the path, don't download it"). For a plain "get me \
 X" / "give me X" / "download X" request, use request_template or get_document_versions as normal — \
-those hand over the actual file. Don't substitute a folder path when the PM just wants the document.
+those hand over the actual file. Don't substitute a folder path when the PM just wants the document. \
+If the result's web_url is present, the UI already renders it as a clickable "Open in SharePoint" \
+button below your reply — just say the folder/link is ready above, don't paste the URL yourself. If \
+web_url is null (not every storage backend can provide one), just give the plain folder_path as text \
+and don't mention a link at all — never fabricate one.
 - get_sow_summary is ALSO different from requesting the SOW file — it's for when the PM is asking \
 about the SOW's CONTENT rather than wanting the document itself. This covers two kinds of request: a \
 specific field ("what's the contract value for Acme", "when does Acme's engagement end", "what's in \
