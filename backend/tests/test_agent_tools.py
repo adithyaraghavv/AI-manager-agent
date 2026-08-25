@@ -51,6 +51,28 @@ def test_request_template_blocked_reports_missing_docs(rest, storage):
     assert set(result["missing_documents"]) == {"MSA", "SOW"}
 
 
+def test_ask_clarifying_question_is_a_safe_no_op(rest, storage):
+    # ask_clarifying_question exists so the model has a safe tool to call
+    # instead of guessing/inventing a client_name or doc_type when it's
+    # required to call some tool this turn (tool_choice="required" leaves it
+    # no way to just reply in plain text on that round). It must never touch
+    # the DB/storage — verified here by asserting it doesn't create a client.
+    result = dispatch_tool(
+        rest,
+        storage,
+        storage,
+        CONFIG,
+        "ask_clarifying_question",
+        {"question": "Which client is this for?"},
+    )
+    assert result == {"acknowledged": True}
+
+    from app.services.client_service import find_client
+
+    assert find_client(rest, "SOW") is None
+    assert find_client(rest, "ask_clarifying_question") is None
+
+
 def test_get_client_status_reports_all_phases(rest, storage):
     result = dispatch_tool(
         rest, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}

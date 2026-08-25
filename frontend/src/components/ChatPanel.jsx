@@ -451,6 +451,12 @@ export default function ChatPanel({
             let previousBubbleRole = null;
             return messages.map((msg, i) => {
               if (msg.role === "tool") {
+                // ask_clarifying_question is purely internal — it only exists
+                // so the model has a safe tool call to make instead of
+                // guessing a client_name/doc_type; the model's own reply
+                // already asks the question, so there's nothing worth
+                // showing here.
+                if (msg.name === "ask_clarifying_question") return null;
                 previousBubbleRole = null;
                 let result;
                 try {

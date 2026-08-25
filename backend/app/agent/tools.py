@@ -353,6 +353,29 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "ask_clarifying_question",
+            "description": (
+                "Use this INSTEAD of any other tool whenever you don't have enough information to act "
+                "safely — most commonly when the PM hasn't said which client they mean, or you're not "
+                "certain of the exact document type. NEVER guess, invent, or default a client_name or "
+                "doc_type just to satisfy a tool call — call this instead and ask plainly. This is "
+                "always a safe, valid move even when you are required to call some tool this turn."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "question": {
+                        "type": "string",
+                        "description": "The clarifying question to ask the PM, in plain natural language.",
+                    }
+                },
+                "required": ["question"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "propose_delete_client",
             "description": (
                 "Look up a client and prepare to delete them. Deletion hides the client from everywhere "
@@ -386,6 +409,9 @@ def dispatch_tool(
     tool_name: str,
     tool_input: dict[str, Any],
 ) -> dict[str, Any]:
+    if tool_name == "ask_clarifying_question":
+        return {"acknowledged": True}
+
     if tool_name == "list_phases":
         return {
             "phases": [
