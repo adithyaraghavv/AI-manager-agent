@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { deleteClient, sendChat, uploadDocument } from "../api";
+import {
+  deleteCancelledMessage,
+  deleteErrorMessage,
+  deleteSuccessMessage,
+  uploadErrorMessage,
+  uploadSuccessMessage,
+} from "../statusMessages";
 import AttachUploadCard from "./AttachUploadCard";
 import DeleteConfirmCard from "./DeleteConfirmCard";
 import DeleteResult from "./DeleteResult";
@@ -389,17 +396,17 @@ export default function ChatPanel({
   async function handleUploadConfirm(clientName, docType) {
     try {
       const result = await uploadDocument(clientName, docType, pendingFile);
+      const fullResult = { ...result, client_name: clientName };
       setMessages((prev) => [
         ...prev,
-        {
-          role: "upload-result",
-          content: { ok: true, result: { ...result, client_name: clientName } },
-        },
+        { role: "upload-result", content: { ok: true, result: fullResult } },
+        { role: "assistant", content: uploadSuccessMessage(fullResult) },
       ]);
     } catch (err) {
       setMessages((prev) => [
         ...prev,
         { role: "upload-result", content: { ok: false, error: err.message } },
+        { role: "assistant", content: uploadErrorMessage(err) },
       ]);
     } finally {
       setPendingFile(null);
@@ -412,11 +419,13 @@ export default function ChatPanel({
       setMessages((prev) => [
         ...prev,
         { role: "delete-result", content: { ok: true, clientName } },
+        { role: "assistant", content: deleteSuccessMessage(clientName) },
       ]);
     } catch (err) {
       setMessages((prev) => [
         ...prev,
         { role: "delete-result", content: { ok: false, error: err.message } },
+        { role: "assistant", content: deleteErrorMessage(clientName, err) },
       ]);
     } finally {
       setPendingDelete(null);
@@ -424,12 +433,11 @@ export default function ChatPanel({
   }
 
   function handleDeleteCancel() {
+    const clientName = pendingDelete.client_name;
     setMessages((prev) => [
       ...prev,
-      {
-        role: "delete-result",
-        content: { cancelled: true, clientName: pendingDelete.client_name },
-      },
+      { role: "delete-result", content: { cancelled: true, clientName } },
+      { role: "assistant", content: deleteCancelledMessage(clientName) },
     ]);
     setPendingDelete(null);
   }

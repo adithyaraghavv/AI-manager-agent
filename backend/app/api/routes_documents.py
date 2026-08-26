@@ -119,7 +119,10 @@ def upload_client_document(
     except ValueError as e:
         raise HTTPException(
             status_code=400,
-            detail="We were unable to identify the document type. Please upload a valid document.",
+            detail={
+                "code": "unknown_doc_type",
+                "message": "We were unable to identify the document type. Please upload a valid document.",
+            },
         ) from e
 
     # Catches the PM picking the wrong Document Type from the dropdown and
@@ -130,24 +133,36 @@ def upload_client_document(
     if validation.outcome == ValidationOutcome.MISMATCH:
         raise HTTPException(
             status_code=422,
-            detail=(
-                f"The uploaded document does not appear to match the selected document type "
-                f"'{doc_type}'. Please verify that you have selected the correct document type "
-                "and upload the appropriate document."
-            ),
+            detail={
+                "code": "type_mismatch",
+                "doc_type": doc_type,
+                "message": (
+                    f"The uploaded document does not appear to match the selected document type "
+                    f"'{doc_type}'. Please verify that you have selected the correct document type "
+                    "and upload the appropriate document."
+                ),
+            },
         )
     if validation.outcome == ValidationOutcome.UNCERTAIN:
         raise HTTPException(
             status_code=422,
-            detail=(
-                "We could not confidently verify that this document matches the selected "
-                f"document type '{doc_type}'. Please review the document and try again."
-            ),
+            detail={
+                "code": "type_uncertain",
+                "doc_type": doc_type,
+                "message": (
+                    "We could not confidently verify that this document matches the selected "
+                    f"document type '{doc_type}'. Please review the document and try again."
+                ),
+            },
         )
     if validation.outcome == ValidationOutcome.FAILED:
         raise HTTPException(
             status_code=422,
-            detail="Document validation could not be completed. Please review the file and try again.",
+            detail={
+                "code": "validation_failed",
+                "doc_type": doc_type,
+                "message": "Document validation could not be completed. Please review the file and try again.",
+            },
         )
 
     try:
@@ -164,16 +179,31 @@ def upload_client_document(
         )
     except InvalidUpload as e:
         status = 413 if "too large" in e.message.lower() else 400
-        raise HTTPException(status_code=status, detail=e.message) from e
+        raise HTTPException(
+            status_code=status,
+            detail={"code": "invalid_upload", "message": e.message},
+        ) from e
     except GatingBlocked as e:
-        raise HTTPException(status_code=409, detail=e.decision.reason) from e
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "gating_blocked",
+                "message": e.decision.reason,
+                "blocking_phase": e.decision.blocking_phase,
+                "missing_documents": list(e.decision.missing_documents),
+            },
+        ) from e
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        raise HTTPException(
+            status_code=400, detail={"code": "invalid_upload", "message": str(e)}
+        ) from e
     except VersionNumberConflict as e:
         # Only reachable if every retry inside upload_document also lost the
         # race — extremely unlikely, but a real conflict, not a bug, so 409
         # rather than a raw 500.
-        raise HTTPException(status_code=409, detail=str(e)) from e
+        raise HTTPException(
+            status_code=409, detail={"code": "version_conflict", "message": str(e)}
+        ) from e
 
     # RAG indexing — every document type, not just SOW (stage 2). Never
     # blocks or fails the upload itself: embed_document swallows its own

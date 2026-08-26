@@ -36,7 +36,9 @@ def test_blocked_decision_reason_names_the_missing_docs_and_a_next_step():
     assert "SOW" in decision.reason
     assert "Pricing" in decision.reason
     assert "Pre-requisites" in decision.reason
-    assert "ask the assistant" in decision.reason.lower()
+    assert "upload" in decision.reason.lower()
+    # "Ask the assistant" reads oddly when the assistant is the one saying it.
+    assert "ask the assistant" not in decision.reason.lower()
 
 
 def test_allowed_decision_has_no_reason():

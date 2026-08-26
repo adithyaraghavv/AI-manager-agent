@@ -32,7 +32,7 @@ class GatingDecision:
         # will explain what to do about it.
         return (
             f"Still need to file the {doc_word} required for the '{self.blocking_phase}' phase "
-            f"before this can go through: {docs}. Ask the assistant for the template to get started."
+            f"before this can go through: {docs}. Upload these to continue."
         )
 
 

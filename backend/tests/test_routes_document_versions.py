@@ -48,7 +48,9 @@ def test_upload_route_blocks_when_document_type_does_not_match(route_client):
         )
 
     assert result.status_code == 422
-    assert "does not appear to match" in result.json()["detail"]
+    detail = result.json()["detail"]
+    assert detail["code"] == "type_mismatch"
+    assert "does not appear to match" in detail["message"]
 
 
 def test_upload_route_blocks_on_uncertain_match(route_client):
@@ -64,7 +66,9 @@ def test_upload_route_blocks_on_uncertain_match(route_client):
         )
 
     assert result.status_code == 422
-    assert "could not confidently verify" in result.json()["detail"]
+    detail = result.json()["detail"]
+    assert detail["code"] == "type_uncertain"
+    assert "could not confidently verify" in detail["message"]
 
 
 def test_upload_route_blocks_when_validation_call_fails(route_client):
@@ -78,7 +82,9 @@ def test_upload_route_blocks_when_validation_call_fails(route_client):
         )
 
     assert result.status_code == 422
-    assert "could not be completed" in result.json()["detail"]
+    detail = result.json()["detail"]
+    assert detail["code"] == "validation_failed"
+    assert "could not be completed" in detail["message"]
 
 
 def test_upload_route_rejects_unknown_document_type_before_validating(route_client):
@@ -92,7 +98,9 @@ def test_upload_route_rejects_unknown_document_type_before_validating(route_clie
     )
 
     assert result.status_code == 400
-    assert "unable to identify the document type" in result.json()["detail"]
+    detail = result.json()["detail"]
+    assert detail["code"] == "unknown_doc_type"
+    assert "unable to identify the document type" in detail["message"]
 
 
 def test_list_versions_route_returns_full_history(route_client):

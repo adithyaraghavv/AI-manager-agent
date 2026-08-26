@@ -1,6 +1,28 @@
 const BASE = "/api";
 
 /**
+ * Some endpoints (e.g. upload) now send a structured `detail` object
+ * ({code, message, ...}) instead of a plain string, so the UI can pick a
+ * tailored conversational explanation per failure reason rather than just
+ * displaying raw text. ApiError exposes both: `.message` always behaves like
+ * a normal Error for any caller that doesn't care, while `.code`/`.detail`
+ * are there for callers (like the upload flow) that want to react to the
+ * specific reason.
+ */
+export class ApiError extends Error {
+  constructor(detail, status) {
+    const message =
+      typeof detail === "string"
+        ? detail
+        : detail?.message || `Request failed (${status})`;
+    super(message);
+    this.status = status;
+    this.code = typeof detail === "object" ? detail?.code : undefined;
+    this.detail = detail;
+  }
+}
+
+/**
  * Parse res.body as JSON. Throw with a caller-supplied label if:
  * - the response is non-OK and the body has no JSON `.detail`
  * - the response is OK but the body isn't valid JSON (proxy HTML error page, etc.)
@@ -23,7 +45,7 @@ async function parseJsonOrRaise(res, label) {
     );
   }
   if (!res.ok) {
-    throw new Error(data?.detail || `${label} failed (${res.status})`);
+    throw new ApiError(data?.detail || `${label} failed (${res.status})`, res.status);
   }
   return data;
 }
