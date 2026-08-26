@@ -25,7 +25,15 @@ class GatingDecision:
         if self.allowed:
             return None
         docs = ", ".join(self.missing_documents)
-        return f"Cannot proceed to phase '{self.blocking_phase}' until required documents are complete: {docs}"
+        doc_word = "document" if len(self.missing_documents) == 1 else "documents"
+        # Phrased as a next step, not just a dead-end fact — this string reaches the
+        # PM verbatim on the raw upload path (no LLM involved there to soften it),
+        # so it has to carry its own guidance rather than assume something else
+        # will explain what to do about it.
+        return (
+            f"Still need to file the {doc_word} required for the '{self.blocking_phase}' phase "
+            f"before this can go through: {docs}. Ask the assistant for the template to get started."
+        )
 
 
 def missing_documents(phase: Phase, existing_documents: set[str]) -> tuple[str, ...]:

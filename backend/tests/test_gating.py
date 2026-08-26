@@ -28,6 +28,22 @@ def test_phase_2_blocked_when_phase_1_incomplete():
     assert set(decision.missing_documents) == {"SOW", "Pricing"}
 
 
+def test_blocked_decision_reason_names_the_missing_docs_and_a_next_step():
+    # This string reaches the PM verbatim on the raw upload path (no LLM
+    # involved there to add guidance) — it has to carry its own next step,
+    # not just state the fact that something's blocked.
+    decision = check_gate(CONFIG, "Requirement Analysis", existing_documents={"MSA"})
+    assert "SOW" in decision.reason
+    assert "Pricing" in decision.reason
+    assert "Pre-requisites" in decision.reason
+    assert "ask the assistant" in decision.reason.lower()
+
+
+def test_allowed_decision_has_no_reason():
+    decision = check_gate(CONFIG, "Pre-requisites", existing_documents=set())
+    assert decision.reason is None
+
+
 def test_phase_2_allowed_when_phase_1_complete():
     decision = check_gate(
         CONFIG, "Requirement Analysis", existing_documents={"MSA", "SOW", "Pricing"}
