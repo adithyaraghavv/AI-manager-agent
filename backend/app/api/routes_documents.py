@@ -75,18 +75,12 @@ def list_phases(config: PhaseConfig = Depends(get_config)):
 @router.get("/templates/{doc_type}/download")
 def download_template(
     doc_type: str,
-    client_name: str,
     rest: SupabaseRestClient = Depends(get_rest_client),
     template_storage: StorageBackend = Depends(get_template_storage),
-    client_storage: StorageBackend = Depends(get_client_storage),
     config: PhaseConfig = Depends(get_config),
 ):
     try:
-        result = request_template(
-            rest, client_storage, template_storage, config, doc_type, client_name
-        )
-    except GatingBlocked as e:
-        raise HTTPException(status_code=409, detail=e.decision.reason) from e
+        result = request_template(rest, template_storage, config, doc_type)
     except TemplateNotFound as e:
         raise HTTPException(
             status_code=404, detail=f"No master template on file for '{doc_type}'"

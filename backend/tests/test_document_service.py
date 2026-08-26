@@ -53,43 +53,27 @@ def test_request_template_succeeds_for_phase_one_regardless_of_status(
     rest, client_storage, template_storage
 ):
     _seed_template_row(rest, "MSA", "MSA.txt")
-    result = request_template(
-        rest, client_storage, template_storage, CONFIG, "MSA", "Acme"
-    )
+    result = request_template(rest, template_storage, CONFIG, "MSA")
     assert result.content == b"mock MSA template"
 
 
-def test_request_template_blocked_for_phase_two_until_phase_one_filed(
+def test_request_template_never_gated_even_when_earlier_phases_incomplete(
     rest, client_storage, template_storage
 ):
+    # Templates are master files, not client-scoped — a PM can ask for any
+    # template at any time regardless of that client's progress. Only
+    # uploading a filled-in document back is phase-gated (see
+    # test_upload_blocked_for_phase_two_until_phase_one_complete below).
     _seed_template_row(rest, "BRD", "BRD.txt")
-    with pytest.raises(GatingBlocked) as exc:
-        request_template(rest, client_storage, template_storage, CONFIG, "BRD", "Acme")
-    assert set(exc.value.decision.missing_documents) == {"MSA", "SOW"}
+    result = request_template(rest, template_storage, CONFIG, "BRD")
+    assert result.content == b"mock BRD template"
 
 
 def test_request_template_missing_from_db_raises_not_found(
     rest, client_storage, template_storage
 ):
     with pytest.raises(TemplateNotFound):
-        request_template(rest, client_storage, template_storage, CONFIG, "MSA", "Acme")
-
-
-def test_upload_then_request_unlocks_next_phase(rest, client_storage, template_storage):
-    _seed_template_row(rest, "BRD", "BRD.txt")
-
-    # Phase-2 template blocked before phase-1 docs are filed.
-    with pytest.raises(GatingBlocked):
-        request_template(rest, client_storage, template_storage, CONFIG, "BRD", "Acme")
-
-    upload_document(rest, client_storage, CONFIG, "MSA", "Acme", b"filled msa", "pdf")
-    upload_document(rest, client_storage, CONFIG, "SOW", "Acme", b"filled sow", "pdf")
-
-    # Now unlocked.
-    result = request_template(
-        rest, client_storage, template_storage, CONFIG, "BRD", "Acme"
-    )
-    assert result.content == b"mock BRD template"
+        request_template(rest, template_storage, CONFIG, "MSA")
 
 
 def test_upload_blocked_for_phase_two_until_phase_one_complete(
@@ -155,7 +139,7 @@ def test_request_template_with_record_but_no_local_file_gives_actionable_error(
     # clear "run this command" message, not a raw FileNotFoundError/500.
     _seed_template_row(rest, "MSA", "does_not_exist_on_disk.txt")
     with pytest.raises(TemplateFileMissing, match="seed_templates"):
-        request_template(rest, client_storage, template_storage, CONFIG, "MSA", "Acme")
+        request_template(rest, template_storage, CONFIG, "MSA")
 
 
 def test_get_stored_document_with_record_but_no_local_file_gives_actionable_error(
@@ -207,13 +191,13 @@ def test_not_applicable_document_unblocks_a_later_phase(
     rest, client_storage, template_storage
 ):
     # The exact real-world case this exists for: SOW genuinely doesn't apply
-    # to this client, so a later-phase template request must not stay
-    # permanently blocked on it forever.
-    _seed_template_row(rest, "BRD", "BRD.txt")
+    # to this client, so a later-phase upload must not stay permanently
+    # blocked on it forever. (Template requests are never gated at all —
+    # see test_request_template_never_gated_even_when_earlier_phases_incomplete.)
     client = get_or_create_client(rest, client_storage, CONFIG, "Acme")
 
     with pytest.raises(GatingBlocked):
-        request_template(rest, client_storage, template_storage, CONFIG, "BRD", "Acme")
+        upload_document(rest, client_storage, CONFIG, "BRD", "Acme", b"filled brd", "pdf")
 
     upload_document(rest, client_storage, CONFIG, "MSA", "Acme", b"filled msa", "pdf")
     mark_document_not_applicable(
@@ -221,24 +205,23 @@ def test_not_applicable_document_unblocks_a_later_phase(
     )
 
     # MSA filed + SOW marked not-applicable = phase 1 fully satisfied now.
-    result = request_template(
-        rest, client_storage, template_storage, CONFIG, "BRD", "Acme"
+    result = upload_document(
+        rest, client_storage, CONFIG, "BRD", "Acme", b"filled brd", "pdf"
     )
-    assert result.content == b"mock BRD template"
+    assert result.stored_path
 
 
 def test_unmarking_not_applicable_re_blocks_the_phase(
     rest, client_storage, template_storage
 ):
-    _seed_template_row(rest, "BRD", "BRD.txt")
     client = get_or_create_client(rest, client_storage, CONFIG, "Acme")
     upload_document(rest, client_storage, CONFIG, "MSA", "Acme", b"filled msa", "pdf")
     mark_document_not_applicable(rest, client, "SOW")
-    request_template(
-        rest, client_storage, template_storage, CONFIG, "BRD", "Acme"
+    upload_document(
+        rest, client_storage, CONFIG, "BRD", "Acme", b"filled brd", "pdf"
     )  # confirm it's unblocked first
 
     unmark_document_not_applicable(rest, client, "SOW")
 
     with pytest.raises(GatingBlocked):
-        request_template(rest, client_storage, template_storage, CONFIG, "BRD", "Acme")
+        upload_document(rest, client_storage, CONFIG, "BRD", "Acme", b"filled brd v2", "pdf")

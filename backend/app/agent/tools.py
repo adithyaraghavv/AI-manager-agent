@@ -81,9 +81,10 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "function": {
             "name": "request_template",
             "description": (
-                "Request the master template for a document type on behalf of a client. Enforces hard-block "
-                "phase-gating: if the client is missing required documents from any earlier phase, this will "
-                "refuse and report exactly what's missing instead of returning a template."
+                "Fetch the master (blank) template for a document type. NOT client-scoped and NOT "
+                "phase-gated — a PM can request any template at any time regardless of that client's "
+                "progress, so do not ask for or pass a client name here. Phase-gating only applies later, "
+                "when the filled-in document is uploaded back (see upload_document)."
             ),
             "parameters": {
                 "type": "object",
@@ -92,12 +93,8 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                         "type": "string",
                         "description": "Exact document type, e.g. 'Pricing', 'Approved HLD'.",
                     },
-                    "client_name": {
-                        "type": "string",
-                        "description": "The client's name.",
-                    },
                 },
-                "required": ["doc_type", "client_name"],
+                "required": ["doc_type"],
             },
         },
     },
@@ -454,22 +451,12 @@ def dispatch_tool(
 
     if tool_name == "request_template":
         doc_type = tool_input["doc_type"]
-        client_name = tool_input["client_name"]
         try:
-            result = request_template(
-                rest, client_storage, template_storage, config, doc_type, client_name
-            )
+            result = request_template(rest, template_storage, config, doc_type)
             return {
                 "allowed": True,
                 "filename": result.filename,
-                "download_url": f"/api/templates/{doc_type}/download?client_name={client_name}",
-            }
-        except GatingBlocked as e:
-            return {
-                "allowed": False,
-                "reason": e.decision.reason,
-                "blocking_phase": e.decision.blocking_phase,
-                "missing_documents": list(e.decision.missing_documents),
+                "download_url": f"/api/templates/{doc_type}/download",
             }
         except TemplateNotFound:
             return {

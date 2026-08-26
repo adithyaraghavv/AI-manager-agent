@@ -32,23 +32,27 @@ def test_request_template_unknown_doc_type_does_not_raise(rest, storage):
         storage,
         CONFIG,
         "request_template",
-        {"doc_type": "NotARealDocument", "client_name": "Acme"},
+        {"doc_type": "NotARealDocument"},
     )
     assert result["allowed"] is False
     assert "NotARealDocument" in result["reason"]
 
 
-def test_request_template_blocked_reports_missing_docs(rest, storage):
+def test_request_template_never_gated_no_client_name_needed(rest, storage):
+    # Templates are master files, not client-scoped — request_template must
+    # never ask for or require a client name, and must never be blocked by
+    # phase-gating (only upload_document is gated).
     result = dispatch_tool(
         rest,
         storage,
         storage,
         CONFIG,
         "request_template",
-        {"doc_type": "BRD", "client_name": "Acme"},
+        {"doc_type": "BRD"},
     )
-    assert result["allowed"] is False
-    assert set(result["missing_documents"]) == {"MSA", "SOW"}
+    assert result["allowed"] is False  # no template seeded in this test's DB
+    assert "reason" in result
+    assert "missing_documents" not in result
 
 
 def test_ask_clarifying_question_is_a_safe_no_op(rest, storage):

@@ -56,19 +56,16 @@ class TemplateResult:
 
 def request_template(
     rest: SupabaseRestClient,
-    client_storage: StorageBackend,
     template_storage: StorageBackend,
     config: PhaseConfig,
     doc_type: str,
-    client_name: str,
 ) -> TemplateResult:
-    phase = resolve_phase_for_document(config, doc_type)
-    client = get_or_create_client(rest, client_storage, config, client_name)
-    existing = satisfied_document_types(rest, client)
-
-    decision = check_gate(config, phase.name, existing)
-    if not decision.allowed:
-        raise GatingBlocked(decision)
+    """Master templates are never client-scoped or phase-gated — a PM can ask for
+    any template at any time, regardless of that client's progress. Phase-gating
+    only applies when a filled-in document is actually uploaded back (see
+    upload_document below); resolve_phase_for_document here is just validating
+    that doc_type is a real, recognized document type."""
+    resolve_phase_for_document(config, doc_type)
 
     template = rest.select_one("templates", doc_type=doc_type)
     if template is None:
