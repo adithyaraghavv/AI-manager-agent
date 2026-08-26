@@ -3,6 +3,8 @@ from typing import Protocol
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import Response
 
+from app.core.document_type_validation import ValidationOutcome, validate_document_type
+from app.core.gating import resolve_phase_for_document
 from app.core.phase_config import PhaseConfig
 from app.db.rest_client import SupabaseRestClient
 from app.deps import (
@@ -111,6 +113,42 @@ def upload_client_document(
     # exposes a spooled temp file at .file — cheap sync read at our 50 MB cap.
     extension = file.filename.rsplit(".", 1)[-1] if "." in file.filename else "bin"
     content = file.file.read()
+
+    try:
+        resolve_phase_for_document(config, doc_type)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400,
+            detail="We were unable to identify the document type. Please upload a valid document.",
+        ) from e
+
+    # Catches the PM picking the wrong Document Type from the dropdown and
+    # uploading an unrelated file — before it gets filed (and renamed) under
+    # a type it isn't. Runs before upload_document so a mismatch never
+    # touches storage or the client record at all.
+    validation = validate_document_type(content, extension, file.filename, doc_type)
+    if validation.outcome == ValidationOutcome.MISMATCH:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"The uploaded document does not appear to match the selected document type "
+                f"'{doc_type}'. Please verify that you have selected the correct document type "
+                "and upload the appropriate document."
+            ),
+        )
+    if validation.outcome == ValidationOutcome.UNCERTAIN:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "We could not confidently verify that this document matches the selected "
+                f"document type '{doc_type}'. Please review the document and try again."
+            ),
+        )
+    if validation.outcome == ValidationOutcome.FAILED:
+        raise HTTPException(
+            status_code=422,
+            detail="Document validation could not be completed. Please review the file and try again.",
+        )
 
     try:
         result = upload_document(

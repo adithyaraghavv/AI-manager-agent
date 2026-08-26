@@ -1,3 +1,5 @@
+from unittest.mock import MagicMock, patch
+
 from app.core.phase_config import Phase, PhaseConfig
 from app.services.document_service import upload_document
 
@@ -8,17 +10,89 @@ CONFIG = PhaseConfig(
 )
 
 
+def _mock_match_response():
+    response = MagicMock()
+    response.choices[0].message.content = '{"outcome": "match", "reason": "looks right"}'
+    return response
+
+
 def test_upload_route_accepts_uploader_and_comment(route_client):
     client, _, _ = route_client(config=CONFIG)
-    response = client.post(
-        "/api/clients/Acme/documents",
-        data={"doc_type": "MSA", "uploaded_by": "Priya", "comment": "Initial upload"},
-        files={"file": ("msa.pdf", b"v1 content", "application/pdf")},
-    )
+    with patch("app.core.document_type_validation.OpenAI") as MockOpenAI:
+        MockOpenAI.return_value.chat.completions.create.return_value = (
+            _mock_match_response()
+        )
+        response = client.post(
+            "/api/clients/Acme/documents",
+            data={"doc_type": "MSA", "uploaded_by": "Priya", "comment": "Initial upload"},
+            files={"file": ("msa.pdf", b"v1 content", "application/pdf")},
+        )
 
     assert response.status_code == 200
     body = response.json()
     assert body["version_number"] == 1
+
+
+def test_upload_route_blocks_when_document_type_does_not_match(route_client):
+    client, _, _ = route_client(config=CONFIG)
+    with patch("app.core.document_type_validation.OpenAI") as MockOpenAI:
+        response = MagicMock()
+        response.choices[0].message.content = (
+            '{"outcome": "mismatch", "reason": "this is a SOW, not an MSA"}'
+        )
+        MockOpenAI.return_value.chat.completions.create.return_value = response
+        result = client.post(
+            "/api/clients/Acme/documents",
+            data={"doc_type": "MSA"},
+            files={"file": ("SOW_Acme.pdf", b"statement of work content", "application/pdf")},
+        )
+
+    assert result.status_code == 422
+    assert "does not appear to match" in result.json()["detail"]
+
+
+def test_upload_route_blocks_on_uncertain_match(route_client):
+    client, _, _ = route_client(config=CONFIG)
+    with patch("app.core.document_type_validation.OpenAI") as MockOpenAI:
+        response = MagicMock()
+        response.choices[0].message.content = '{"outcome": "uncertain", "reason": "not sure"}'
+        MockOpenAI.return_value.chat.completions.create.return_value = response
+        result = client.post(
+            "/api/clients/Acme/documents",
+            data={"doc_type": "MSA"},
+            files={"file": ("file.pdf", b"ambiguous content", "application/pdf")},
+        )
+
+    assert result.status_code == 422
+    assert "could not confidently verify" in result.json()["detail"]
+
+
+def test_upload_route_blocks_when_validation_call_fails(route_client):
+    client, _, _ = route_client(config=CONFIG)
+    with patch("app.core.document_type_validation.OpenAI") as MockOpenAI:
+        MockOpenAI.return_value.chat.completions.create.side_effect = RuntimeError("down")
+        result = client.post(
+            "/api/clients/Acme/documents",
+            data={"doc_type": "MSA"},
+            files={"file": ("file.pdf", b"some content", "application/pdf")},
+        )
+
+    assert result.status_code == 422
+    assert "could not be completed" in result.json()["detail"]
+
+
+def test_upload_route_rejects_unknown_document_type_before_validating(route_client):
+    client, _, _ = route_client(config=CONFIG)
+    # No OpenAI mock installed — if this reached validate_document_type it would
+    # hit a real API call and fail for the wrong reason; it must never get there.
+    result = client.post(
+        "/api/clients/Acme/documents",
+        data={"doc_type": "NotARealDocType"},
+        files={"file": ("file.pdf", b"content", "application/pdf")},
+    )
+
+    assert result.status_code == 400
+    assert "unable to identify the document type" in result.json()["detail"]
 
 
 def test_list_versions_route_returns_full_history(route_client):
