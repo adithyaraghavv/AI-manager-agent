@@ -25,13 +25,17 @@ WORKDIR /app
 # to project-mode uv.
 COPY backend/requirements.txt backend/pyproject.toml backend/uv.lock* ./backend/
 
+WORKDIR /app/backend
+
 # If a pyproject exists we prefer `uv sync --frozen` (project mode).
 # Otherwise fall back to compat mode against requirements.txt.
-RUN cd backend && if [ -f uv.lock ]; then \
+RUN if [ -f uv.lock ]; then \
         uv sync --frozen --no-dev; \
     else \
         uv pip install --system -r requirements.txt; \
     fi
+
+WORKDIR /app
 
 # Copy the rest of the backend source tree, AND the repo-root folders the
 # app expects to find as siblings of backend/ (config.py's _REPO_ROOT walks
