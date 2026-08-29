@@ -9,3 +9,14 @@ app_dir: /opt/rag-agent
 app_repo: https://github.com/Marlabs-Innovations-Private-Limited/RAG-agent.git
 app_ref: main
 log_level: INFO
+
+# Empty is the correct default for the combined single-container prod image
+# (backend serves the built frontend directly, so there's no cross-origin
+# browser call to allow). Only needs a real value if something else calls
+# this API cross-origin.
+cors_allowed_origins: ""
+# Set to the real SharePoint site origin (e.g.
+# "https://marlabsinc.sharepoint.com") in prd.yml / vault once SharePoint
+# embedding is actually being deployed — left blank means nothing is
+# allowed to iframe-embed the app.
+iframe_allowed_origins: ""

@@ -9,4 +9,9 @@
 
 environment_name: dev
 log_level: DEBUG
+# NOTE: this only matters for the one-off Alembic migrations/seed scripts —
+# the running app talks to Supabase over its REST API, not this URL. The
+# `db` host below no longer exists in docker-compose.prod.yml (single
+# combined service, no local Postgres); run those scripts against a
+# reachable Postgres directly if you ever need them here, or ignore this.
 database_url: postgresql+psycopg://postgres:postgres@db:5432/rag_agent

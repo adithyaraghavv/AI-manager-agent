@@ -1,0 +1,47 @@
+# syntax=docker/dockerfile:1.7
+#
+# Combined production image: builds the frontend, then bundles its static
+# output into the backend image so the whole app deploys and runs as ONE
+# service with ONE URL — no separate frontend container, no cross-container
+# networking to wire up. FastAPI serves the built frontend directly
+# whenever backend/static_frontend exists (see app/main.py).
+#
+# Local dev is unaffected: `docker-compose.yml` still uses backend/Dockerfile
+# and frontend/Dockerfile as two separate hot-reload services. This file is
+# deploy-only — see docker-compose.prod.yml.
+
+FROM node:20-alpine AS frontend-build
+WORKDIR /frontend
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+COPY frontend/ ./
+RUN npm run build
+
+FROM python:3.13-slim
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+
+# hadolint ignore=DL3008
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        libpq-dev \
+        curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY backend/requirements.txt ./
+COPY backend/pyproject.toml backend/uv.lock* ./
+
+RUN if [ -f uv.lock ]; then \
+        uv sync --frozen --no-dev; \
+    else \
+        uv pip install --system -r requirements.txt; \
+    fi
+
+COPY backend/ ./
+COPY --from=frontend-build /frontend/dist ./static_frontend
+
+EXPOSE 8000
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

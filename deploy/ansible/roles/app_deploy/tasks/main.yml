@@ -36,8 +36,14 @@
 
 - name: Bring the compose stack up
   # Requires: ansible-galaxy collection install community.docker
+  # Uses docker-compose.prod.yml (single combined backend+frontend service,
+  # no local Postgres — the app talks to Supabase over its REST API) rather
+  # than the default docker-compose.yml, which is the two-container
+  # hot-reload dev stack and was never meant to serve real traffic.
   community.docker.docker_compose_v2:
     project_src: "{{ app_dir }}"
+    files:
+      - docker-compose.prod.yml
     state: present
     pull: always
     remove_orphans: true
