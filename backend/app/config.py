@@ -31,6 +31,19 @@ class Settings(BaseSettings):
     client_store_path: Path = _REPO_ROOT / "clients"
     phase_config_path: Path = _REPO_ROOT / "config" / "sdlc_phase_config.json"
 
+    # Comma-separated origins allowed to make cross-origin requests (browser
+    # CORS). Defaults to the local Vite dev server only — add the deployed
+    # app's real origin(s) here once it has one.
+    cors_allowed_origins: str = "http://localhost:5173"
+
+    # Comma-separated origins allowed to embed this app in an <iframe> (e.g.
+    # a SharePoint page via the Embed web part), sent as a
+    # Content-Security-Policy: frame-ancestors header. Left blank by default —
+    # browsers already block cross-origin framing without this, so an empty
+    # value changes nothing until a real embedding origin (e.g.
+    # https://marlabsinc.sharepoint.com) is configured for it.
+    iframe_allowed_origins: str = ""
+
     # A client is flagged "stale" on the manager dashboard if it's been this
     # many days since any document was filed while it's still mid-phase.
     stale_after_days: int = 3
