@@ -30,17 +30,23 @@ RUN apt-get update \
 
 WORKDIR /app
 
-COPY backend/requirements.txt ./
-COPY backend/pyproject.toml backend/uv.lock* ./
+COPY backend/requirements.txt backend/pyproject.toml backend/uv.lock* ./backend/
 
-RUN if [ -f uv.lock ]; then \
+RUN cd backend && if [ -f uv.lock ]; then \
         uv sync --frozen --no-dev; \
     else \
         uv pip install --system -r requirements.txt; \
     fi
 
-COPY backend/ ./
-COPY --from=frontend-build /frontend/dist ./static_frontend
+# Repo-root folders the app expects as siblings of backend/ — see the same
+# comment in backend/Dockerfile for why (_REPO_ROOT in app/config.py).
+COPY backend/ ./backend/
+COPY config/ ./config/
+COPY clients/ ./clients/
+COPY templates/ ./templates/
+COPY --from=frontend-build /frontend/dist ./backend/static_frontend
+
+WORKDIR /app/backend
 
 EXPOSE 8000
 

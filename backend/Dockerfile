@@ -23,19 +23,27 @@ WORKDIR /app
 # The uv.lock glob is tolerant: it matches zero files if the lockfile
 # has not been generated yet, so the build stays green during migration
 # to project-mode uv.
-COPY backend/requirements.txt ./
-COPY backend/pyproject.toml backend/uv.lock* ./
+COPY backend/requirements.txt backend/pyproject.toml backend/uv.lock* ./backend/
 
 # If a pyproject exists we prefer `uv sync --frozen` (project mode).
 # Otherwise fall back to compat mode against requirements.txt.
-RUN if [ -f uv.lock ]; then \
+RUN cd backend && if [ -f uv.lock ]; then \
         uv sync --frozen --no-dev; \
     else \
         uv pip install --system -r requirements.txt; \
     fi
 
-# Copy the rest of the backend source tree.
-COPY backend/ ./
+# Copy the rest of the backend source tree, AND the repo-root folders the
+# app expects to find as siblings of backend/ (config.py's _REPO_ROOT walks
+# up from backend/app/config.py to whatever contains backend/ — it needs
+# config/ there at minimum, for the phase config JSON every request depends
+# on; clients/ and templates/ only matter if STORAGE_BACKEND=local).
+COPY backend/ ./backend/
+COPY config/ ./config/
+COPY clients/ ./clients/
+COPY templates/ ./templates/
+
+WORKDIR /app/backend
 
 EXPOSE 8000
 
