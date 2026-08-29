@@ -5,6 +5,12 @@ __pycache__/
 .venv/
 venv/
 env/
+*.egg-info/
+
+# Deps are managed via requirements.txt for now (see backend/Dockerfile's
+# comment) - this is a local-only lockfile from testing, not an adopted
+# uv project-mode lock.
+backend/uv.lock
 
 # local secrets — never commit
 backend/.env
