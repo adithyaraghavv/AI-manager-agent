@@ -3,46 +3,22 @@
 #   make up          # start everything
 #   make logs        # follow logs
 #   make down        # stop
-#   make reset       # DESTROY the pgvector volume (see Makefile)
 #
-# Production deploys are handled by azure-pipelines.yml; this file is for
-# local development only.
+# Production deploys are handled by azure-pipelines.yml + docker-compose.prod.yml
+# (see deploy/ansible); this file is for local development only.
+#
+# No local Postgres/migrations service here — the running app talks to
+# Supabase over its REST API (SUPABASE_URL / SUPABASE_KEY in
+# backend/.env.dev.example), not a direct Postgres connection, in every
+# environment including local dev. A local pgvector container never held
+# the real data anyway, so running Alembic against one was never actually
+# migrating anything meaningful — cleaned up rather than kept as
+# unused-but-harmless.
 #
 # Modern docker compose ignores the top-level `version:` key, so it is
 # omitted intentionally.
 
 services:
-  db:
-    image: pgvector/pgvector:pg16
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: rag_agent
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d rag_agent"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-  migrations:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
-    # Run alembic once, then exit 0. `backend` waits on this via
-    # service_completed_successfully so the API never starts against an
-    # un-migrated schema.
-    command: ["alembic", "upgrade", "head"]
-    env_file:
-      - backend/.env.dev.example
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: "no"
-
   backend:
     build:
       context: .
@@ -52,9 +28,6 @@ services:
       - backend/.env.dev.example
     ports:
       - "8000:8000"
-    depends_on:
-      migrations:
-        condition: service_completed_successfully
 
   frontend:
     build:
@@ -64,6 +37,3 @@ services:
       - "5173:5173"
     depends_on:
       - backend
-
-volumes:
-  pgdata:

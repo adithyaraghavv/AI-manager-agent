@@ -7,10 +7,12 @@ Service, with a manual approval gate protecting production.
 
 Four pieces work together:
 
-1. **`docker-compose.yml`** — the local dev stack. One command brings up
-   pgvector, runs migrations, and starts the backend + frontend.
+1. **`docker-compose.yml`** — the local dev stack. One command starts the
+   backend + frontend. No local Postgres/migrations service — the app
+   talks to Supabase over its REST API in every environment, so a local
+   Postgres container never held any real data anyway.
 2. **`Makefile`** — thin wrapper around `docker compose` so developers do
-   not have to memorise flags (`make up`, `make logs`, `make reset`, etc.).
+   not have to memorise flags (`make up`, `make logs`, etc.).
 3. **`azure-pipelines.yml`** — Azure DevOps pipeline that builds, tests,
    deploys to dev automatically, and deploys to prd behind an approval
    gate.
@@ -28,10 +30,12 @@ each:
   ssh's into the target host(s), installs docker + the compose plugin,
   creates the app user, syncs the repo at the requested ref, renders the
   backend `.env` from ansible variables, and runs `docker compose up`.
-- **docker-compose runs.** On the target host the same
-  `docker-compose.yml` you use locally starts pgvector, runs migrations,
-  and boots backend + frontend. No new orchestration primitive at
-  runtime — just the same compose stack, provisioned consistently.
+- **docker-compose runs.** On the target host, `docker-compose.prod.yml`
+  boots the single combined backend+frontend service (see
+  `backend/Dockerfile.prod`) — no new orchestration primitive at runtime,
+  just a compose stack, provisioned consistently. This is deliberately a
+  different compose file from local dev's `docker-compose.yml` (two
+  hot-reload containers) — see the comments in each for why.
 
 ### Layout
 
@@ -45,7 +49,7 @@ deploy/ansible/
 ├── vault.example.yml            # copy to vault.yml, then ansible-vault encrypt
 ├── group_vars/
 │   ├── all.yml                  # shared non-secret defaults
-│   ├── dev.yml                  # dev overrides (DEBUG logs, compose db)
+│   ├── dev.yml                  # dev overrides (DEBUG logs)
 │   └── prd.yml                  # prd placeholders (real values in vault)
 └── roles/
     ├── host_prep/               # apt, docker engine, app user
@@ -108,9 +112,9 @@ it out of the repo instead of a secure file.
 Prerequisites: Docker Desktop (or any modern docker + compose plugin).
 
 ```bash
-make up          # build images, start db, run migrations, start backend + frontend
+make up          # build images, start backend + frontend
 make logs        # tail everything
-make down        # stop, but keep the pgdata volume
+make down        # stop
 ```
 
 Then hit:
@@ -122,23 +126,21 @@ Other useful targets:
 
 | Target             | What it does                                          |
 | ------------------ | ----------------------------------------------------- |
-| `make migrate`     | Re-run `alembic upgrade head` against the running db |
-| `make psql`        | Drop into a psql shell inside the db container       |
 | `make test-backend`| Run pytest inside the backend container              |
-| `make reset`       | Stop AND destroy the pgdata volume (wipes data)      |
 
-The migrations service is one-shot (`restart: no`) and gates the backend
-via `service_completed_successfully`, so the API never starts against an
-un-migrated schema.
+Alembic migrations and the one-off seed scripts are run manually against
+a real reachable Postgres (e.g. Supabase's direct connection string via
+`DATABASE_URL`) when actually needed — not part of bringing the stack up,
+since the app's normal runtime path never touches Postgres directly.
 
 ## 3. Environment variables
 
 The split is deliberate:
 
 - **`backend/.env.dev.example`** — checked in. Contains local defaults
-  that only make sense inside compose (`db:5432`, `postgres/postgres`,
-  `DEBUG` logs). Copy to `backend/.env.dev` if you need overrides; both
-  are wired into compose via `env_file`.
+  (`DEBUG` logs, blank `DATABASE_URL` — only needed for the one-off
+  Alembic/seed scripts, not the running app). Copy to `backend/.env.dev`
+  if you need overrides; both are wired into compose via `env_file`.
 - **`backend/.env.prd.example`** — checked in as a *template* only. The
   file explicitly says "do not put real secrets here". The real values
   live in the ADO variable group `rag-agent-prd` and get injected at
@@ -250,11 +252,6 @@ PR runs stop at Build_Test — the deploy stages are conditioned on
 `Build.SourceBranch == refs/heads/main`.
 
 ## 6. Troubleshooting
-
-**`make up` hangs on `migrations`.** The db healthcheck has probably
-failed. `docker compose logs db` will show why (usually a mounted volume
-owned by a different pg major version — `make reset` fixes it, at the
-cost of wiping data).
 
 **Backend starts but crashes on first request.** Check that
 `backend/.env.dev.example` still matches the config keys the app reads.

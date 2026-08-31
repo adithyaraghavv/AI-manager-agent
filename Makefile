@@ -1,16 +1,13 @@
 # Developer shortcuts for the local docker-compose stack.
 # See docs/deploy-dev-prd.md for the full workflow.
 
-.PHONY: help up down logs reset migrate psql test-backend deploy-dev deploy-prd ansible-check
+.PHONY: help up down logs test-backend deploy-dev deploy-prd ansible-check
 
 help: ## Show this help
 	@echo "Available targets:"
-	@echo "  up             Build and start the full stack (db, migrations, backend, frontend)"
-	@echo "  down           Stop the stack (keeps the pgdata volume)"
+	@echo "  up             Build and start the local stack (backend, frontend)"
+	@echo "  down           Stop the stack"
 	@echo "  logs           Tail logs from all services"
-	@echo "  reset          Stop AND destroy the pgdata volume (wipes the database)"
-	@echo "  migrate        Run alembic upgrade head once against the running db"
-	@echo "  psql           Open a psql shell against the local database"
 	@echo "  test-backend   Run pytest inside the backend container"
 	@echo "  deploy-dev     Run the ansible playbook against the dev inventory"
 	@echo "  deploy-prd     Run the ansible playbook against the prd inventory (RELEASE_REF=<sha_or_tag>)"
@@ -24,17 +21,6 @@ down:
 
 logs:
 	docker compose logs -f
-
-# WARNING: destroys the pgdata volume. All local documents, chunks, and
-# vector embeddings are lost. Use `make down` if you just want to stop.
-reset:
-	docker compose down -v
-
-migrate:
-	docker compose run --rm migrations
-
-psql:
-	docker compose exec db psql -U postgres rag_agent
 
 test-backend:
 	docker compose exec backend uv run pytest

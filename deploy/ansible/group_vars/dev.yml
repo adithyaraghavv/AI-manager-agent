@@ -1,17 +1,14 @@
 ---
 # Dev overrides. Applied to hosts in the `dev` group (see the
 # `[dev:children]` block in inventory.dev.example.ini).
-#
-# DATABASE_URL defaults to the compose-internal `db` service so that a
-# fresh dev host talks to the pgvector container brought up by the same
-# compose stack. Override in ADO / vault if dev points at an external
-# managed postgres.
 
 environment_name: dev
 log_level: DEBUG
-# NOTE: this only matters for the one-off Alembic migrations/seed scripts —
-# the running app talks to Supabase over its REST API, not this URL. The
-# `db` host below no longer exists in docker-compose.prod.yml (single
-# combined service, no local Postgres); run those scripts against a
-# reachable Postgres directly if you ever need them here, or ignore this.
-database_url: postgresql+psycopg://postgres:postgres@db:5432/rag_agent
+# DATABASE_URL only matters for the one-off Alembic migrations/seed
+# scripts — the running app talks to Supabase over its REST API, not this
+# URL, in every environment. There's no local Postgres container anymore
+# (docker-compose.yml and docker-compose.prod.yml both dropped it — see
+# their comments for why); point this at the real Supabase Postgres
+# connection string via ansible-vault/ADO if those one-off scripts are
+# ever needed against dev, rather than leaving a default that points at a
+# host which no longer exists.
