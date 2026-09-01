@@ -33,6 +33,11 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
+    environment:
+      # "localhost" inside this container means "this container", not the
+      # backend one — use the compose service name instead. See
+      # frontend/vite.config.js for the other half of this.
+      BACKEND_PROXY_TARGET: http://backend:8000
     ports:
       - "5173:5173"
     depends_on:
