@@ -9,7 +9,7 @@
 #
 # No local Postgres/migrations service here — the running app talks to
 # Supabase over its REST API (SUPABASE_URL / SUPABASE_KEY in
-# backend/.env.dev.example), not a direct Postgres connection, in every
+# backend/.env.dev), not a direct Postgres connection, in every
 # environment including local dev. A local pgvector container never held
 # the real data anyway, so running Alembic against one was never actually
 # migrating anything meaningful — cleaned up rather than kept as
@@ -24,8 +24,15 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    # .env.dev.example is the checked-in template (placeholder values only,
+    # e.g. OPENAI_API_KEY=sk-replace-me) — it exists so `docker compose up`
+    # never fails with "file not found" on a fresh clone. backend/.env.dev
+    # is your own untracked copy with real keys (`copy
+    # backend\.env.dev.example backend\.env.dev`, then fill it in); loaded
+    # second so its real values override the placeholders above it.
     env_file:
       - backend/.env.dev.example
+      - backend/.env.dev
     ports:
       - "8000:8000"
 
