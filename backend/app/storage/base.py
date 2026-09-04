@@ -39,3 +39,11 @@ class StorageBackend(ABC):
         so a backend that can't provide one just returns None rather than
         every implementation having to stub it out."""
         return None
+
+    def list(self, prefix: str) -> list[str]:
+        """The paths (relative to storage root, same shape callers pass in)
+        of every item directly inside the folder at `prefix`. Empty list if
+        `prefix` doesn't exist. Deliberately non-abstract, same reasoning as
+        web_url — only backends that actually need directory listing (e.g.
+        matching real files on SharePoint) have to implement it."""
+        return []

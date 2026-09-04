@@ -43,3 +43,13 @@ class LocalFilesystemStorage(StorageBackend):
             raise ValueError("Refusing to delete the storage root itself")
         if target.is_dir():
             shutil.rmtree(target)
+
+    def list(self, prefix: str) -> list[str]:
+        target = self._resolve(prefix)
+        if not target.is_dir():
+            return []
+        rel_prefix = target.relative_to(self.root)
+        return sorted(
+            str((rel_prefix / entry.name)).replace("\\", "/")
+            for entry in target.iterdir()
+        )
