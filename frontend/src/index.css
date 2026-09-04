@@ -834,12 +834,63 @@ body {
   opacity: 0.9;
 }
 
-/* Status table — phase-by-phase document completion for a client, replacing
-   the old StatusCard's single progress bar with a real breakdown of which
-   documents are done vs. still missing per phase. */
+/* Status dashboard — phase-by-phase document completion for a client:
+   summary cards, a progress bar per phase, and completed/missing documents
+   shown as badges instead of a redundant "all documents" column. */
+
+.status-dashboard {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.status-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(110px, 1fr));
+  gap: 8px;
+}
+
+.status-summary__card {
+  background: var(--panel-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.status-summary__label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.status-summary__value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.status-summary__value--text {
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-summary__value--ok {
+  color: var(--ok);
+}
+
+.status-summary__value--danger {
+  color: var(--danger);
+}
 
 .status-table-wrap {
-  margin-top: 8px;
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow-x: auto;
@@ -862,13 +913,13 @@ body {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  padding: 9px 12px;
+  padding: 7px 12px;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
 }
 
 .status-table td {
-  padding: 10px 12px;
+  padding: 7px 12px;
   border-bottom: 1px solid var(--border);
   vertical-align: top;
 }
@@ -919,33 +970,16 @@ body {
   background: var(--warning-bg);
 }
 
+.status-table__badge--blocked {
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+
 .status-table__chips {
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
   min-width: 160px;
-}
-
-.status-table__chip {
-  font-size: 11px;
-  font-weight: 600;
-  border-radius: 6px;
-  padding: 3px 8px;
-  background: var(--bg);
-  color: var(--text);
-  border: 1px solid var(--border);
-}
-
-.status-table__chip--done {
-  color: var(--ok);
-  background: var(--ok-bg);
-  border-color: var(--ok-bg);
-}
-
-.status-table__chip--missing {
-  color: var(--danger);
-  background: var(--danger-bg);
-  border-color: var(--danger-bg);
 }
 
 .status-table__none {
@@ -958,6 +992,89 @@ body {
   color: var(--ok);
   font-style: normal;
   font-weight: 600;
+}
+
+.status-doc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 6px;
+  padding: 3px 8px;
+}
+
+.status-doc-badge--done {
+  color: #ffffff;
+  background: var(--ok);
+}
+
+.status-doc-badge--missing {
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+
+.status-doc-badge__icon {
+  font-size: 10px;
+  line-height: 1;
+}
+
+.status-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 110px;
+}
+
+.status-progress__bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--bg);
+  overflow: hidden;
+}
+
+.status-progress__fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.status-progress__fill--complete {
+  background: var(--ok);
+}
+
+.status-progress__fill--partial {
+  background: var(--status-warning);
+}
+
+.status-progress__fill--blocked {
+  background: var(--danger);
+}
+
+.status-progress__pct {
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 32px;
+  text-align: right;
+}
+
+.status-progress__pct--complete {
+  color: var(--ok);
+}
+
+.status-progress__pct--partial {
+  color: var(--status-warning);
+}
+
+.status-progress__pct--blocked {
+  color: var(--danger);
+}
+
+@media (max-width: 520px) {
+  .status-summary {
+    grid-template-columns: repeat(2, minmax(100px, 1fr));
+  }
 }
 
 /* File cards — the visual target for any downloadable file surfaced in the

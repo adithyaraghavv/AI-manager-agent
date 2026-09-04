@@ -144,83 +144,161 @@ function PathCard({ folderPath, webUrl }) {
   );
 }
 
-function StatusTable({ phases }) {
+function phasePercent(phase) {
+  const total = phase.completed_documents.length + phase.missing_documents.length;
+  if (total === 0) return 100;
+  return Math.round((phase.completed_documents.length / total) * 100);
+}
+
+function ProjectProgressBar({ percent }) {
+  const tone =
+    percent === 100 ? "complete" : percent === 0 ? "blocked" : "partial";
+  return (
+    <div className="status-progress">
+      <div className="status-progress__bar">
+        <div
+          className={`status-progress__fill status-progress__fill--${tone}`}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+      <span className={`status-progress__pct status-progress__pct--${tone}`}>
+        {percent}%
+      </span>
+    </div>
+  );
+}
+
+function DocumentBadge({ doc, kind }) {
+  return (
+    <span className={`status-doc-badge status-doc-badge--${kind}`}>
+      <span className="status-doc-badge__icon" aria-hidden="true">
+        {kind === "done" ? "✓" : "!"}
+      </span>
+      {doc}
+    </span>
+  );
+}
+
+function StatusSummaryCards({ phases }) {
+  const totalPhases = phases.length;
+  const completedPhases = phases.filter((p) => p.complete).length;
+  const activePhase = phases.find((p) => !p.complete);
+  const missingCount = phases.reduce(
+    (sum, p) => sum + p.missing_documents.length,
+    0,
+  );
+
+  return (
+    <div className="status-summary">
+      <div className="status-summary__card">
+        <span className="status-summary__label">Total Phases</span>
+        <span className="status-summary__value">{totalPhases}</span>
+      </div>
+      <div className="status-summary__card">
+        <span className="status-summary__label">Completed Phases</span>
+        <span className="status-summary__value status-summary__value--ok">
+          {completedPhases}
+        </span>
+      </div>
+      <div className="status-summary__card">
+        <span className="status-summary__label">Active Phase</span>
+        <span className="status-summary__value status-summary__value--text">
+          {activePhase ? activePhase.phase : "None — all complete"}
+        </span>
+      </div>
+      <div className="status-summary__card">
+        <span className="status-summary__label">Missing Documents</span>
+        <span
+          className={`status-summary__value${missingCount > 0 ? " status-summary__value--danger" : " status-summary__value--ok"}`}
+        >
+          {missingCount}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function PhaseStatusTable({ phases }) {
   return (
     <div className="status-table-wrap">
       <table className="status-table">
         <thead>
           <tr>
             <th>Phase</th>
-            <th>All Documents</th>
-            <th>Completed</th>
-            <th>Missing</th>
+            <th>Progress</th>
+            <th>Completed Documents</th>
+            <th>Missing Documents</th>
           </tr>
         </thead>
         <tbody>
-          {phases.map((phase) => (
-            <tr
-              key={phase.phase}
-              className={phase.complete ? "status-table__row--complete" : ""}
-            >
-              <td className="status-table__phase">
-                <span className="status-table__phase-name">{phase.phase}</span>
-                <span
-                  className={`status-table__badge${
-                    phase.complete
-                      ? " status-table__badge--complete"
-                      : " status-table__badge--pending"
-                  }`}
-                >
-                  {phase.complete ? "Complete" : "Pending"}
-                </span>
-              </td>
-              <td>
-                <div className="status-table__chips">
-                  {phase.required_documents.map((doc) => (
-                    <span key={doc} className="status-table__chip">
-                      {doc}
-                    </span>
-                  ))}
-                </div>
-              </td>
-              <td>
-                {phase.completed_documents.length > 0 ? (
-                  <div className="status-table__chips">
-                    {phase.completed_documents.map((doc) => (
-                      <span
-                        key={doc}
-                        className="status-table__chip status-table__chip--done"
-                      >
-                        {doc}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <span className="status-table__none">None</span>
-                )}
-              </td>
-              <td>
-                {phase.missing_documents.length > 0 ? (
-                  <div className="status-table__chips">
-                    {phase.missing_documents.map((doc) => (
-                      <span
-                        key={doc}
-                        className="status-table__chip status-table__chip--missing"
-                      >
-                        {doc}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <span className="status-table__none status-table__none--good">
-                    None
+          {phases.map((phase) => {
+            const percent = phasePercent(phase);
+            const statusIcon = phase.complete ? "✅" : percent === 0 ? "❌" : "⚠";
+            const statusLabel = phase.complete
+              ? "Complete"
+              : percent === 0
+                ? "Blocked"
+                : "In Progress";
+            return (
+              <tr
+                key={phase.phase}
+                className={phase.complete ? "status-table__row--complete" : ""}
+              >
+                <td className="status-table__phase">
+                  <span className="status-table__phase-name">{phase.phase}</span>
+                  <span
+                    className={`status-table__badge${
+                      phase.complete
+                        ? " status-table__badge--complete"
+                        : percent === 0
+                          ? " status-table__badge--blocked"
+                          : " status-table__badge--pending"
+                    }`}
+                  >
+                    {statusIcon} {statusLabel}
                   </span>
-                )}
-              </td>
-            </tr>
-          ))}
+                </td>
+                <td>
+                  <ProjectProgressBar percent={percent} />
+                </td>
+                <td>
+                  {phase.completed_documents.length > 0 ? (
+                    <div className="status-table__chips">
+                      {phase.completed_documents.map((doc) => (
+                        <DocumentBadge key={doc} doc={doc} kind="done" />
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="status-table__none">None</span>
+                  )}
+                </td>
+                <td>
+                  {phase.missing_documents.length > 0 ? (
+                    <div className="status-table__chips">
+                      {phase.missing_documents.map((doc) => (
+                        <DocumentBadge key={doc} doc={doc} kind="missing" />
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="status-table__none status-table__none--good">
+                      No Missing Documents
+                    </span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function StatusTable({ phases }) {
+  return (
+    <div className="status-dashboard">
+      <StatusSummaryCards phases={phases} />
+      <PhaseStatusTable phases={phases} />
     </div>
   );
 }
