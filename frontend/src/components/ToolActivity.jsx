@@ -71,133 +71,6 @@ function summarize(name, result) {
   }
 }
 
-function StatusCard({ result }) {
-  const phases = result.phases ?? [];
-  const completeCount = phases.filter((p) => p.complete).length;
-  const blocked = phases.find((p) => !p.complete);
-  const pct = phases.length
-    ? Math.round((completeCount / phases.length) * 100)
-    : 0;
-
-  return (
-    <div className="status-card">
-      <div className="status-card__header">
-        <span className="status-card__title">{result.client_name}</span>
-        <span
-          className={`status-card__badge${blocked ? "" : " status-card__badge--good"}`}
-        >
-          {completeCount}/{phases.length} phases
-        </span>
-      </div>
-      <div className="status-card__bar">
-        <div className="status-card__bar-fill" style={{ width: `${pct}%` }} />
-      </div>
-      {blocked ? (
-        <div className="status-card__detail">
-          Blocked at <strong>{blocked.phase}</strong> — missing{" "}
-          {blocked.missing_documents.join(", ")}
-        </div>
-      ) : (
-        <div className="status-card__detail status-card__detail--good">
-          All phases complete
-        </div>
-      )}
-    </div>
-  );
-}
-
-function SowSummaryCard({ result }) {
-  const fields = [
-    { label: "Contract value", value: result.contract_value },
-    { label: "Start date", value: result.start_date },
-    { label: "End date", value: result.end_date },
-  ].filter((f) => f.value);
-
-  const hasTeam =
-    Array.isArray(result.team_assignments) &&
-    result.team_assignments.length > 0;
-  const responsibilities = result.document_responsibilities;
-  const hasResponsibilities =
-    responsibilities && Object.keys(responsibilities).length > 0;
-
-  return (
-    <div className="sow-card">
-      <div className="sow-card__header">
-        <span className="sow-card__title">
-          {result.client_name} — SOW summary
-        </span>
-      </div>
-
-      {fields.length > 0 && (
-        <div className="sow-card__facts">
-          {fields.map((f) => (
-            <div className="sow-card__fact" key={f.label}>
-              <span className="sow-card__fact-label">{f.label}</span>
-              <span className="sow-card__fact-value">{f.value}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {result.scope_summary && (
-        <div className="sow-card__section">
-          <div className="sow-card__section-label">Scope</div>
-          <p className="sow-card__scope">{result.scope_summary}</p>
-        </div>
-      )}
-
-      {hasTeam && (
-        <div className="sow-card__section">
-          <div className="sow-card__section-label">Project team</div>
-          <ul className="sow-card__list">
-            {result.team_assignments.map((person, i) => (
-              <li key={i}>
-                <strong>{person.name}</strong>
-                {person.role ? ` — ${person.role}` : ""}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {hasResponsibilities && (
-        <div className="sow-card__section">
-          <div className="sow-card__section-label">Document ownership</div>
-          <ul className="sow-card__list">
-            {Object.entries(responsibilities).map(([docType, entry]) => {
-              // Older/looser tool results may still hand back a plain string
-              // instead of {owner, approver} — support both defensively.
-              const owner = typeof entry === "string" ? entry : entry?.owner;
-              const approver =
-                typeof entry === "string" ? entry : entry?.approver;
-              const sameParty = owner && approver && owner === approver;
-              return (
-                <li key={docType}>
-                  <strong>{docType}</strong> —{" "}
-                  {sameParty
-                    ? owner
-                    : [
-                        owner && `Owner: ${owner}`,
-                        approver && `Approver: ${approver}`,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
-
-      {!hasTeam && !hasResponsibilities && (
-        <div className="sow-card__note">
-          This SOW doesn't spell out a project team or document ownership.
-        </div>
-      )}
-    </div>
-  );
-}
-
 function ReminderCard({ approver, message }) {
   const [copied, setCopied] = useState(false);
 
@@ -352,14 +225,11 @@ export default function ToolActivity({ name, result }) {
     name === "get_document_versions" &&
     result.found &&
     result.versions?.length > 0;
-  const showStatusCard =
-    settled && name === "get_client_status" && Array.isArray(result.phases);
   const showPathCard =
     settled &&
     name === "get_document_location" &&
     result.found &&
     result.folder_path;
-  const showSowCard = settled && name === "get_sow_summary" && result.found;
   const showReminderCard =
     settled && name === "generate_approval_reminder" && result.found;
 
@@ -375,11 +245,9 @@ export default function ToolActivity({ name, result }) {
           {settled ? summarize(name, result) : inProgressPhrase(name, result)}
         </span>
       </div>
-      {showStatusCard && <StatusCard result={result} />}
       {showPathCard && (
         <PathCard folderPath={result.folder_path} webUrl={result.web_url} />
       )}
-      {showSowCard && <SowSummaryCard result={result} />}
       {showReminderCard && (
         <ReminderCard
           approver={result.approver}
