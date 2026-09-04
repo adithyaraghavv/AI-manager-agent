@@ -81,7 +81,7 @@ export default function App() {
   }
 
   function handleLoadChat(entry) {
-    if (chatIdRef.current === entry.id) return;
+    if (chatIdRef.current === entry.id && view === "chat") return;
     chatIdRef.current = entry.id;
     setChatId(entry.id);
     setMessages(entry.messages);
