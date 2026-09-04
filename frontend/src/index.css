@@ -936,10 +936,6 @@ body {
   background: color-mix(in srgb, var(--accent-bright) 6%, transparent);
 }
 
-.status-table__row--complete {
-  background: var(--ok-bg) !important;
-}
-
 .status-table__phase {
   display: flex;
   flex-direction: column;

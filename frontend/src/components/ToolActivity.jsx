@@ -233,17 +233,14 @@ function PhaseStatusTable({ phases }) {
         <tbody>
           {phases.map((phase) => {
             const percent = phasePercent(phase);
-            const statusIcon = phase.complete ? "✅" : percent === 0 ? "❌" : "⚠";
+            const statusIcon = phase.complete ? "" : percent === 0 ? "❌ " : "⚠ ";
             const statusLabel = phase.complete
               ? "Complete"
               : percent === 0
                 ? "Blocked"
                 : "In Progress";
             return (
-              <tr
-                key={phase.phase}
-                className={phase.complete ? "status-table__row--complete" : ""}
-              >
+              <tr key={phase.phase}>
                 <td className="status-table__phase">
                   <span className="status-table__phase-name">{phase.phase}</span>
                   <span
@@ -255,7 +252,8 @@ function PhaseStatusTable({ phases }) {
                           : " status-table__badge--pending"
                     }`}
                   >
-                    {statusIcon} {statusLabel}
+                    {statusIcon}
+                    {statusLabel}
                   </span>
                 </td>
                 <td>
