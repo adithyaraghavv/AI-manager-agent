@@ -172,35 +172,42 @@ function ChatTitleBar({ title, onRename }) {
   );
 }
 
-// Occasionally the model writes a markdown-style link (e.g. "[here](https://...)")
-// even though the system prompt tells it not to — LLM instruction-following isn't
-// 100% reliable. This chat has never rendered markdown, so that text would
-// otherwise show up as literal brackets/parentheses instead of a clickable
-// link. Rather than pull in a full markdown renderer for one pattern, just
-// recognize [label](url) specifically and turn it into a real link — every
-// other markdown-looking character in the reply passes through untouched.
-const MARKDOWN_LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+// Occasionally the model writes markdown-style formatting (a link like
+// "[here](https://...)", or "**bold**" around phase/heading names) even
+// though the system prompt tells it not to — LLM instruction-following isn't
+// 100% reliable. This chat has never rendered full markdown, so that text
+// would otherwise show up as literal brackets/parentheses/asterisks instead
+// of a clickable link or bold text. Rather than pull in a full markdown
+// renderer, just recognize these two patterns and turn them into real
+// elements — every other markdown-looking character in the reply passes
+// through untouched.
+const MARKDOWN_INLINE_RE =
+  /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|\*\*([^*]+)\*\*/g;
 
 function renderTextWithLinks(text) {
   const parts = [];
   let lastIndex = 0;
   let match;
   let key = 0;
-  MARKDOWN_LINK_RE.lastIndex = 0;
-  while ((match = MARKDOWN_LINK_RE.exec(text)) !== null) {
+  MARKDOWN_INLINE_RE.lastIndex = 0;
+  while ((match = MARKDOWN_INLINE_RE.exec(text)) !== null) {
     if (match.index > lastIndex) parts.push(text.slice(lastIndex, match.index));
-    parts.push(
-      <a
-        key={key++}
-        href={match[2]}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="bubble__link"
-      >
-        {match[1]}
-      </a>,
-    );
-    lastIndex = MARKDOWN_LINK_RE.lastIndex;
+    if (match[1] !== undefined) {
+      parts.push(
+        <a
+          key={key++}
+          href={match[2]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="bubble__link"
+        >
+          {match[1]}
+        </a>,
+      );
+    } else {
+      parts.push(<strong key={key++}>{match[3]}</strong>);
+    }
+    lastIndex = MARKDOWN_INLINE_RE.lastIndex;
   }
   if (lastIndex < text.length) parts.push(text.slice(lastIndex));
   return parts;
