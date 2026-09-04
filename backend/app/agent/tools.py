@@ -438,11 +438,18 @@ def dispatch_tool(
                 for d in phase.required_documents
                 if d in not_applicable and d not in existing
             ]
+            completed = [
+                d
+                for d in phase.required_documents
+                if d not in missing and d not in na_in_phase
+            ]
             status.append(
                 {
                     "phase": phase.name,
                     "sequence": phase.sequence,
                     "complete": len(missing) == 0,
+                    "required_documents": list(phase.required_documents),
+                    "completed_documents": completed,
                     "missing_documents": list(missing),
                     "not_applicable_documents": na_in_phase,
                 }

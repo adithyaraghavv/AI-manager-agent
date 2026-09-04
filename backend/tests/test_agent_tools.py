@@ -86,6 +86,19 @@ def test_get_client_status_reports_all_phases(rest, storage):
     assert result["phases"][0]["complete"] is False
 
 
+def test_get_client_status_reports_required_and_completed_documents(rest, storage):
+    # Needed for the status table UI: each phase must carry its full document
+    # list plus which of those are actually done, not just what's missing.
+    result = dispatch_tool(
+        rest, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
+    )
+    prereq_phase = result["phases"][0]
+    assert prereq_phase["required_documents"]
+    assert set(prereq_phase["completed_documents"]) | set(
+        prereq_phase["missing_documents"]
+    ) == set(prereq_phase["required_documents"])
+
+
 def test_get_or_create_client_is_idempotent_across_calls(rest, storage):
     first = dispatch_tool(
         rest, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}

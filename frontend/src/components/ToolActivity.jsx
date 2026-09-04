@@ -144,6 +144,87 @@ function PathCard({ folderPath, webUrl }) {
   );
 }
 
+function StatusTable({ phases }) {
+  return (
+    <div className="status-table-wrap">
+      <table className="status-table">
+        <thead>
+          <tr>
+            <th>Phase</th>
+            <th>All Documents</th>
+            <th>Completed</th>
+            <th>Missing</th>
+          </tr>
+        </thead>
+        <tbody>
+          {phases.map((phase) => (
+            <tr
+              key={phase.phase}
+              className={phase.complete ? "status-table__row--complete" : ""}
+            >
+              <td className="status-table__phase">
+                <span className="status-table__phase-name">{phase.phase}</span>
+                <span
+                  className={`status-table__badge${
+                    phase.complete
+                      ? " status-table__badge--complete"
+                      : " status-table__badge--pending"
+                  }`}
+                >
+                  {phase.complete ? "Complete" : "Pending"}
+                </span>
+              </td>
+              <td>
+                <div className="status-table__chips">
+                  {phase.required_documents.map((doc) => (
+                    <span key={doc} className="status-table__chip">
+                      {doc}
+                    </span>
+                  ))}
+                </div>
+              </td>
+              <td>
+                {phase.completed_documents.length > 0 ? (
+                  <div className="status-table__chips">
+                    {phase.completed_documents.map((doc) => (
+                      <span
+                        key={doc}
+                        className="status-table__chip status-table__chip--done"
+                      >
+                        {doc}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="status-table__none">None</span>
+                )}
+              </td>
+              <td>
+                {phase.missing_documents.length > 0 ? (
+                  <div className="status-table__chips">
+                    {phase.missing_documents.map((doc) => (
+                      <span
+                        key={doc}
+                        className="status-table__chip status-table__chip--missing"
+                      >
+                        {doc}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="status-table__none status-table__none--good">
+                    None
+                  </span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function FileCard({ title, badge, meta, comment, href }) {
   return (
     <a className="file-card" href={href} download>
@@ -232,6 +313,12 @@ export default function ToolActivity({ name, result }) {
     result.folder_path;
   const showReminderCard =
     settled && name === "generate_approval_reminder" && result.found;
+  const showStatusTable =
+    settled &&
+    name === "get_client_status" &&
+    Array.isArray(result.phases) &&
+    result.phases.length > 0 &&
+    result.phases.every((p) => Array.isArray(p.required_documents));
 
   return (
     <div className="tool-activity">
@@ -245,6 +332,7 @@ export default function ToolActivity({ name, result }) {
           {settled ? summarize(name, result) : inProgressPhrase(name, result)}
         </span>
       </div>
+      {showStatusTable && <StatusTable phases={result.phases} />}
       {showPathCard && (
         <PathCard folderPath={result.folder_path} webUrl={result.web_url} />
       )}
