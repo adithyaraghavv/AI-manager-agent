@@ -72,6 +72,10 @@ def search_documents(
 
     results = []
     for doc in matching_docs.values():
+        if doc.get("deleted_at") is not None:
+            # Soft-deleted document — same "hidden until restored" contract
+            # as delete_client_document/existing_document_types.
+            continue
         client_name = matching_clients.get(doc["client_id"])
         if client_name is None:
             # Orphan whose client is soft-deleted or missing — same skip as before.

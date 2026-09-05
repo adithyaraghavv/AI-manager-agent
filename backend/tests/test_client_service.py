@@ -8,12 +8,16 @@ from app.core.client_name_validation import InvalidClientName
 from app.core.phase_config import Phase, PhaseConfig
 from app.services.client_service import (
     delete_client,
+    delete_client_document,
     existing_document_types,
     find_client,
+    find_deleted_client,
     get_or_create_client,
     mark_document_not_applicable,
     not_applicable_document_types,
     purge_deleted_clients,
+    restore_client,
+    restore_client_document,
     satisfied_document_types,
     unmark_document_not_applicable,
 )
@@ -149,6 +153,94 @@ def test_find_client_is_case_insensitive(rest, storage):
     get_or_create_client(rest, storage, CONFIG, "Hillenbrand")
     assert find_client(rest, "hillenbrand") is not None
     assert find_client(rest, "HILLENBRAND") is not None
+
+
+def test_find_deleted_client_finds_only_soft_deleted_clients(rest, storage):
+    active = get_or_create_client(rest, storage, CONFIG, "Acme")
+    deleted = get_or_create_client(rest, storage, CONFIG, "Globex")
+    delete_client(rest, storage, deleted)
+
+    assert find_deleted_client(rest, "Acme") is None  # active, not deleted
+    assert find_deleted_client(rest, "Ghost") is None  # never existed
+    found = find_deleted_client(rest, "Globex")
+    assert found is not None
+    assert found["id"] == deleted["id"]
+
+
+def test_restore_client_undoes_a_soft_delete(rest, storage):
+    client = get_or_create_client(rest, storage, CONFIG, "Acme")
+    delete_client(rest, storage, client)
+    assert find_client(rest, "Acme") is None
+
+    deleted = find_deleted_client(rest, "Acme")
+    restore_client(rest, deleted)
+
+    restored = find_client(rest, "Acme")
+    assert restored is not None
+    assert restored["id"] == client["id"]
+
+
+def test_delete_client_document_hides_it_without_touching_storage(rest, storage):
+    client = get_or_create_client(rest, storage, CONFIG, "Acme")
+    rest.insert(
+        "client_documents",
+        {
+            "client_id": client["id"],
+            "doc_type": "MSA",
+            "phase_name": "Pre-requisites",
+            "storage_path": "Acme/01_Pre-requisites/v1_MSA.docx",
+            "filename": "MSA.docx",
+        },
+    )
+
+    deleted = delete_client_document(rest, client, "MSA")
+
+    assert deleted is True
+    assert existing_document_types(rest, client) == set()  # counts as missing again
+    row = rest.select_one("client_documents", client_id=client["id"], doc_type="MSA")
+    assert row is not None  # the row itself is untouched, just marked
+    assert row["deleted_at"] is not None
+    assert row["storage_path"] == "Acme/01_Pre-requisites/v1_MSA.docx"  # unchanged
+
+
+def test_delete_client_document_no_op_if_never_filed(rest, storage):
+    client = get_or_create_client(rest, storage, CONFIG, "Acme")
+    assert delete_client_document(rest, client, "MSA") is False
+
+
+def test_delete_client_document_no_op_if_already_deleted(rest, storage):
+    client = get_or_create_client(rest, storage, CONFIG, "Acme")
+    rest.insert(
+        "client_documents",
+        {"client_id": client["id"], "doc_type": "MSA", "phase_name": "Pre-requisites"},
+    )
+    delete_client_document(rest, client, "MSA")
+
+    assert delete_client_document(rest, client, "MSA") is False
+
+
+def test_restore_client_document_reverses_delete(rest, storage):
+    client = get_or_create_client(rest, storage, CONFIG, "Acme")
+    rest.insert(
+        "client_documents",
+        {"client_id": client["id"], "doc_type": "MSA", "phase_name": "Pre-requisites"},
+    )
+    delete_client_document(rest, client, "MSA")
+    assert existing_document_types(rest, client) == set()
+
+    restored = restore_client_document(rest, client, "MSA")
+
+    assert restored is True
+    assert existing_document_types(rest, client) == {"MSA"}
+
+
+def test_restore_client_document_no_op_if_not_deleted(rest, storage):
+    client = get_or_create_client(rest, storage, CONFIG, "Acme")
+    rest.insert(
+        "client_documents",
+        {"client_id": client["id"], "doc_type": "MSA", "phase_name": "Pre-requisites"},
+    )
+    assert restore_client_document(rest, client, "MSA") is False
 
 
 def test_mark_document_not_applicable_adds_to_satisfied_but_not_existing(rest, storage):

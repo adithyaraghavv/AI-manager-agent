@@ -24,6 +24,12 @@ function inProgressPhrase(name, result) {
       return `Reading the SOW for "${result.client_name}"…`;
     case "generate_approval_reminder":
       return `Looking up who's responsible for "${result.doc_type}"…`;
+    case "delete_document":
+      return `Deleting "${result.doc_type}"…`;
+    case "restore_document":
+      return `Restoring "${result.doc_type}"…`;
+    case "restore_client":
+      return `Restoring "${result.client_name}"…`;
     default:
       return "Working…";
   }
@@ -66,6 +72,18 @@ function summarize(name, result) {
       return result.found
         ? `Found who's responsible for "${result.doc_type}" — reminder ready to copy`
         : `Couldn't find who's responsible: ${result.reason}`;
+    case "delete_document":
+      return result.ok
+        ? `Deleted "${result.doc_type}" for ${result.client_name}`
+        : `Couldn't delete: ${result.reason}`;
+    case "restore_document":
+      return result.ok
+        ? `Restored "${result.doc_type}" for ${result.client_name}`
+        : `Couldn't restore: ${result.reason}`;
+    case "restore_client":
+      return result.ok
+        ? `Restored "${result.client_name}"`
+        : `Couldn't restore: ${result.reason}`;
     default:
       return name;
   }

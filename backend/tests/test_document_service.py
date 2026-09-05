@@ -5,6 +5,7 @@ from tests.conftest import requires_case_sensitive_fs
 from app.core.phase_config import Phase, PhaseConfig
 from app.core.upload_validation import InvalidUpload, MAX_UPLOAD_SIZE_BYTES
 from app.services.client_service import (
+    delete_client_document,
     get_or_create_client,
     mark_document_not_applicable,
     unmark_document_not_applicable,
@@ -17,6 +18,7 @@ from app.services.document_service import (
     get_document_location,
     get_stored_document,
     request_template,
+    restore_document_version,
     upload_document,
 )
 from app.storage.local import LocalFilesystemStorage
@@ -185,6 +187,55 @@ def test_get_document_location_unfiled_doc_type_raises(
 
     with pytest.raises(ClientDocumentNotFound):
         get_document_location(rest, client_storage, "Acme", "SOW")
+
+
+def test_get_document_location_excludes_a_deleted_document(
+    rest, client_storage, template_storage
+):
+    client = get_or_create_client(rest, client_storage, CONFIG, "Acme")
+    upload_document(rest, client_storage, CONFIG, "MSA", "Acme", b"filled msa", "pdf")
+    delete_client_document(rest, client, "MSA")
+
+    with pytest.raises(ClientDocumentNotFound):
+        get_document_location(rest, client_storage, "Acme", "MSA")
+
+
+def test_get_stored_document_excludes_a_deleted_document(
+    rest, client_storage, template_storage
+):
+    client = get_or_create_client(rest, client_storage, CONFIG, "Acme")
+    upload_document(rest, client_storage, CONFIG, "MSA", "Acme", b"filled msa", "pdf")
+    delete_client_document(rest, client, "MSA")
+
+    with pytest.raises(ClientDocumentNotFound):
+        get_stored_document(rest, client_storage, "Acme", "MSA")
+
+
+def test_reupload_of_a_deleted_document_makes_it_visible_again(
+    rest, client_storage, template_storage
+):
+    client = get_or_create_client(rest, client_storage, CONFIG, "Acme")
+    upload_document(rest, client_storage, CONFIG, "MSA", "Acme", b"v1", "pdf")
+    delete_client_document(rest, client, "MSA")
+
+    upload_document(rest, client_storage, CONFIG, "MSA", "Acme", b"v2", "pdf")
+
+    location = get_document_location(rest, client_storage, "Acme", "MSA")
+    assert location.doc_type == "MSA"
+
+
+def test_restoring_an_old_version_of_a_deleted_document_makes_it_visible_again(
+    rest, client_storage, template_storage
+):
+    client = get_or_create_client(rest, client_storage, CONFIG, "Acme")
+    upload_document(rest, client_storage, CONFIG, "MSA", "Acme", b"v1", "pdf")
+    upload_document(rest, client_storage, CONFIG, "MSA", "Acme", b"v2", "pdf")
+    delete_client_document(rest, client, "MSA")
+
+    restore_document_version(rest, client_storage, "Acme", "MSA", 1)
+
+    location = get_document_location(rest, client_storage, "Acme", "MSA")
+    assert location.doc_type == "MSA"
 
 
 def test_not_applicable_document_unblocks_a_later_phase(

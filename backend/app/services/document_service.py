@@ -168,10 +168,14 @@ def upload_document(
             },
         )
     else:
+        # A fresh upload clears deleted_at unconditionally — even if this
+        # doc_type was soft-deleted (see client_service.delete_client_document),
+        # a PM uploading it again obviously means it's on file again, not that
+        # it should stay hidden.
         rest.update(
             "client_documents",
             {"id": record["id"]},
-            {"storage_path": stored_path, "filename": filename},
+            {"storage_path": stored_path, "filename": filename, "deleted_at": None},
         )
 
     return UploadResult(
@@ -227,10 +231,13 @@ def restore_document_version(
     stored_path = f"{folder_prefix}/v{new_version_number}_{filename}"
     storage.save(stored_path, old.content)
 
+    # Same reasoning as upload_document's upsert: restoring an old version
+    # makes it current again, so a doc_type soft-deleted via
+    # delete_client_document must come back visible too.
     rest.update(
         "client_documents",
         {"id": record["id"]},
-        {"storage_path": stored_path, "filename": filename},
+        {"storage_path": stored_path, "filename": filename, "deleted_at": None},
     )
 
     restore_comment = comment or f"Restored from version {version_number}"
@@ -309,7 +316,7 @@ def get_document_location(
     if client is None:
         raise ClientDocumentNotFound(f"No client named {client_name!r}")
 
-    record = rest.select_one(
+    record = rest.select_one_active(
         "client_documents", client_id=client["id"], doc_type=doc_type
     )
     if record is None:
@@ -341,7 +348,7 @@ def get_stored_document(
     if client is None:
         raise ClientDocumentNotFound(f"No client named {client_name!r}")
 
-    record = rest.select_one(
+    record = rest.select_one_active(
         "client_documents", client_id=client["id"], doc_type=doc_type
     )
     if record is None:

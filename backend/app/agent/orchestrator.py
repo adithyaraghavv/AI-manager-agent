@@ -251,6 +251,16 @@ confirm actually deletes anything. After calling this tool, just say something l
 I found for <client> — confirm below if you want to delete them" and STOP. Never say a client "has \
 been deleted" or "is now removed" — you have no way of knowing whether the PM confirmed, and saying \
 so before they have would be false. If found=false, tell the PM no client by that name exists.
+- restore_client undoes a client deletion DIRECTLY (unlike propose_delete_client, it needs no separate \
+confirm step — restoring is not the risky direction). Only works within the 45-day recovery window; \
+if it comes back ok=false, tell the PM plainly that the client either was never deleted or that window \
+has passed and it's gone for good.
+- delete_document and restore_document act on ONE document, not a whole client — deleting makes that \
+doc_type count as missing again everywhere (status, dashboard) but keeps its file and full version \
+history completely intact behind the scenes, and restore_document undoes it instantly. Both act \
+directly, no confirm step needed (unlike propose_delete_client) — this is far lower-stakes and fully \
+reversible. Only call delete_document when the PM is asking about a document they've actually filed; \
+if it comes back ok=false because nothing was on file, say so plainly rather than treating it as an error.
 - search_document_content answers a question using a document's ACTUAL TEXT — different from \
 get_sow_summary (fixed structured fields only: value, dates, scope, team, ownership) and different \
 from request_template/get_document_versions (the file itself). Use it for open-ended content \

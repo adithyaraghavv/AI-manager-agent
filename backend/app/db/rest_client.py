@@ -76,6 +76,11 @@ class SupabaseRestClient:
         params[active_column] = "is.null"
         return self._get_rows(table, params)
 
+    def select_one_active(self, table: str, active_column: str = "deleted_at", **filters: object) -> dict | None:
+        """Like select_one(), but excludes soft-deleted rows (where `active_column` is set)."""
+        rows = self.select_active(table, active_column=active_column, **filters)
+        return rows[0] if rows else None
+
     def select_one_ci_active(self, table: str, column: str, value: str, active_column: str = "deleted_at") -> dict | None:
         """Same as select_one_ci, but additionally excludes soft-deleted rows."""
         escaped = value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")

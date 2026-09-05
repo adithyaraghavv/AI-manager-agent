@@ -20,11 +20,16 @@ from app.core.phase_config import PhaseConfig
 from app.db.rest_client import SupabaseRestClient
 from app.services import embedding_service
 from app.services.client_service import (
+    delete_client_document,
+    deleted_document_types,
     existing_document_types,
     find_client,
+    find_deleted_client,
     get_or_create_client,
     mark_document_not_applicable,
     not_applicable_document_types,
+    restore_client,
+    restore_client_document,
     satisfied_document_types,
     unmark_document_not_applicable,
 )
@@ -215,6 +220,85 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     },
                 },
                 "required": ["client_name", "doc_type"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "delete_document",
+            "description": (
+                "Delete a client's filed document — it goes back to counting as missing everywhere "
+                "(status, dashboard) exactly as if it had never been filed. This is reversible: the "
+                "actual file and its full version history are kept untouched behind the scenes, and "
+                "restore_document brings it back exactly as it was. Only use this when the PM "
+                "explicitly asks to delete/remove a specific document they've already filed for a "
+                "client — never for a document that was never uploaded (that's just already missing, "
+                "nothing to delete)."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "client_name": {
+                        "type": "string",
+                        "description": "The client's name.",
+                    },
+                    "doc_type": {
+                        "type": "string",
+                        "description": "Exact document type, e.g. 'Business Requirement Document (BRD)'.",
+                    },
+                },
+                "required": ["client_name", "doc_type"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "restore_document",
+            "description": (
+                "Undo a previous delete_document — the document counts as filed again, with the exact "
+                "same file and version history it had before deletion (nothing was ever actually "
+                "removed). Use this when the PM says they deleted a document by mistake and want it "
+                "back, or explicitly asks to restore/undo the deletion of a specific document."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "client_name": {
+                        "type": "string",
+                        "description": "The client's name.",
+                    },
+                    "doc_type": {
+                        "type": "string",
+                        "description": "Exact document type, e.g. 'Business Requirement Document (BRD)'.",
+                    },
+                },
+                "required": ["client_name", "doc_type"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "restore_client",
+            "description": (
+                "Undo a previous client deletion (see propose_delete_client) — brings the client and "
+                "everything filed for them back to being fully visible and usable everywhere: chat, "
+                "dashboard, uploads, search. Only works if the client was deleted within the last 45 "
+                "days; a client deleted longer ago has already been permanently purged and there is "
+                "nothing left to restore. Use this when the PM says they deleted a client by mistake "
+                "and want it back."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "client_name": {
+                        "type": "string",
+                        "description": "The client's name.",
+                    },
+                },
+                "required": ["client_name"],
             },
         },
     },
@@ -552,6 +636,58 @@ def dispatch_tool(
             "was_marked": was_marked,
         }
 
+    if tool_name == "delete_document":
+        client_name = tool_input["client_name"]
+        doc_type = tool_input["doc_type"]
+        try:
+            resolve_phase_for_document(config, doc_type)
+        except ValueError as e:
+            return {"ok": False, "reason": str(e)}
+        client = find_client(rest, client_name)
+        if client is None:
+            return {"ok": False, "reason": f"No client named {client_name!r}"}
+        deleted = delete_client_document(rest, client, doc_type)
+        if not deleted:
+            return {
+                "ok": False,
+                "client_name": client["name"],
+                "doc_type": doc_type,
+                "reason": f"No {doc_type!r} document currently on file for {client['name']!r} to delete.",
+            }
+        return {"ok": True, "client_name": client["name"], "doc_type": doc_type}
+
+    if tool_name == "restore_document":
+        client_name = tool_input["client_name"]
+        doc_type = tool_input["doc_type"]
+        try:
+            resolve_phase_for_document(config, doc_type)
+        except ValueError as e:
+            return {"ok": False, "reason": str(e)}
+        client = find_client(rest, client_name)
+        if client is None:
+            return {"ok": False, "reason": f"No client named {client_name!r}"}
+        restored = restore_client_document(rest, client, doc_type)
+        if not restored:
+            return {
+                "ok": False,
+                "client_name": client["name"],
+                "doc_type": doc_type,
+                "reason": f"No deleted {doc_type!r} document found for {client['name']!r} to restore.",
+            }
+        return {"ok": True, "client_name": client["name"], "doc_type": doc_type}
+
+    if tool_name == "restore_client":
+        client_name = tool_input["client_name"]
+        client = find_deleted_client(rest, client_name)
+        if client is None:
+            return {
+                "ok": False,
+                "reason": f"No deleted client named {client_name!r} found — it may never have "
+                "been deleted, or its 45-day recovery window has already passed.",
+            }
+        restore_client(rest, client)
+        return {"ok": True, "client_name": client["name"]}
+
     if tool_name == "search_document_types":
         query = tool_input["query"]
         matches = find_document_types(config, query)
@@ -613,9 +749,14 @@ def dispatch_tool(
         client = find_client(rest, client_name)
         if client is None:
             return {"found": False, "reason": f"No client named {client_name!r}"}
-        matches = embedding_service.search_document_content(
-            rest, client["id"], query, doc_type=doc_type
-        )
+        excluded = deleted_document_types(rest, client)
+        matches = [
+            m
+            for m in embedding_service.search_document_content(
+                rest, client["id"], query, doc_type=doc_type
+            )
+            if m.doc_type not in excluded
+        ]
         return {
             "found": len(matches) > 0,
             "client_name": client["name"],

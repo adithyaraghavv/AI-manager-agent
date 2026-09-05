@@ -25,8 +25,8 @@ def main() -> None:
     parser.add_argument(
         "--older-than-days",
         type=int,
-        default=30,
-        help="Permanently remove clients deleted more than this many days ago (default: 30)",
+        default=45,
+        help="Permanently remove clients deleted more than this many days ago (default: 45)",
     )
     parser.add_argument(
         "--dry-run",

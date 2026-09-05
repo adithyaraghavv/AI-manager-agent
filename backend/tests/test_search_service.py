@@ -68,6 +68,19 @@ def test_search_excludes_soft_deleted_clients(rest):
     assert {r.client_name for r in results} == {"Globex"}
 
 
+def test_search_excludes_a_soft_deleted_document(rest):
+    acme, globex = _seed(rest)
+    msa = rest.select_one("client_documents", client_id=acme["id"], doc_type="MSA")
+    rest.update("client_documents", {"id": msa["id"]}, {"deleted_at": "2026-01-01T00:00:00+00:00"})
+
+    # The deleted MSA must not surface even though its client is still active.
+    results = search_documents(rest, "MSA")
+    assert {r.client_name for r in results} == {"Globex"}
+    # Acme's still-active SOW must still surface.
+    results = search_documents(rest, "Acme")
+    assert {r.doc_type for r in results} == {"SOW"}
+
+
 def test_search_does_not_duplicate_results(rest):
     # A document matching both by client name AND doc_type/filename should
     # only appear once, not twice.

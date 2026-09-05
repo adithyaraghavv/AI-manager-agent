@@ -51,12 +51,24 @@ def get_or_create_client(
 
 def existing_document_types(rest: SupabaseRestClient, client: dict) -> set[str]:
     """Document types actually FILED for this client — does not include
-    types marked not-applicable (see not_applicable_document_types).
+    types marked not-applicable (see not_applicable_document_types) or
+    soft-deleted (see delete_client_document — a deleted document goes back
+    to counting as missing until restored, without its version history or
+    stored file being touched).
     Callers that feed gating usually want the two combined; callers that
     display real filing status (dashboard, status checks) want this alone
     so they can show "filed" vs "not applicable" as distinct states."""
-    rows = rest.select("client_documents", client_id=client["id"])
+    rows = rest.select_active("client_documents", client_id=client["id"])
     return {row["doc_type"] for row in rows}
+
+
+def deleted_document_types(rest: SupabaseRestClient, client: dict) -> set[str]:
+    """Document types currently soft-deleted for this client (see
+    delete_client_document). Used to keep a deleted document's content out
+    of search_document_content's results — "deleted" means hidden
+    everywhere, not just from status/dashboard/search-by-name."""
+    rows = rest.select("client_documents", client_id=client["id"])
+    return {row["doc_type"] for row in rows if row.get("deleted_at")}
 
 
 def not_applicable_document_types(rest: SupabaseRestClient, client: dict) -> set[str]:
@@ -147,6 +159,56 @@ def delete_client(
         {"id": client["id"]},
         {"deleted_at": datetime.now(timezone.utc).isoformat()},
     )
+
+
+def find_deleted_client(rest: SupabaseRestClient, client_name: str) -> dict | None:
+    """Look up a client by name INCLUDING soft-deleted ones — unlike
+    find_client, which only ever finds active clients. Used exclusively by
+    restore_client, which by definition needs to find a client that IS
+    currently soft-deleted. Returns None if no client with this name exists
+    at all, or if it exists but isn't currently deleted."""
+    client = rest.select_one_ci("clients", "name", client_name)
+    if client is None or not client.get("deleted_at"):
+        return None
+    return client
+
+
+def restore_client(rest: SupabaseRestClient, client: dict) -> None:
+    """Undoes delete_client: clears deleted_at, making the client (and
+    everything filed for them) visible again everywhere — chat, dashboard,
+    uploads, search. Only works within the retention window; once
+    purge_deleted_clients has run past it, the client is gone for good and
+    there is nothing left here to restore."""
+    rest.update("clients", {"id": client["id"]}, {"deleted_at": None})
+
+
+def delete_client_document(rest: SupabaseRestClient, client: dict, doc_type: str) -> bool:
+    """Soft-deletes a client's filed document: it goes back to counting as
+    missing (existing_document_types excludes it), but its storage_path/
+    filename row, every version in document_versions, and the actual file
+    in storage are all left completely untouched — restore_client_document
+    undoes this instantly. Returns False (no-op, not an error) if no such
+    document is currently filed (already deleted counts as not filed)."""
+    record = rest.select_one_active("client_documents", client_id=client["id"], doc_type=doc_type)
+    if record is None:
+        return False
+    rest.update(
+        "client_documents",
+        {"id": record["id"]},
+        {"deleted_at": datetime.now(timezone.utc).isoformat()},
+    )
+    return True
+
+
+def restore_client_document(rest: SupabaseRestClient, client: dict, doc_type: str) -> bool:
+    """Reverses delete_client_document — the document counts as filed again.
+    Returns False (no-op, not an error) if this doc_type isn't currently
+    deleted for this client (never filed, or already active)."""
+    record = rest.select_one("client_documents", client_id=client["id"], doc_type=doc_type)
+    if record is None or not record.get("deleted_at"):
+        return False
+    rest.update("client_documents", {"id": record["id"]}, {"deleted_at": None})
+    return True
 
 
 def purge_deleted_clients(

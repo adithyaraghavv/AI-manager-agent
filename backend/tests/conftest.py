@@ -70,6 +70,10 @@ class FakeSupabaseRestClient:
             if all(r.get(k) == v for k, v in filters.items()) and r.get(active_column) is None
         ]
 
+    def select_one_active(self, table: str, active_column: str = "deleted_at", **filters) -> dict | None:
+        rows = self.select_active(table, active_column=active_column, **filters)
+        return rows[0] if rows else None
+
     def select_one_ci_active(self, table: str, column: str, value: str, active_column: str = "deleted_at") -> dict | None:
         self.call_counts["select_one_ci_active"] += 1
         for row in self._tables.get(table, []):

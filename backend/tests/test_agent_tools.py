@@ -607,6 +607,46 @@ def test_search_document_content_returns_matches_for_known_client(rest, storage)
     assert "30 days written notice" in result["matches"][0]["content"]
 
 
+def test_search_document_content_excludes_a_deleted_document(rest, storage):
+    # "Deleted" must mean hidden everywhere, including RAG content search —
+    # not just status/dashboard/search-by-name.
+    client = get_or_create_client(rest, storage, CONFIG, "Acme")
+    rest.insert(
+        "client_documents",
+        {"client_id": client["id"], "doc_type": "SOW", "phase_name": "Pre-requisites"},
+    )
+    from app.services.client_service import delete_client_document
+
+    delete_client_document(rest, client, "SOW")
+    rest.insert(
+        "document_chunks",
+        {
+            "client_id": client["id"],
+            "doc_type": "SOW",
+            "version_number": 1,
+            "chunk_index": 0,
+            "content": "Either party may terminate with 30 days written notice.",
+            "embedding": [1.0, 0.0],
+        },
+    )
+
+    with patch("app.services.embedding_service.OpenAI") as MockOpenAI:
+        MockOpenAI.return_value.embeddings.create.return_value = MagicMock(
+            data=[MagicMock(embedding=[1.0, 0.0])]
+        )
+        result = dispatch_tool(
+            rest,
+            storage,
+            storage,
+            CONFIG,
+            "search_document_content",
+            {"client_name": "Acme", "query": "how do I terminate the contract"},
+        )
+
+    assert result["found"] is False
+    assert result["matches"] == []
+
+
 def test_search_document_content_no_matches_is_not_an_error(rest, storage):
     get_or_create_client(rest, storage, CONFIG, "Acme")
 
@@ -625,3 +665,101 @@ def test_search_document_content_no_matches_is_not_an_error(rest, storage):
 
     assert result["found"] is False
     assert result["matches"] == []
+
+
+def test_delete_document_dispatch_hides_it_and_keeps_it_restorable(rest, storage):
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"filled msa", "pdf")
+
+    result = dispatch_tool(
+        rest, storage, storage, CONFIG, "delete_document", {"client_name": "Acme", "doc_type": "MSA"}
+    )
+    assert result == {"ok": True, "client_name": "Acme", "doc_type": "MSA"}
+
+    status = dispatch_tool(
+        rest, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
+    )
+    assert "MSA" in status["phases"][0]["missing_documents"]
+
+
+def test_delete_document_dispatch_reports_reason_when_nothing_on_file(rest, storage):
+    get_or_create_client(rest, storage, CONFIG, "Acme")
+
+    result = dispatch_tool(
+        rest, storage, storage, CONFIG, "delete_document", {"client_name": "Acme", "doc_type": "MSA"}
+    )
+
+    assert result["ok"] is False
+    assert "MSA" in result["reason"]
+
+
+def test_delete_document_dispatch_unknown_client(rest, storage):
+    result = dispatch_tool(
+        rest, storage, storage, CONFIG, "delete_document", {"client_name": "Ghost", "doc_type": "MSA"}
+    )
+    assert result == {"ok": False, "reason": "No client named 'Ghost'"}
+
+
+def test_restore_document_dispatch_undoes_a_delete(rest, storage):
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"filled msa", "pdf")
+    dispatch_tool(
+        rest, storage, storage, CONFIG, "delete_document", {"client_name": "Acme", "doc_type": "MSA"}
+    )
+
+    result = dispatch_tool(
+        rest, storage, storage, CONFIG, "restore_document", {"client_name": "Acme", "doc_type": "MSA"}
+    )
+    assert result == {"ok": True, "client_name": "Acme", "doc_type": "MSA"}
+
+    status = dispatch_tool(
+        rest, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
+    )
+    assert "MSA" not in status["phases"][0]["missing_documents"]
+
+
+def test_restore_document_dispatch_reports_reason_when_not_deleted(rest, storage):
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"filled msa", "pdf")
+
+    result = dispatch_tool(
+        rest, storage, storage, CONFIG, "restore_document", {"client_name": "Acme", "doc_type": "MSA"}
+    )
+
+    assert result["ok"] is False
+    assert "MSA" in result["reason"]
+
+
+def test_restore_client_dispatch_undoes_a_deletion(rest, storage):
+    dispatch_tool(
+        rest, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
+    )
+    from app.services.client_service import delete_client, find_client
+
+    client = find_client(rest, "Acme")
+    delete_client(rest, storage, client)
+    assert find_client(rest, "Acme") is None
+
+    result = dispatch_tool(
+        rest, storage, storage, CONFIG, "restore_client", {"client_name": "Acme"}
+    )
+
+    assert result == {"ok": True, "client_name": "Acme"}
+    assert find_client(rest, "Acme") is not None
+
+
+def test_restore_client_dispatch_reports_reason_when_not_deleted(rest, storage):
+    dispatch_tool(
+        rest, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
+    )
+
+    result = dispatch_tool(
+        rest, storage, storage, CONFIG, "restore_client", {"client_name": "Acme"}
+    )
+
+    assert result["ok"] is False
+    assert "Acme" in result["reason"]
+
+
+def test_restore_client_dispatch_unknown_client(rest, storage):
+    result = dispatch_tool(
+        rest, storage, storage, CONFIG, "restore_client", {"client_name": "Ghost"}
+    )
+    assert result["ok"] is False
