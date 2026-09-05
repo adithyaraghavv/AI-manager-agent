@@ -71,5 +71,10 @@ export function useChatHistory() {
     });
   }, []);
 
-  return { entries, saveEntry, renameEntry, deleteEntry };
+  const clearAll = useCallback(() => {
+    persist([]);
+    setEntries([]);
+  }, []);
+
+  return { entries, saveEntry, renameEntry, deleteEntry, clearAll };
 }

@@ -50,6 +50,7 @@ export default function App() {
     saveEntry,
     renameEntry,
     deleteEntry,
+    clearAll,
   } = useChatHistory();
 
   useEffect(() => {
@@ -95,6 +96,11 @@ export default function App() {
 
   function handleRenameChat(id, title) {
     renameEntry(id, title);
+  }
+
+  function handleClearAllChats() {
+    clearAll();
+    handleNewChat();
   }
 
   const activeEntry = chatHistory.find((e) => e.id === chatId);
@@ -162,6 +168,7 @@ export default function App() {
           onLoad={handleLoadChat}
           onDelete={handleDeleteChat}
           onRename={handleRenameChat}
+          onClearAll={handleClearAllChats}
           open={sidebarDrawerOpen}
           onClose={() => setSidebarDrawerOpen(false)}
         />

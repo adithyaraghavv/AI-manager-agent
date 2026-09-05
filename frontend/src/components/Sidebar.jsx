@@ -148,10 +148,22 @@ export default function Sidebar({
   onLoad,
   onDelete,
   onRename,
+  onClearAll,
   open,
   onClose,
 }) {
   const groups = groupByDate(entries);
+
+  function handleClearAll() {
+    if (
+      window.confirm(
+        `Delete all ${entries.length} saved chat${entries.length === 1 ? "" : "s"}? This can't be undone.`,
+      )
+    ) {
+      onClearAll();
+      onClose?.();
+    }
+  }
 
   return (
     <>
@@ -188,26 +200,35 @@ export default function Sidebar({
           {entries.length === 0 ? (
             <div className="sidebar__empty">No saved chats yet</div>
           ) : (
-            groups.map(([label, items]) => (
-              <div className="sidebar__group" key={label}>
-                <div className="sidebar__group-label">{label}</div>
-                <ul className="sidebar__list">
-                  {items.map((entry) => (
-                    <SidebarItem
-                      key={entry.id}
-                      entry={entry}
-                      active={entry.id === activeId}
-                      onLoad={(e) => {
-                        onLoad(e);
-                        onClose?.();
-                      }}
-                      onDelete={onDelete}
-                      onRename={onRename}
-                    />
-                  ))}
-                </ul>
-              </div>
-            ))
+            <>
+              <button
+                type="button"
+                className="sidebar__clear-all"
+                onClick={handleClearAll}
+              >
+                Clear all history
+              </button>
+              {groups.map(([label, items]) => (
+                <div className="sidebar__group" key={label}>
+                  <div className="sidebar__group-label">{label}</div>
+                  <ul className="sidebar__list">
+                    {items.map((entry) => (
+                      <SidebarItem
+                        key={entry.id}
+                        entry={entry}
+                        active={entry.id === activeId}
+                        onLoad={(e) => {
+                          onLoad(e);
+                          onClose?.();
+                        }}
+                        onDelete={onDelete}
+                        onRename={onRename}
+                      />
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </>
           )}
         </div>
 

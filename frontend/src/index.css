@@ -1675,6 +1675,27 @@ body {
   text-align: center;
 }
 
+.sidebar__clear-all {
+  display: block;
+  width: 100%;
+  margin: 2px 0 6px;
+  padding: 6px 8px;
+  border: none;
+  background: none;
+  border-radius: 8px;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sidebar__clear-all:hover {
+  background: var(--bg);
+  color: var(--danger);
+}
+
 .sidebar__group {
   margin-top: 12px;
 }
