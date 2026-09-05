@@ -55,6 +55,10 @@ class Client(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    # Soft-delete marker (see client_service.delete_client/restore_client).
+    # No migration in this repo ever added this column — it was applied
+    # directly to the database at some point before this model was audited.
+    deleted_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
     documents: Mapped[list["ClientDocument"]] = relationship(back_populates="client")
 
@@ -76,6 +80,9 @@ class ClientDocument(Base):
     storage_path: Mapped[str] = mapped_column(String, nullable=False)
     filename: Mapped[str] = mapped_column(String, nullable=False)
     uploaded_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    # Soft-delete marker (see client_service.delete_client_document/
+    # restore_client_document) — see migration a3c8f6e2b9d4.
+    deleted_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
     client: Mapped["Client"] = relationship(back_populates="documents")
 
