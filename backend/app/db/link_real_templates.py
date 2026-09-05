@@ -31,6 +31,9 @@ from app.storage.base import StorageBackend
 
 _PAREN_RE = re.compile(r"\(([^)]+)\)")
 _NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
+# Qualifier words a doc_type keeps ("Approved HLD") that a real file's name
+# often drops ("HLD.docx") — stripped out as its own match candidate below.
+_QUALIFIER_WORD_RE = re.compile(r"(?i)\bapproved\b")
 
 
 def _normalize(text: str) -> str:
@@ -42,16 +45,22 @@ def _normalize(text: str) -> str:
 
 def _candidate_names(doc_type: str) -> set[str]:
     """Every reasonable normalized name a real file might be saved under for
-    this doc_type: the full name, and — if the doc_type has a parenthesized
-    acronym like 'Business Requirement Document (BRD)' — the acronym alone
+    this doc_type: the full name; if the doc_type has a parenthesized
+    acronym like 'Business Requirement Document (BRD)', the acronym alone
     and the name with the parenthetical stripped, since a real file is just
-    as likely to be named 'BRD.docx' as the full spelled-out name."""
+    as likely to be named 'BRD.docx' as the full spelled-out name; and the
+    doc_type with a qualifier word like "Approved" removed, since a file is
+    often just named 'HLD.docx' for a doc_type of 'Approved HLD'."""
     candidates = {_normalize(doc_type)}
     for acronym in _PAREN_RE.findall(doc_type):
         candidates.add(_normalize(acronym))
     without_parens = _PAREN_RE.sub("", doc_type).strip()
     if without_parens:
         candidates.add(_normalize(without_parens))
+    without_qualifier = _QUALIFIER_WORD_RE.sub("", doc_type).strip()
+    without_qualifier = re.sub(r"\s+", " ", without_qualifier)
+    if without_qualifier:
+        candidates.add(_normalize(without_qualifier))
     return candidates
 
 

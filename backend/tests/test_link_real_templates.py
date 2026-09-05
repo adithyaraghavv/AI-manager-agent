@@ -42,6 +42,13 @@ def test_find_match_matches_despite_underscore_vs_space_and_case():
     assert find_match("Kick-off Deck", files) == "1. Pre-requisites/Kick-off_Deck.docx"
 
 
+def test_find_match_matches_after_dropping_approved_qualifier():
+    # Real files often drop qualifier words the doc_type keeps — a doc_type
+    # of "Approved HLD" should still match a file renamed to just "HLD.docx".
+    files = ["4. Implementation (Coding)/HLD.docx"]
+    assert find_match("Approved HLD", files) == "4. Implementation (Coding)/HLD.docx"
+
+
 def test_find_match_matches_acronym_in_parentheses():
     files = ["2. Requirement Analysis/BRD.docx"]
     assert (
