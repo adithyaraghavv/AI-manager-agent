@@ -485,6 +485,86 @@ def test_get_sow_summary_dispatch_returns_extracted_fields(rest, storage):
     }
 
 
+def _mock_openai_text_response(text: str) -> MagicMock:
+    choice = MagicMock()
+    choice.message.content = text
+    response = MagicMock()
+    response.choices = [choice]
+    return response
+
+
+def test_summarize_document_dispatch_returns_summary(rest, storage):
+    upload_document(
+        rest, storage, CONFIG, "MSA", "Acme", b"This MSA covers the master terms.", "txt"
+    )
+
+    with patch("app.services.document_summary_service.OpenAI") as MockOpenAI:
+        MockOpenAI.return_value.chat.completions.create.return_value = (
+            _mock_openai_text_response("This MSA sets out the master terms and conditions.")
+        )
+        result = dispatch_tool(
+            rest,
+            storage,
+            storage,
+            CONFIG,
+            "summarize_document",
+            {"client_name": "Acme", "doc_type": "MSA"},
+        )
+
+    assert result["found"] is True
+    assert result["client_name"] == "Acme"
+    assert result["doc_type"] == "MSA"
+    assert result["summary"] == "This MSA sets out the master terms and conditions."
+
+
+def test_summarize_document_dispatch_reports_not_found_when_nothing_filed(rest, storage):
+    result = dispatch_tool(
+        rest,
+        storage,
+        storage,
+        CONFIG,
+        "summarize_document",
+        {"client_name": "Acme", "doc_type": "MSA"},
+    )
+
+    assert result["found"] is False
+    assert (
+        "No client named" in result["reason"] or "No" in result["reason"]
+    )
+
+
+def test_summarize_document_dispatch_unknown_doc_type_does_not_raise(rest, storage):
+    result = dispatch_tool(
+        rest,
+        storage,
+        storage,
+        CONFIG,
+        "summarize_document",
+        {"client_name": "Acme", "doc_type": "NotARealDocument"},
+    )
+
+    assert result["found"] is False
+
+
+def test_summarize_document_dispatch_excludes_a_deleted_document(rest, storage):
+    from app.services.client_service import delete_client_document, find_client
+
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"content", "txt")
+    client = find_client(rest, "Acme")
+    delete_client_document(rest, client, "MSA")
+
+    result = dispatch_tool(
+        rest,
+        storage,
+        storage,
+        CONFIG,
+        "summarize_document",
+        {"client_name": "Acme", "doc_type": "MSA"},
+    )
+
+    assert result["found"] is False
+
+
 def test_get_sow_summary_dispatch_reports_not_found_when_no_sow_filed(rest, storage):
     result = dispatch_tool(
         rest, storage, storage, CONFIG, "get_sow_summary", {"client_name": "Acme"}

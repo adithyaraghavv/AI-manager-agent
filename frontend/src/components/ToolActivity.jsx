@@ -24,6 +24,8 @@ function inProgressPhrase(name, result) {
       return `Reading the SOW for "${result.client_name}"…`;
     case "generate_approval_reminder":
       return `Looking up who's responsible for "${result.doc_type}"…`;
+    case "summarize_document":
+      return `Reading "${result.doc_type}" for "${result.client_name}"…`;
     case "delete_document":
       return `Deleting "${result.doc_type}"…`;
     case "restore_document":
@@ -72,6 +74,10 @@ function summarize(name, result) {
       return result.found
         ? `Found who's responsible for "${result.doc_type}" — reminder ready to copy`
         : `Couldn't find who's responsible: ${result.reason}`;
+    case "summarize_document":
+      return result.found
+        ? `Summarized "${result.doc_type}" for ${result.client_name}`
+        : `Couldn't summarize: ${result.reason}`;
     case "delete_document":
       return result.ok
         ? `Deleted "${result.doc_type}" for ${result.client_name}`

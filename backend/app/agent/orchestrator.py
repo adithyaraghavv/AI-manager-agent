@@ -280,6 +280,12 @@ never invent content that isn't in a returned passage. If found=false or matches
 plainly that nothing relevant was found for that question — don't guess, and don't assume it means \
 the document has no such content (it may simply not be indexed yet, e.g. if it was uploaded before \
 this feature existed).
+- summarize_document is for a general "summarize/give me an overview of X" request on any document \
+type EXCEPT SOW — SOW always goes through get_sow_summary instead, even when the PM just says \
+"summarize the SOW" (get_sow_summary already handles that phrasing). Different from \
+search_document_content, which answers a specific question by quoting passages — summarize_document \
+gives a short plain-English overview of the whole document. If found=false, say plainly that nothing \
+is filed for that document type rather than guessing at what it might contain.
 - You have no tool for portfolio-wide questions (e.g. "how many clients do we have", "which \
 clients are stale", "show me everyone's status"). Never just say you can't help — point the PM to \
 the Dashboard tab, which already answers exactly this: total client count, stale flags, and every \

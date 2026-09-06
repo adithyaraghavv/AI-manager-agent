@@ -42,6 +42,10 @@ from app.services.document_service import (
     list_document_versions,
     request_template,
 )
+from app.services.document_summary_service import (
+    DocumentSummaryFailed,
+    summarize_document,
+)
 from app.services.sow_extraction_service import (
     SowExtractionFailed,
     generate_approval_reminder,
@@ -359,6 +363,37 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     },
                 },
                 "required": ["client_name"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "summarize_document",
+            "description": (
+                "Gives a plain-English overview of a filed document's actual content — for any document "
+                "type EXCEPT SOW (SOW has its own structured summary, use get_sow_summary for that "
+                "instead, even for a general 'summarize the SOW' request). Use this when the PM asks for "
+                "a summary/overview of a specific document ('summarize the BRD for Acme', 'give me a "
+                "rundown of the HLD', 'what's in the test plan for Acme') — not for a plain 'give me the "
+                "document' request, which means the file itself (get_document_versions/"
+                "get_document_location). Re-reads the document fresh every call, so it's always based on "
+                "whatever version is currently on file. If nothing is filed for that doc_type, found "
+                "comes back false with a plain reason — never invent what a document might say."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "client_name": {
+                        "type": "string",
+                        "description": "The client's name.",
+                    },
+                    "doc_type": {
+                        "type": "string",
+                        "description": "Exact document type to summarize, e.g. 'Business Requirement Document (BRD)'.",
+                    },
+                },
+                "required": ["client_name", "doc_type"],
             },
         },
     },
@@ -715,6 +750,25 @@ def dispatch_tool(
             "team_assignments": result.team_assignments,
             "document_responsibilities": result.document_responsibilities,
             "extracted_at": result.extracted_at,
+        }
+
+    if tool_name == "summarize_document":
+        client_name = tool_input["client_name"]
+        doc_type = tool_input["doc_type"]
+        try:
+            resolve_phase_for_document(config, doc_type)
+        except ValueError as e:
+            return {"found": False, "reason": str(e)}
+        try:
+            result = summarize_document(rest, client_storage, client_name, doc_type)
+        except DocumentSummaryFailed as e:
+            return {"found": False, "client_name": client_name, "doc_type": doc_type, "reason": str(e)}
+        return {
+            "found": True,
+            "client_name": result.client_name,
+            "doc_type": result.doc_type,
+            "filename": result.filename,
+            "summary": result.summary,
         }
 
     if tool_name == "generate_approval_reminder":
