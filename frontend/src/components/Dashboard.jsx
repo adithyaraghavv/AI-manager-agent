@@ -121,25 +121,55 @@ export default function Dashboard() {
   }, [retryCount]);
 
   const staleCount = clients?.filter((c) => c.is_stale).length ?? 0;
+  const completeCount = clients?.filter((c) => c.current_phase === null).length ?? 0;
+  const onTrackCount = (clients?.length ?? 0) - staleCount - completeCount;
+
+  // Most-overdue-first: stale clients (longest-stale first), then active
+  // ones still in progress, then fully complete ones last — nothing left to
+  // act on there, so they shouldn't push down clients that actually need
+  // attention.
+  const sortedClients = clients
+    ? [...clients].sort((a, b) => {
+        const rank = (c) => (c.is_stale ? 0 : c.current_phase === null ? 2 : 1);
+        const rankDiff = rank(a) - rank(b);
+        if (rankDiff !== 0) return rankDiff;
+        if (a.is_stale) {
+          return (b.days_since_activity ?? 0) - (a.days_since_activity ?? 0);
+        }
+        return 0;
+      })
+    : clients;
 
   return (
     <div className="dashboard">
       <div className="dashboard__header">
         <h2>Client Portfolio</h2>
-        {clients && (
-          <span className="dashboard__summary">
-            {clients.length} client{clients.length === 1 ? "" : "s"}
-            {staleCount > 0 && (
-              <>
-                {" · "}
-                <span className="dashboard__summary-stale">
-                  {staleCount} stale
-                </span>
-              </>
-            )}
-          </span>
-        )}
       </div>
+
+      {clients && clients.length > 0 && (
+        <div className="dashboard__stats">
+          <div className="dashboard__stat-card">
+            <span className="dashboard__stat-label">Total Clients</span>
+            <span className="dashboard__stat-value">{clients.length}</span>
+          </div>
+          <div className="dashboard__stat-card">
+            <span className="dashboard__stat-label">Stale</span>
+            <span className="dashboard__stat-value dashboard__stat-value--warning">
+              {staleCount}
+            </span>
+          </div>
+          <div className="dashboard__stat-card">
+            <span className="dashboard__stat-label">On Track</span>
+            <span className="dashboard__stat-value">{onTrackCount}</span>
+          </div>
+          <div className="dashboard__stat-card">
+            <span className="dashboard__stat-label">Complete</span>
+            <span className="dashboard__stat-value dashboard__stat-value--ok">
+              {completeCount}
+            </span>
+          </div>
+        </div>
+      )}
 
       <DocumentSearch />
 
@@ -167,54 +197,64 @@ export default function Dashboard() {
         </div>
       )}
 
-      {clients?.length > 0 && (
-        <table className="dashboard__table">
-          <thead>
-            <tr>
-              <th>Client</th>
-              <th>Progress</th>
-              <th>Current phase</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {clients.map((c, i) => (
-              <tr
-                key={c.client_name}
-                className="dashboard__row-enter"
-                style={{ animationDelay: `${i * 60}ms` }}
-              >
-                <td className="dashboard__client-name">{c.client_name}</td>
-                <td>
-                  <ProgressMeter
-                    complete={c.phases_complete}
-                    total={c.total_phases}
-                    isStale={c.is_stale}
-                  />
-                </td>
-                <td>
-                  {c.current_phase ?? (
-                    <span className="dashboard__muted">—</span>
-                  )}
-                  {c.missing_documents.length > 0 && (
-                    <div className="dashboard__missing">
-                      Missing: {c.missing_documents.join(", ")}
-                    </div>
-                  )}
-                </td>
-                <td>
-                  <StatusBadge
-                    isStale={c.is_stale}
-                    daysSinceActivity={c.days_since_activity}
-                    currentPhase={c.current_phase}
-                  />
-                </td>
-                <td>{c.is_stale && <CopyReminderButton client={c} />}</td>
+      {sortedClients?.length > 0 && (
+        <div className="dashboard__table-wrap">
+          <table className="dashboard__table">
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th>Progress</th>
+                <th>Current phase</th>
+                <th>Status</th>
+                <th></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {sortedClients.map((c, i) => (
+                <tr
+                  key={c.client_name}
+                  className="dashboard__row-enter"
+                  style={{ animationDelay: `${i * 60}ms` }}
+                >
+                  <td className="dashboard__client-name">{c.client_name}</td>
+                  <td>
+                    <ProgressMeter
+                      complete={c.phases_complete}
+                      total={c.total_phases}
+                      isStale={c.is_stale}
+                    />
+                  </td>
+                  <td>
+                    {c.current_phase ?? (
+                      <span className="dashboard__muted">—</span>
+                    )}
+                    {c.missing_documents.length > 0 && (
+                      <div className="dashboard__missing">
+                        Missing:{" "}
+                        {c.missing_documents.map((doc, idx) => (
+                          <span key={doc}>
+                            <span className="dashboard__missing-name">
+                              {doc}
+                            </span>
+                            {idx < c.missing_documents.length - 1 && ", "}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </td>
+                  <td>
+                    <StatusBadge
+                      isStale={c.is_stale}
+                      daysSinceActivity={c.days_since_activity}
+                      currentPhase={c.current_phase}
+                    />
+                  </td>
+                  <td>{c.is_stale && <CopyReminderButton client={c} />}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
