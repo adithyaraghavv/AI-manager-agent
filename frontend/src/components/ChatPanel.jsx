@@ -173,18 +173,20 @@ function ChatTitleBar({ title, onRename }) {
 }
 
 // Occasionally the model writes markdown-style formatting (a link like
-// "[here](https://...)", or "**bold**" around phase/heading names) even
-// though the system prompt tells it not to — LLM instruction-following isn't
-// 100% reliable. This chat has never rendered full markdown, so that text
-// would otherwise show up as literal brackets/parentheses/asterisks instead
-// of a clickable link or bold text. Rather than pull in a full markdown
-// renderer, just recognize these two patterns and turn them into real
-// elements — every other markdown-looking character in the reply passes
-// through untouched.
+// "[here](https://...)", "**bold**" around phase/heading names, or
+// "!!doc name!!" around a missing document per the system prompt's
+// formatting instruction) even though it's told the exact convention to
+// use — LLM instruction-following isn't 100% reliable. This chat has never
+// rendered full markdown, so that text would otherwise show up as literal
+// brackets/parentheses/asterisks/exclamation marks instead of a clickable
+// link, bold text, or a highlighted missing-document name. Rather than pull
+// in a full markdown renderer, just recognize these patterns and turn them
+// into real elements — every other markdown-looking character in the reply
+// passes through untouched.
 const MARKDOWN_INLINE_RE =
-  /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|\*\*([^*]+)\*\*/g;
+  /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|\*\*([^*]+)\*\*|!!([^!]+)!!/g;
 
-function renderTextWithLinks(text) {
+function renderInline(text, keyPrefix) {
   const parts = [];
   let lastIndex = 0;
   let match;
@@ -195,7 +197,7 @@ function renderTextWithLinks(text) {
     if (match[1] !== undefined) {
       parts.push(
         <a
-          key={key++}
+          key={`${keyPrefix}-${key++}`}
           href={match[2]}
           target="_blank"
           rel="noopener noreferrer"
@@ -204,13 +206,33 @@ function renderTextWithLinks(text) {
           {match[1]}
         </a>,
       );
+    } else if (match[3] !== undefined) {
+      parts.push(<strong key={`${keyPrefix}-${key++}`}>{match[3]}</strong>);
     } else {
-      parts.push(<strong key={key++}>{match[3]}</strong>);
+      parts.push(
+        <span key={`${keyPrefix}-${key++}`} className="bubble__missing">
+          {match[4]}
+        </span>,
+      );
     }
     lastIndex = MARKDOWN_INLINE_RE.lastIndex;
   }
   if (lastIndex < text.length) parts.push(text.slice(lastIndex));
   return parts;
+}
+
+// Splits on blank lines into paragraph-like blocks, each with consistent
+// spacing regardless of whether the model wrote one blank line or two
+// between sections — a single newline within a block still renders as a
+// line break via the bubble's white-space: pre-wrap.
+function renderTextWithLinks(text) {
+  return text
+    .split(/\n{2,}/)
+    .map((block, i) => (
+      <div key={i} className="bubble__block">
+        {renderInline(block, i)}
+      </div>
+    ));
 }
 
 function extractText(content) {

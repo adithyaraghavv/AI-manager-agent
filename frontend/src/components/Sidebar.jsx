@@ -80,6 +80,8 @@ function SidebarItem({ entry, active, onLoad, onDelete, onRename }) {
     );
   }
 
+  const initial = entry.title.trim().charAt(0).toUpperCase() || "?";
+
   return (
     <li className={`sidebar__item${active ? " sidebar__item--active" : ""}`}>
       <button
@@ -87,6 +89,9 @@ function SidebarItem({ entry, active, onLoad, onDelete, onRename }) {
         className="sidebar__item-load"
         onClick={() => onLoad(entry)}
       >
+        <span className="sidebar__item-chip" aria-hidden="true">
+          {initial}
+        </span>
         <span className="sidebar__item-title">{entry.title}</span>
       </button>
       <div className="sidebar__item-menu-wrap" ref={menuRef}>

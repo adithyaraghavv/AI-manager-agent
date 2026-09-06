@@ -33,6 +33,9 @@
   --ok: var(--status-good);
   --ok-bg: #e8f7f0;
   --warning-bg: #fef3da;
+  /* Soft "lifted" shadow for cards (path/reminder/status/file cards) — gives
+     them depth instead of reading as flat, bordered boxes. */
+  --card-shadow: 0 1px 2px rgba(15, 15, 25, 0.04), 0 6px 16px -4px rgba(15, 15, 25, 0.1);
   --font-display: "Poppins", system-ui, "Segoe UI", Roboto, sans-serif;
   --font-body: "Inter", system-ui, "Segoe UI", Roboto, sans-serif;
 
@@ -61,6 +64,7 @@
     --danger-bg: #3a2020;
     --ok-bg: #16302a;
     --warning-bg: #3a2f10;
+    --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 20px -6px rgba(0, 0, 0, 0.55);
   }
 }
 
@@ -561,6 +565,29 @@ body {
   text-underline-offset: 2px;
 }
 
+/* One block per blank-line-separated section of a reply — gives consistent
+   spacing between phases/sections regardless of whether the model wrote one
+   blank line or two, instead of relying on however much whitespace it
+   happened to output. */
+.bubble__block {
+  margin-bottom: 12px;
+}
+
+.bubble__block:last-child {
+  margin-bottom: 0;
+}
+
+.bubble__missing {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.bubble--user .bubble__missing {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: currentColor;
+}
+
 .bubble--user .bubble__link {
   color: inherit;
   text-decoration-color: currentColor;
@@ -720,6 +747,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  box-shadow: var(--card-shadow);
 }
 
 .reminder-card__header {
@@ -783,6 +811,7 @@ body {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 8px 10px;
+  box-shadow: var(--card-shadow);
 }
 
 .path-card__icon {
@@ -859,6 +888,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  box-shadow: var(--card-shadow);
 }
 
 .status-summary__label {
@@ -895,6 +925,7 @@ body {
   border-radius: 10px;
   overflow-x: auto;
   max-width: 100%;
+  box-shadow: var(--card-shadow);
 }
 
 .status-table {
@@ -1093,6 +1124,7 @@ body {
   padding: 9px 11px;
   text-decoration: none;
   color: inherit;
+  box-shadow: var(--card-shadow);
   transition:
     border-color 0.15s ease,
     box-shadow 0.15s ease,
@@ -1735,22 +1767,45 @@ body {
 
 .sidebar__item--active {
   background: var(--agent-bubble);
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 
 .sidebar__item-load {
   flex: 1;
   min-width: 0;
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   text-align: left;
-  padding: 8px 8px;
+  padding: 6px 8px;
   background: transparent;
   border: none;
   border-radius: 8px;
   cursor: pointer;
 }
 
+.sidebar__item-chip {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent-contrast);
+  background: var(--accent);
+}
+
+.sidebar__item--active .sidebar__item-chip {
+  background: var(--brand-navy);
+  color: #fff;
+}
+
 .sidebar__item-title {
   display: block;
+  min-width: 0;
   font-size: 13px;
   color: var(--text-h);
   white-space: nowrap;
