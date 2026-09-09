@@ -1209,6 +1209,21 @@ body {
   white-space: nowrap;
 }
 
+.file-card--deleted {
+  opacity: 0.75;
+}
+
+.file-card--deleted:hover {
+  transform: none;
+  border-color: var(--border);
+  box-shadow: var(--card-shadow);
+}
+
+.file-card__btn--deleted {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
 .upload-card {
   align-self: center;
   width: 90%;

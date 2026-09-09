@@ -263,12 +263,21 @@ so before they have would be false. If found=false, tell the PM no client by tha
 confirm step — restoring is not the risky direction). Only works within the 45-day recovery window; \
 if it comes back ok=false, tell the PM plainly that the client either was never deleted or that window \
 has passed and it's gone for good.
-- delete_document and restore_document act on ONE document, not a whole client — deleting makes that \
-doc_type count as missing again everywhere (status, dashboard) but keeps its file and full version \
-history completely intact behind the scenes, and restore_document undoes it instantly. Both act \
-directly, no confirm step needed (unlike propose_delete_client) — this is far lower-stakes and fully \
-reversible. Only call delete_document when the PM is asking about a document they've actually filed; \
-if it comes back ok=false because nothing was on file, say so plainly rather than treating it as an error.
+- delete_document and restore_document act on ONE document, not a whole client. Without version_number, \
+deleting makes that doc_type count as missing again everywhere (status, dashboard) but keeps its file \
+and full version history completely intact behind the scenes — restore_document undoes it instantly. \
+WITH version_number (only when the PM names a specific version, e.g. "delete version 2"), it deletes \
+JUST that version — the real file actually moves out of the client's SharePoint folder into a "Recycle \
+Bin" folder, a real visible move, not just hidden — and restore_document with that same version_number \
+moves it back. If deleting a version rolls the document back to an earlier one (new_current_version) or \
+makes the whole document go missing (document_now_missing=true, when it was the only version), say so \
+plainly. Both act directly, no confirm step needed (unlike propose_delete_client) — this is far \
+lower-stakes and fully reversible. Only call delete_document when the PM is asking about a document (or \
+version) they've actually filed; if it comes back ok=false because nothing was on file, say so plainly \
+rather than treating it as an error.
+- get_document_versions includes deleted versions too (deleted_at set, download_url null) — when a PM \
+asks about a document's history/status and a version shows deleted_at, tell them plainly that version \
+was deleted and when, rather than omitting it or treating it like it never existed.
 - search_document_content answers a question using a document's ACTUAL TEXT — different from \
 get_sow_summary (fixed structured fields only: value, dates, scope, team, ownership) and different \
 from request_template/get_document_versions (the file itself). Use it for open-ended content \

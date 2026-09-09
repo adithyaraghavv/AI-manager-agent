@@ -325,33 +325,62 @@ function StatusTable({ phases }) {
   );
 }
 
-function FileCard({ title, badge, meta, comment, href }) {
+function formatDeletedAt(deletedAt) {
+  const parsed = new Date(deletedAt);
+  if (Number.isNaN(parsed.getTime())) return deletedAt;
+  return parsed.toLocaleString(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+function FileCard({ title, badge, meta, comment, href, deletedAt }) {
+  const icon = (
+    <span className="file-card__icon" aria-hidden="true">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <path
+          d="M7 3h7l5 5v13a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M14 3v5h5"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </span>
+  );
+
+  const body = (
+    <span className="file-card__body">
+      <span className="file-card__title-row">
+        <span className="file-card__title">{title}</span>
+        {badge && <span className="file-card__badge">{badge}</span>}
+      </span>
+      {meta && <span className="file-card__meta">{meta}</span>}
+      {comment && <span className="file-card__comment">{comment}</span>}
+    </span>
+  );
+
+  if (deletedAt) {
+    return (
+      <div className="file-card file-card--deleted">
+        {icon}
+        {body}
+        <span className="file-card__btn file-card__btn--deleted">
+          Deleted on {formatDeletedAt(deletedAt)}
+        </span>
+      </div>
+    );
+  }
+
   return (
     <a className="file-card" href={href} download>
-      <span className="file-card__icon" aria-hidden="true">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-          <path
-            d="M7 3h7l5 5v13a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinejoin="round"
-          />
-          <path
-            d="M14 3v5h5"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </span>
-      <span className="file-card__body">
-        <span className="file-card__title-row">
-          <span className="file-card__title">{title}</span>
-          {badge && <span className="file-card__badge">{badge}</span>}
-        </span>
-        {meta && <span className="file-card__meta">{meta}</span>}
-        {comment && <span className="file-card__comment">{comment}</span>}
-      </span>
+      {icon}
+      {body}
       <span className="file-card__btn">
         <svg
           width="14"
@@ -457,6 +486,7 @@ export default function ToolActivity({ name, result }) {
               meta={v.uploaded_by ? `Uploaded by ${v.uploaded_by}` : "Uploaded"}
               comment={v.comment}
               href={v.download_url}
+              deletedAt={v.deleted_at}
             />
           ))}
         </div>

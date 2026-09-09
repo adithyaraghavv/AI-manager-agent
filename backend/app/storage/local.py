@@ -44,6 +44,11 @@ class LocalFilesystemStorage(StorageBackend):
         if target.is_dir():
             shutil.rmtree(target)
 
+    def delete(self, path: str) -> None:
+        target = self._resolve(path)
+        if target.is_file():
+            target.unlink()
+
     def list(self, prefix: str) -> list[str]:
         target = self._resolve(prefix)
         if not target.is_dir():

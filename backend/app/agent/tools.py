@@ -38,9 +38,11 @@ from app.services.document_service import (
     GatingBlocked,
     TemplateFileMissing,
     TemplateNotFound,
+    delete_document_version,
     get_document_location,
     list_document_versions,
     request_template,
+    restore_document_version_by_number,
 )
 from app.services.document_summary_service import (
     DocumentSummaryFailed,
@@ -232,13 +234,21 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "function": {
             "name": "delete_document",
             "description": (
-                "Delete a client's filed document — it goes back to counting as missing everywhere "
-                "(status, dashboard) exactly as if it had never been filed. This is reversible: the "
-                "actual file and its full version history are kept untouched behind the scenes, and "
-                "restore_document brings it back exactly as it was. Only use this when the PM "
-                "explicitly asks to delete/remove a specific document they've already filed for a "
-                "client — never for a document that was never uploaded (that's just already missing, "
-                "nothing to delete)."
+                "Delete a client's filed document. Two different behaviors depending on whether the PM "
+                "named a specific version:\n"
+                "- WITHOUT version_number: deletes the whole document (whatever's current) — it goes "
+                "back to counting as missing everywhere (status, dashboard). The actual file and its "
+                "full version history are kept completely untouched behind the scenes; restore_document "
+                "brings it back exactly as it was.\n"
+                "- WITH version_number: deletes ONLY that one specific version. Its real file is "
+                "actually moved out of the client's SharePoint folder into a 'Recycle Bin' folder (a "
+                "real, visible move, not just hidden) — restore_document with that same version_number "
+                "moves it back. If the deleted version was the current one, the next-most-recent "
+                "remaining version automatically becomes current; if it was the only version, the whole "
+                "document goes back to counting as missing.\n"
+                "Only use this when the PM explicitly asks to delete/remove a document (or a specific "
+                "version of one) they've already filed — never for something that was never uploaded "
+                "(that's just already missing, nothing to delete)."
             ),
             "parameters": {
                 "type": "object",
@@ -250,6 +260,10 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "doc_type": {
                         "type": "string",
                         "description": "Exact document type, e.g. 'Business Requirement Document (BRD)'.",
+                    },
+                    "version_number": {
+                        "type": "integer",
+                        "description": "Delete only this specific version, if the PM named one. Omit to delete the whole document (whatever's current).",
                     },
                 },
                 "required": ["client_name", "doc_type"],
@@ -261,10 +275,12 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         "function": {
             "name": "restore_document",
             "description": (
-                "Undo a previous delete_document — the document counts as filed again, with the exact "
-                "same file and version history it had before deletion (nothing was ever actually "
-                "removed). Use this when the PM says they deleted a document by mistake and want it "
-                "back, or explicitly asks to restore/undo the deletion of a specific document."
+                "Undo a previous delete_document. Without version_number, undoes a whole-document "
+                "delete — the document counts as filed again exactly as it was. With version_number, "
+                "undoes deleting that ONE specific version — moves its real file back out of the "
+                "Recycle Bin to its original SharePoint location; if it's now the highest-numbered "
+                "remaining version, it becomes current again too. Use this when the PM says they "
+                "deleted a document (or a specific version) by mistake and want it back."
             ),
             "parameters": {
                 "type": "object",
@@ -276,6 +292,10 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "doc_type": {
                         "type": "string",
                         "description": "Exact document type, e.g. 'Business Requirement Document (BRD)'.",
+                    },
+                    "version_number": {
+                        "type": "integer",
+                        "description": "Restore only this specific deleted version, if the PM named one. Omit to restore a whole-document deletion.",
                     },
                 },
                 "required": ["client_name", "doc_type"],
@@ -619,8 +639,11 @@ def dispatch_tool(
                     "uploaded_by": v.uploaded_by,
                     "comment": v.comment,
                     "uploaded_at": v.uploaded_at,
+                    "deleted_at": v.deleted_at,
                     "download_url": (
-                        f"/api/clients/{client_name}/documents/{doc_type}/versions/{v.version_number}/download"
+                        None
+                        if v.deleted_at
+                        else f"/api/clients/{client_name}/documents/{doc_type}/versions/{v.version_number}/download"
                     ),
                 }
                 for v in versions
@@ -681,10 +704,29 @@ def dispatch_tool(
     if tool_name == "delete_document":
         client_name = tool_input["client_name"]
         doc_type = tool_input["doc_type"]
+        version_number = tool_input.get("version_number")
         try:
             resolve_phase_for_document(config, doc_type)
         except ValueError as e:
             return {"ok": False, "reason": str(e)}
+
+        if version_number is not None:
+            try:
+                result = delete_document_version(
+                    rest, client_storage, client_name, doc_type, version_number
+                )
+            except ClientDocumentNotFound as e:
+                return {"ok": False, "client_name": client_name, "doc_type": doc_type, "reason": str(e)}
+            return {
+                "ok": True,
+                "client_name": result.client_name,
+                "doc_type": result.doc_type,
+                "version_number": result.version_number,
+                "deleted_at": result.deleted_at,
+                "new_current_version": result.new_current_version,
+                "document_now_missing": result.document_now_missing,
+            }
+
         client = find_client(rest, client_name)
         if client is None:
             return {"ok": False, "reason": f"No client named {client_name!r}"}
@@ -701,10 +743,27 @@ def dispatch_tool(
     if tool_name == "restore_document":
         client_name = tool_input["client_name"]
         doc_type = tool_input["doc_type"]
+        version_number = tool_input.get("version_number")
         try:
             resolve_phase_for_document(config, doc_type)
         except ValueError as e:
             return {"ok": False, "reason": str(e)}
+
+        if version_number is not None:
+            try:
+                result = restore_document_version_by_number(
+                    rest, client_storage, client_name, doc_type, version_number
+                )
+            except ClientDocumentNotFound as e:
+                return {"ok": False, "client_name": client_name, "doc_type": doc_type, "reason": str(e)}
+            return {
+                "ok": True,
+                "client_name": result.client_name,
+                "doc_type": result.doc_type,
+                "version_number": result.version_number,
+                "became_current": result.became_current,
+            }
+
         client = find_client(rest, client_name)
         if client is None:
             return {"ok": False, "reason": f"No client named {client_name!r}"}

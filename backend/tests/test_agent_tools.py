@@ -874,6 +874,82 @@ def test_restore_document_dispatch_reports_reason_when_not_deleted(rest, storage
     assert "MSA" in result["reason"]
 
 
+def test_delete_document_dispatch_with_version_number_deletes_only_that_one(rest, storage):
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v1", "pdf")
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v2 current", "pdf")
+
+    result = dispatch_tool(
+        rest,
+        storage,
+        storage,
+        CONFIG,
+        "delete_document",
+        {"client_name": "Acme", "doc_type": "MSA", "version_number": 1},
+    )
+
+    assert result["ok"] is True
+    assert result["version_number"] == 1
+    assert result["new_current_version"] is None  # v2 was already current, untouched
+    assert result["document_now_missing"] is False
+
+    versions = dispatch_tool(
+        rest, storage, storage, CONFIG, "get_document_versions", {"client_name": "Acme", "doc_type": "MSA"}
+    )
+    v1 = next(v for v in versions["versions"] if v["version_number"] == 1)
+    assert v1["deleted_at"] is not None
+    assert v1["download_url"] is None
+
+
+def test_delete_document_dispatch_with_version_number_falls_back_current(rest, storage):
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v1", "pdf")
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v2 latest", "pdf")
+
+    result = dispatch_tool(
+        rest,
+        storage,
+        storage,
+        CONFIG,
+        "delete_document",
+        {"client_name": "Acme", "doc_type": "MSA", "version_number": 2},
+    )
+
+    assert result["ok"] is True
+    assert result["new_current_version"] == 1
+
+    status = dispatch_tool(
+        rest, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
+    )
+    assert "MSA" not in status["phases"][0]["missing_documents"]
+
+
+def test_restore_document_dispatch_with_version_number(rest, storage):
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v1", "pdf")
+    dispatch_tool(
+        rest,
+        storage,
+        storage,
+        CONFIG,
+        "delete_document",
+        {"client_name": "Acme", "doc_type": "MSA", "version_number": 1},
+    )
+
+    result = dispatch_tool(
+        rest,
+        storage,
+        storage,
+        CONFIG,
+        "restore_document",
+        {"client_name": "Acme", "doc_type": "MSA", "version_number": 1},
+    )
+
+    assert result["ok"] is True
+    assert result["became_current"] is True
+    status = dispatch_tool(
+        rest, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
+    )
+    assert "MSA" not in status["phases"][0]["missing_documents"]
+
+
 def test_restore_client_dispatch_undoes_a_deletion(rest, storage):
     dispatch_tool(
         rest, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}

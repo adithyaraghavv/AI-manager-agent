@@ -5,11 +5,26 @@ version — this module is the only thing that reads/writes the full history.
 """
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 import httpx
 
 from app.db.rest_client import SupabaseRestClient
 from app.storage.base import StorageBackend
+
+# A real, visible top-level folder in the same storage backend — a deleted
+# version's file is physically moved here, not just hidden by a DB flag, so
+# it's genuinely gone from the client's folder (as opposed to
+# client_service.delete_client_document/delete_client, which only ever hide
+# a DB row and never touch the real file). The client/phase folder structure
+# underneath mirrors the original path automatically, since it's just that
+# same path with this prefix — nothing pre-created, it only appears once
+# something's actually deleted into it.
+RECYCLE_BIN_ROOT = "Recycle Bin"
+
+
+def _recycle_bin_path(storage_path: str) -> str:
+    return f"{RECYCLE_BIN_ROOT}/{storage_path}"
 
 # next_version_number() reads-then-computes with no locking, so two uploads
 # for the exact same (client, doc_type) landing at the same moment could both
@@ -38,6 +53,7 @@ class VersionInfo:
     uploaded_by: str | None
     comment: str | None
     uploaded_at: str | None
+    deleted_at: str | None = None
 
 
 @dataclass
@@ -102,6 +118,7 @@ def record_version(
         uploaded_by=row.get("uploaded_by"),
         comment=row.get("comment"),
         uploaded_at=row.get("uploaded_at"),
+        deleted_at=row.get("deleted_at"),
     )
 
 
@@ -132,7 +149,10 @@ def _insert_version_row(
 def list_versions(
     rest: SupabaseRestClient, client_id: int, doc_type: str
 ) -> list[VersionInfo]:
-    """Every version on file for this client + doc type, oldest first."""
+    """Every version on file for this client + doc type, oldest first —
+    including deleted ones (with deleted_at set), so a PM asking about a
+    document's history still sees that a version was deleted and when,
+    rather than it silently disappearing from the list."""
     rows = rest.select("document_versions", client_id=client_id, doc_type=doc_type)
     rows.sort(key=lambda r: r["version_number"])
     return [
@@ -143,6 +163,7 @@ def list_versions(
             uploaded_by=r.get("uploaded_by"),
             comment=r.get("comment"),
             uploaded_at=r.get("uploaded_at"),
+            deleted_at=r.get("deleted_at"),
         )
         for r in rows
     ]
@@ -161,7 +182,7 @@ def get_version_content(
         doc_type=doc_type,
         version_number=version_number,
     )
-    if row is None:
+    if row is None or row.get("deleted_at"):
         raise DocumentVersionNotFound(
             f"No version {version_number} on file for doc type {doc_type!r}"
         )
@@ -175,4 +196,93 @@ def get_version_content(
         ) from e
     return VersionContent(
         filename=row["filename"], content=content, version_number=version_number
+    )
+
+
+def delete_version(
+    rest: SupabaseRestClient,
+    storage: StorageBackend,
+    client_id: int,
+    doc_type: str,
+    version_number: int,
+) -> VersionInfo:
+    """Moves a specific version's real file into the Recycle Bin folder (see
+    RECYCLE_BIN_ROOT) and marks it deleted. Unlike client_service's
+    delete_client_document (which only ever hides a DB row), this actually
+    removes the file from its visible client/phase folder — restore_version
+    moves it back exactly as it was."""
+    row = rest.select_one(
+        "document_versions", client_id=client_id, doc_type=doc_type, version_number=version_number
+    )
+    if row is None:
+        raise DocumentVersionNotFound(
+            f"No version {version_number} on file for doc type {doc_type!r}"
+        )
+    if row.get("deleted_at"):
+        raise DocumentVersionNotFound(
+            f"Version {version_number} of {doc_type!r} is already deleted"
+        )
+
+    try:
+        content = storage.get(row["storage_path"])
+        storage.save(_recycle_bin_path(row["storage_path"]), content)
+        storage.delete(row["storage_path"])
+    except FileNotFoundError:
+        # Record exists but the file's already gone from storage somehow —
+        # still mark it deleted rather than leaving the DB out of sync with
+        # a file that isn't there to move.
+        pass
+
+    updated = rest.update(
+        "document_versions",
+        {"id": row["id"]},
+        {"deleted_at": datetime.now(timezone.utc).isoformat()},
+    )
+    return VersionInfo(
+        version_number=updated["version_number"],
+        filename=updated["filename"],
+        storage_path=updated["storage_path"],
+        uploaded_by=updated.get("uploaded_by"),
+        comment=updated.get("comment"),
+        uploaded_at=updated.get("uploaded_at"),
+        deleted_at=updated.get("deleted_at"),
+    )
+
+
+def restore_version(
+    rest: SupabaseRestClient,
+    storage: StorageBackend,
+    client_id: int,
+    doc_type: str,
+    version_number: int,
+) -> VersionInfo:
+    """Reverses delete_version: moves the file back out of the Recycle Bin
+    to its original path and clears deleted_at."""
+    row = rest.select_one(
+        "document_versions", client_id=client_id, doc_type=doc_type, version_number=version_number
+    )
+    if row is None or not row.get("deleted_at"):
+        raise DocumentVersionNotFound(
+            f"No deleted version {version_number} of {doc_type!r} found to restore"
+        )
+
+    try:
+        content = storage.get(_recycle_bin_path(row["storage_path"]))
+        storage.save(row["storage_path"], content)
+        storage.delete(_recycle_bin_path(row["storage_path"]))
+    except FileNotFoundError:
+        # The file isn't in the Recycle Bin either (e.g. manually removed
+        # there) — still clear deleted_at rather than leaving the PM stuck
+        # unable to restore a record that has nothing left to move.
+        pass
+
+    updated = rest.update("document_versions", {"id": row["id"]}, {"deleted_at": None})
+    return VersionInfo(
+        version_number=updated["version_number"],
+        filename=updated["filename"],
+        storage_path=updated["storage_path"],
+        uploaded_by=updated.get("uploaded_by"),
+        comment=updated.get("comment"),
+        uploaded_at=updated.get("uploaded_at"),
+        deleted_at=updated.get("deleted_at"),
     )

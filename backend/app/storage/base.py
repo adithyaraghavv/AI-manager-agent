@@ -30,6 +30,10 @@ class StorageBackend(ABC):
     def delete_dir(self, path: str) -> None:
         """Delete `path` and everything under it. No-op if it doesn't exist."""
 
+    @abstractmethod
+    def delete(self, path: str) -> None:
+        """Delete the single file at `path`. No-op if it doesn't exist."""
+
     def web_url(self, path: str) -> str | None:
         """A real, clickable URL a person can open in a browser to view
         `path` directly (a SharePoint folder/file link, for example) — or

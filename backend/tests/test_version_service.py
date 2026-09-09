@@ -5,16 +5,21 @@ import pytest
 from app.core.phase_config import Phase, PhaseConfig
 from app.services.document_service import (
     ClientDocumentNotFound,
+    delete_document_version,
     get_document_version,
     list_document_versions,
     restore_document_version,
+    restore_document_version_by_number,
     upload_document,
 )
 from app.services import version_service
 from app.services.version_service import (
+    DocumentVersionNotFound,
     VersionNumberConflict,
+    delete_version,
     get_version_content,
     list_versions,
+    restore_version,
 )
 from app.storage.local import LocalFilesystemStorage
 
@@ -224,3 +229,179 @@ def test_upload_document_gives_up_after_max_conflict_retries(rest, storage):
     ):
         with pytest.raises(VersionNumberConflict):
             upload_document(rest, storage, CONFIG, "MSA", "Acme", b"content", "pdf")
+
+
+# ---------------------------------------------------------------------------
+# Per-version delete/restore (version_service layer — no client_documents
+# "current" bookkeeping here, that's document_service's job, tested below)
+# ---------------------------------------------------------------------------
+
+
+def test_delete_version_moves_file_to_recycle_bin(rest, storage):
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v1 content", "pdf")
+    client = rest.select_one("clients", name="Acme")
+    original_path = list_versions(rest, client["id"], "MSA")[0].storage_path
+
+    deleted = delete_version(rest, storage, client["id"], "MSA", 1)
+
+    assert deleted.deleted_at is not None
+    assert not storage.exists(original_path)
+    assert storage.exists(f"Recycle Bin/{original_path}")
+    assert storage.get(f"Recycle Bin/{original_path}") == b"v1 content"
+
+
+def test_delete_version_twice_raises(rest, storage):
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v1", "pdf")
+    client = rest.select_one("clients", name="Acme")
+    delete_version(rest, storage, client["id"], "MSA", 1)
+
+    with pytest.raises(DocumentVersionNotFound):
+        delete_version(rest, storage, client["id"], "MSA", 1)
+
+
+def test_delete_version_unknown_version_raises(rest, storage):
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v1", "pdf")
+    client = rest.select_one("clients", name="Acme")
+
+    with pytest.raises(DocumentVersionNotFound):
+        delete_version(rest, storage, client["id"], "MSA", 99)
+
+
+def test_restore_version_moves_file_back(rest, storage):
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v1 content", "pdf")
+    client = rest.select_one("clients", name="Acme")
+    original_path = list_versions(rest, client["id"], "MSA")[0].storage_path
+    delete_version(rest, storage, client["id"], "MSA", 1)
+
+    restored = restore_version(rest, storage, client["id"], "MSA", 1)
+
+    assert restored.deleted_at is None
+    assert storage.exists(original_path)
+    assert storage.get(original_path) == b"v1 content"
+    assert not storage.exists(f"Recycle Bin/{original_path}")
+
+
+def test_restore_version_not_deleted_raises(rest, storage):
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v1", "pdf")
+    client = rest.select_one("clients", name="Acme")
+
+    with pytest.raises(DocumentVersionNotFound):
+        restore_version(rest, storage, client["id"], "MSA", 1)
+
+
+def test_get_version_content_excludes_a_deleted_version(rest, storage):
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v1", "pdf")
+    client = rest.select_one("clients", name="Acme")
+    delete_version(rest, storage, client["id"], "MSA", 1)
+
+    with pytest.raises(DocumentVersionNotFound):
+        get_version_content(rest, storage, client["id"], "MSA", 1)
+
+
+def test_list_versions_still_includes_a_deleted_one_with_its_timestamp(rest, storage):
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v1", "pdf")
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v2", "pdf")
+    client = rest.select_one("clients", name="Acme")
+    delete_version(rest, storage, client["id"], "MSA", 1)
+
+    versions = list_versions(rest, client["id"], "MSA")
+    by_number = {v.version_number: v for v in versions}
+    assert by_number[1].deleted_at is not None
+    assert by_number[2].deleted_at is None
+
+
+# ---------------------------------------------------------------------------
+# document_service orchestration — recomputing client_documents' "current"
+# pointer after a version delete/restore
+# ---------------------------------------------------------------------------
+
+
+def test_deleting_a_non_current_version_leaves_current_untouched(rest, storage):
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v1", "pdf")
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v2 current", "pdf")
+
+    result = delete_document_version(rest, storage, "Acme", "MSA", 1)
+
+    assert result.new_current_version is None
+    assert result.document_now_missing is False
+    client = rest.select_one("clients", name="Acme")
+    current = rest.select_one("client_documents", client_id=client["id"], doc_type="MSA")
+    assert storage.get(current["storage_path"]) == b"v2 current"
+
+
+def test_deleting_the_current_version_falls_back_to_the_previous_one(rest, storage):
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v1", "pdf")
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v2", "pdf")
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v3 latest", "pdf")
+
+    result = delete_document_version(rest, storage, "Acme", "MSA", 3)
+
+    assert result.new_current_version == 2
+    assert result.document_now_missing is False
+    client = rest.select_one("clients", name="Acme")
+    current = rest.select_one("client_documents", client_id=client["id"], doc_type="MSA")
+    assert storage.get(current["storage_path"]) == b"v2"
+
+
+def test_deleting_the_only_version_makes_the_document_missing(rest, storage):
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v1", "pdf")
+
+    result = delete_document_version(rest, storage, "Acme", "MSA", 1)
+
+    assert result.document_now_missing is True
+    assert result.new_current_version is None
+    from app.services.client_service import existing_document_types, find_client
+
+    client = find_client(rest, "Acme")
+    assert existing_document_types(rest, client) == set()
+
+
+def test_restoring_the_latest_deleted_version_makes_it_current_again(rest, storage):
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v1", "pdf")
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v2 latest", "pdf")
+    delete_document_version(rest, storage, "Acme", "MSA", 2)
+
+    result = restore_document_version_by_number(rest, storage, "Acme", "MSA", 2)
+
+    assert result.became_current is True
+    client = rest.select_one("clients", name="Acme")
+    current = rest.select_one("client_documents", client_id=client["id"], doc_type="MSA")
+    assert storage.get(current["storage_path"]) == b"v2 latest"
+
+
+def test_restoring_the_only_version_revives_a_fully_missing_document(rest, storage):
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v1", "pdf")
+    delete_document_version(rest, storage, "Acme", "MSA", 1)
+
+    from app.services.client_service import existing_document_types, find_client
+
+    client = find_client(rest, "Acme")
+    assert existing_document_types(rest, client) == set()
+
+    result = restore_document_version_by_number(rest, storage, "Acme", "MSA", 1)
+
+    assert result.became_current is True
+    assert existing_document_types(rest, client) == {"MSA"}
+
+
+def test_restoring_a_historical_version_does_not_disturb_current(rest, storage):
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v1", "pdf")
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v2 current", "pdf")
+    delete_document_version(rest, storage, "Acme", "MSA", 1)
+
+    result = restore_document_version_by_number(rest, storage, "Acme", "MSA", 1)
+
+    assert result.became_current is False
+    client = rest.select_one("clients", name="Acme")
+    current = rest.select_one("client_documents", client_id=client["id"], doc_type="MSA")
+    assert storage.get(current["storage_path"]) == b"v2 current"
+
+
+def test_delete_document_version_unknown_client_raises(rest, storage):
+    with pytest.raises(ClientDocumentNotFound):
+        delete_document_version(rest, storage, "Ghost", "MSA", 1)
+
+
+def test_restore_document_version_by_number_unknown_client_raises(rest, storage):
+    with pytest.raises(ClientDocumentNotFound):
+        restore_document_version_by_number(rest, storage, "Ghost", "MSA", 1)

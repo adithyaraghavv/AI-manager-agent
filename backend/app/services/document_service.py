@@ -6,6 +6,7 @@ calling storage directly.
 """
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 from app.core.file_naming import build_filename
 from app.core.gating import GatingDecision, check_gate, resolve_phase_for_document
@@ -274,6 +275,152 @@ def list_document_versions(
     if client is None:
         raise ClientDocumentNotFound(f"No client named {client_name!r}")
     return version_service.list_versions(rest, client["id"], doc_type)
+
+
+@dataclass
+class DeleteVersionResult:
+    client_name: str
+    doc_type: str
+    version_number: int
+    deleted_at: str | None
+    # Set when the deleted version was the current one — the version number
+    # that took over as current, or None if no other version was left (the
+    # whole document goes back to counting as missing).
+    new_current_version: int | None
+    document_now_missing: bool
+
+
+def delete_document_version(
+    rest: SupabaseRestClient,
+    storage: StorageBackend,
+    client_name: str,
+    doc_type: str,
+    version_number: int,
+) -> DeleteVersionResult:
+    """Deletes ONE specific version — physically moves its file to the
+    Recycle Bin (see version_service.RECYCLE_BIN_ROOT) and marks it deleted.
+    If that version was the current one, client_documents falls back to the
+    next-highest remaining version; if none remain, the document goes back
+    to counting as missing entirely (same as client_service's
+    delete_client_document), so a subsequent status check reports it as
+    fully missing again rather than pointing at a file that's no longer
+    there."""
+    client = find_client(rest, client_name)
+    if client is None:
+        raise ClientDocumentNotFound(f"No client named {client_name!r}")
+
+    try:
+        deleted = version_service.delete_version(
+            rest, storage, client["id"], doc_type, version_number
+        )
+    except version_service.DocumentVersionNotFound as e:
+        raise ClientDocumentNotFound(str(e)) from e
+
+    current_record = rest.select_one(
+        "client_documents", client_id=client["id"], doc_type=doc_type
+    )
+    new_current_version = None
+    document_now_missing = False
+    if current_record is not None and current_record["storage_path"] == deleted.storage_path:
+        remaining = [
+            v
+            for v in version_service.list_versions(rest, client["id"], doc_type)
+            if not v.deleted_at
+        ]
+        if remaining:
+            latest = max(remaining, key=lambda v: v.version_number)
+            rest.update(
+                "client_documents",
+                {"id": current_record["id"]},
+                {
+                    "storage_path": latest.storage_path,
+                    "filename": latest.filename,
+                    "deleted_at": None,
+                },
+            )
+            new_current_version = latest.version_number
+        else:
+            rest.update(
+                "client_documents",
+                {"id": current_record["id"]},
+                {"deleted_at": datetime.now(timezone.utc).isoformat()},
+            )
+            document_now_missing = True
+
+    return DeleteVersionResult(
+        client_name=client["name"],
+        doc_type=doc_type,
+        version_number=version_number,
+        deleted_at=deleted.deleted_at,
+        new_current_version=new_current_version,
+        document_now_missing=document_now_missing,
+    )
+
+
+@dataclass
+class RestoreVersionResult:
+    client_name: str
+    doc_type: str
+    version_number: int
+    became_current: bool
+
+
+def restore_document_version_by_number(
+    rest: SupabaseRestClient,
+    storage: StorageBackend,
+    client_name: str,
+    doc_type: str,
+    version_number: int,
+) -> RestoreVersionResult:
+    """Undoes delete_document_version: moves the file back out of the
+    Recycle Bin to its original path and clears its deleted flag. If this
+    version is now the highest-numbered NON-deleted version for this
+    doc_type, it becomes current again (including re-activating the whole
+    document if every version had been deleted, per
+    delete_document_version's document_now_missing case) — otherwise it's
+    just restored as history, without disturbing whatever's already
+    current."""
+    client = find_client(rest, client_name)
+    if client is None:
+        raise ClientDocumentNotFound(f"No client named {client_name!r}")
+
+    try:
+        restored = version_service.restore_version(
+            rest, storage, client["id"], doc_type, version_number
+        )
+    except version_service.DocumentVersionNotFound as e:
+        raise ClientDocumentNotFound(str(e)) from e
+
+    active = [
+        v
+        for v in version_service.list_versions(rest, client["id"], doc_type)
+        if not v.deleted_at
+    ]
+    became_current = False
+    if active:
+        latest = max(active, key=lambda v: v.version_number)
+        if latest.version_number == restored.version_number:
+            record = rest.select_one(
+                "client_documents", client_id=client["id"], doc_type=doc_type
+            )
+            if record is not None:
+                rest.update(
+                    "client_documents",
+                    {"id": record["id"]},
+                    {
+                        "storage_path": restored.storage_path,
+                        "filename": restored.filename,
+                        "deleted_at": None,
+                    },
+                )
+                became_current = True
+
+    return RestoreVersionResult(
+        client_name=client["name"],
+        doc_type=doc_type,
+        version_number=version_number,
+        became_current=became_current,
+    )
 
 
 def get_document_version(

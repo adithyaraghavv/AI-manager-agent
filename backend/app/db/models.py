@@ -90,9 +90,13 @@ class ClientDocument(Base):
 class DocumentVersion(Base):
     """One immutable snapshot of a client's document at the moment it was
     uploaded. Every upload for a given (client, doc_type) creates a NEW row
-    here — nothing is ever overwritten or deleted, so the full history is
-    always recoverable. ClientDocument tracks only the current pointer;
-    this table is the source of truth for "what did version 2 look like."""
+    here — rows are never overwritten. A specific version's file CAN be
+    deleted (see version_service.delete_version — moved into a Recycle Bin
+    folder, not destroyed, and deleted_at set) without touching any other
+    version; that's still a distinct, reversible action from an upload ever
+    silently overwriting one. ClientDocument tracks only the current
+    pointer; this table is the source of truth for "what did version 2 look
+    like."""
 
     __tablename__ = "document_versions"
     __table_args__ = (
@@ -110,6 +114,9 @@ class DocumentVersion(Base):
     uploaded_by: Mapped[str | None] = mapped_column(String, nullable=True)
     comment: Mapped[str | None] = mapped_column(String, nullable=True)
     uploaded_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    # Soft-delete marker for a single version (see version_service.
+    # delete_version/restore_version) — see migration b7d4e1f9c3a6.
+    deleted_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
 
 class NotApplicableDocument(Base):
