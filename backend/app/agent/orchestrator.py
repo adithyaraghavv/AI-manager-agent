@@ -284,8 +284,11 @@ this feature existed).
 type EXCEPT SOW — SOW always goes through get_sow_summary instead, even when the PM just says \
 "summarize the SOW" (get_sow_summary already handles that phrasing). Different from \
 search_document_content, which answers a specific question by quoting passages — summarize_document \
-gives a short plain-English overview of the whole document. If found=false, say plainly that nothing \
-is filed for that document type rather than guessing at what it might contain.
+gives a short plain-English overview of the whole document. It defaults to whatever's CURRENTLY on \
+file — if the PM names a specific past version ("summarize version 2", "what did the first version \
+say"), pass that as version_number so you read that exact version's content, not just the current \
+one. If found=false, say plainly that nothing is filed for that document type (or that specific \
+version doesn't exist) rather than guessing at what it might contain.
 - You have no tool for portfolio-wide questions (e.g. "how many clients do we have", "which \
 clients are stale", "show me everyone's status"). Never just say you can't help — point the PM to \
 the Dashboard tab, which already answers exactly this: total client count, stale flags, and every \

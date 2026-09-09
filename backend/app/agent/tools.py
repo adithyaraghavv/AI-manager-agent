@@ -377,9 +377,12 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "a summary/overview of a specific document ('summarize the BRD for Acme', 'give me a "
                 "rundown of the HLD', 'what's in the test plan for Acme') — not for a plain 'give me the "
                 "document' request, which means the file itself (get_document_versions/"
-                "get_document_location). Re-reads the document fresh every call, so it's always based on "
-                "whatever version is currently on file. If nothing is filed for that doc_type, found "
-                "comes back false with a plain reason — never invent what a document might say."
+                "get_document_location). Re-reads the document fresh every call. Defaults to whatever "
+                "version is CURRENTLY on file — if the PM names a specific version number ('summarize "
+                "version 2 of the HLD', 'what did version 1 say'), pass it as version_number so you "
+                "actually read THAT version's content, not just whatever's current. If nothing is filed "
+                "for that doc_type (or that specific version doesn't exist), found comes back false with "
+                "a plain reason — never invent what a document might say."
             ),
             "parameters": {
                 "type": "object",
@@ -391,6 +394,10 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
                     "doc_type": {
                         "type": "string",
                         "description": "Exact document type to summarize, e.g. 'Business Requirement Document (BRD)'.",
+                    },
+                    "version_number": {
+                        "type": "integer",
+                        "description": "A specific past version to summarize, if the PM named one. Omit to summarize whatever's currently on file.",
                     },
                 },
                 "required": ["client_name", "doc_type"],
@@ -755,12 +762,15 @@ def dispatch_tool(
     if tool_name == "summarize_document":
         client_name = tool_input["client_name"]
         doc_type = tool_input["doc_type"]
+        version_number = tool_input.get("version_number")
         try:
             resolve_phase_for_document(config, doc_type)
         except ValueError as e:
             return {"found": False, "reason": str(e)}
         try:
-            result = summarize_document(rest, client_storage, client_name, doc_type)
+            result = summarize_document(
+                rest, client_storage, client_name, doc_type, version_number=version_number
+            )
         except DocumentSummaryFailed as e:
             return {"found": False, "client_name": client_name, "doc_type": doc_type, "reason": str(e)}
         return {
@@ -769,6 +779,7 @@ def dispatch_tool(
             "doc_type": result.doc_type,
             "filename": result.filename,
             "summary": result.summary,
+            "version_number": result.version_number,
         }
 
     if tool_name == "generate_approval_reminder":

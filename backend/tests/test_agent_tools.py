@@ -517,6 +517,73 @@ def test_summarize_document_dispatch_returns_summary(rest, storage):
     assert result["summary"] == "This MSA sets out the master terms and conditions."
 
 
+def test_summarize_document_dispatch_defaults_to_current_version(rest, storage):
+    # Exact bug reported: with 3 versions on file, summarizing must reflect
+    # whichever one is actually current (the latest upload), not stall on
+    # the first version ever filed.
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"version one content", "txt")
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"version two content", "txt")
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"version three content", "txt")
+
+    with patch("app.services.document_summary_service.OpenAI") as MockOpenAI:
+        mock_create = MockOpenAI.return_value.chat.completions.create
+        mock_create.return_value = _mock_openai_text_response("summary")
+        result = dispatch_tool(
+            rest,
+            storage,
+            storage,
+            CONFIG,
+            "summarize_document",
+            {"client_name": "Acme", "doc_type": "MSA"},
+        )
+
+    assert result["found"] is True
+    assert result["version_number"] is None  # "current", not pinned to a number
+    sent_text = mock_create.call_args.kwargs["messages"][1]["content"]
+    assert "version three content" in sent_text
+    assert "version one content" not in sent_text
+
+
+def test_summarize_document_dispatch_honors_a_specific_version_number(rest, storage):
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"version one content", "txt")
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"version two content", "txt")
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"version three content", "txt")
+
+    with patch("app.services.document_summary_service.OpenAI") as MockOpenAI:
+        mock_create = MockOpenAI.return_value.chat.completions.create
+        mock_create.return_value = _mock_openai_text_response("summary of v1")
+        result = dispatch_tool(
+            rest,
+            storage,
+            storage,
+            CONFIG,
+            "summarize_document",
+            {"client_name": "Acme", "doc_type": "MSA", "version_number": 1},
+        )
+
+    assert result["found"] is True
+    assert result["version_number"] == 1
+    sent_text = mock_create.call_args.kwargs["messages"][1]["content"]
+    assert "version one content" in sent_text
+    assert "version three content" not in sent_text
+
+
+def test_summarize_document_dispatch_reports_not_found_for_a_nonexistent_version(rest, storage):
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"version one content", "txt")
+
+    result = dispatch_tool(
+        rest,
+        storage,
+        storage,
+        CONFIG,
+        "summarize_document",
+        {"client_name": "Acme", "doc_type": "MSA", "version_number": 99},
+    )
+
+    assert result["found"] is False
+    assert "99" in result["reason"]
+
+
 def test_summarize_document_dispatch_reports_not_found_when_nothing_filed(rest, storage):
     result = dispatch_tool(
         rest,

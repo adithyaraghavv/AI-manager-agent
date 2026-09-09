@@ -15,6 +15,7 @@ from openai import OpenAI
 from app.config import settings
 from app.core.text_extraction import extract_text
 from app.db.rest_client import SupabaseRestClient
+from app.services import version_service
 from app.services.client_service import find_client
 from app.services.document_service import ClientDocumentNotFound, get_stored_document
 from app.storage.base import StorageBackend
@@ -40,6 +41,7 @@ class DocumentSummaryResult:
     doc_type: str
     filename: str
     summary: str
+    version_number: int | None = None
 
 
 def _summarize_via_llm(text: str) -> str:
@@ -55,22 +57,43 @@ def _summarize_via_llm(text: str) -> str:
 
 
 def summarize_document(
-    rest: SupabaseRestClient, storage: StorageBackend, client_name: str, doc_type: str
+    rest: SupabaseRestClient,
+    storage: StorageBackend,
+    client_name: str,
+    doc_type: str,
+    version_number: int | None = None,
 ) -> DocumentSummaryResult:
+    """Summarizes the CURRENT version on file by default. Pass `version_number`
+    to summarize a specific past version instead — get_stored_document alone
+    can only ever see the current pointer, so a PM asking for "version 2"
+    while version 3 is current had no way to actually reach version 2's
+    content; this is the fix for that."""
     client = find_client(rest, client_name)
     if client is None:
         raise DocumentSummaryFailed(f"No client named {client_name!r}")
 
-    try:
-        document = get_stored_document(rest, storage, client_name, doc_type)
-    except ClientDocumentNotFound as e:
-        # get_stored_document already excludes a soft-deleted document (see
-        # client_service.delete_client_document) — this reports the same
-        # "not on file" reason a deleted document gets everywhere else,
-        # rather than special-casing it.
-        raise DocumentSummaryFailed(
-            f"No {doc_type!r} document is on file for {client['name']!r} yet."
-        ) from e
+    if version_number is None:
+        try:
+            document = get_stored_document(rest, storage, client_name, doc_type)
+        except ClientDocumentNotFound as e:
+            # get_stored_document already excludes a soft-deleted document (see
+            # client_service.delete_client_document) — this reports the same
+            # "not on file" reason a deleted document gets everywhere else,
+            # rather than special-casing it.
+            raise DocumentSummaryFailed(
+                f"No {doc_type!r} document is on file for {client['name']!r} yet."
+            ) from e
+        resolved_version = None
+    else:
+        try:
+            document = version_service.get_version_content(
+                rest, storage, client["id"], doc_type, version_number
+            )
+        except version_service.DocumentVersionNotFound as e:
+            raise DocumentSummaryFailed(
+                f"No version {version_number} of {doc_type!r} on file for {client['name']!r}."
+            ) from e
+        resolved_version = version_number
 
     extension = document.filename.rsplit(".", 1)[-1] if "." in document.filename else ""
     text = extract_text(document.content, extension)
@@ -87,4 +110,5 @@ def summarize_document(
         doc_type=doc_type,
         filename=document.filename,
         summary=summary,
+        version_number=resolved_version,
     )
