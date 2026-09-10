@@ -30,6 +30,7 @@ def test_request_template_unknown_doc_type_does_not_raise(rest, storage):
         rest,
         storage,
         storage,
+        storage,
         CONFIG,
         "request_template",
         {"doc_type": "NotARealDocument"},
@@ -44,6 +45,7 @@ def test_request_template_never_gated_no_client_name_needed(rest, storage):
     # phase-gating (only upload_document is gated).
     result = dispatch_tool(
         rest,
+        storage,
         storage,
         storage,
         CONFIG,
@@ -65,6 +67,7 @@ def test_ask_clarifying_question_is_a_safe_no_op(rest, storage):
         rest,
         storage,
         storage,
+        storage,
         CONFIG,
         "ask_clarifying_question",
         {"question": "Which client is this for?"},
@@ -79,7 +82,7 @@ def test_ask_clarifying_question_is_a_safe_no_op(rest, storage):
 
 def test_get_client_status_reports_all_phases(rest, storage):
     result = dispatch_tool(
-        rest, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
+        rest, storage, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
     )
     assert result["client_name"] == "Acme"
     assert len(result["phases"]) == 2
@@ -90,7 +93,7 @@ def test_get_client_status_reports_required_and_completed_documents(rest, storag
     # Needed for the status table UI: each phase must carry its full document
     # list plus which of those are actually done, not just what's missing.
     result = dispatch_tool(
-        rest, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
+        rest, storage, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
     )
     prereq_phase = result["phases"][0]
     assert prereq_phase["required_documents"]
@@ -101,10 +104,10 @@ def test_get_client_status_reports_required_and_completed_documents(rest, storag
 
 def test_get_or_create_client_is_idempotent_across_calls(rest, storage):
     first = dispatch_tool(
-        rest, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
+        rest, storage, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
     )
     second = dispatch_tool(
-        rest, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
+        rest, storage, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
     )
     assert rest.select("clients", name="Acme") != []
     assert len(rest.select("clients", name="Acme")) == 1
@@ -116,12 +119,14 @@ def test_get_client_status_returns_canonical_casing_regardless_of_input(rest, st
         rest,
         storage,
         storage,
+        storage,
         CONFIG,
         "get_client_status",
         {"client_name": "Hillenbrand"},
     )
     result = dispatch_tool(
         rest,
+        storage,
         storage,
         storage,
         CONFIG,
@@ -140,6 +145,7 @@ def test_propose_delete_client_never_creates_the_client(rest, storage):
         rest,
         storage,
         storage,
+        storage,
         CONFIG,
         "propose_delete_client",
         {"client_name": "Ghost"},
@@ -150,11 +156,11 @@ def test_propose_delete_client_never_creates_the_client(rest, storage):
 
 def test_propose_delete_client_never_deletes_anything_itself(rest, storage):
     dispatch_tool(
-        rest, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
+        rest, storage, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
     )
 
     result = dispatch_tool(
-        rest, storage, storage, CONFIG, "propose_delete_client", {"client_name": "Acme"}
+        rest, storage, storage, storage, CONFIG, "propose_delete_client", {"client_name": "Acme"}
     )
 
     assert result["found"] is True
@@ -172,6 +178,7 @@ def test_propose_delete_client_finds_client_regardless_of_casing(rest, storage):
         rest,
         storage,
         storage,
+        storage,
         CONFIG,
         "get_client_status",
         {"client_name": "Hillenbrand"},
@@ -179,6 +186,7 @@ def test_propose_delete_client_finds_client_regardless_of_casing(rest, storage):
 
     result = dispatch_tool(
         rest,
+        storage,
         storage,
         storage,
         CONFIG,
@@ -195,7 +203,7 @@ def test_propose_delete_client_finds_client_regardless_of_casing(rest, storage):
 
 def test_search_document_types_unambiguous_query_returns_one_match(rest, storage):
     result = dispatch_tool(
-        rest, storage, storage, CONFIG, "search_document_types", {"query": "SOW"}
+        rest, storage, storage, storage, CONFIG, "search_document_types", {"query": "SOW"}
     )
 
     assert result["count"] == 1
@@ -219,7 +227,7 @@ def test_search_document_types_ambiguous_query_returns_every_match():
         ]
     )
     result = dispatch_tool(
-        None, None, None, ambiguous_config, "search_document_types", {"query": "test"}
+        None, None, None, None, ambiguous_config, "search_document_types", {"query": "test"}
     )
 
     assert result["count"] == 3
@@ -228,6 +236,7 @@ def test_search_document_types_ambiguous_query_returns_every_match():
 def test_search_document_types_no_match_returns_empty_not_an_error(rest, storage):
     result = dispatch_tool(
         rest,
+        storage,
         storage,
         storage,
         CONFIG,
@@ -244,6 +253,7 @@ def test_get_document_location_returns_folder_path(rest, storage):
 
     result = dispatch_tool(
         rest,
+        storage,
         storage,
         storage,
         CONFIG,
@@ -263,6 +273,7 @@ def test_get_document_location_returns_folder_path(rest, storage):
 def test_get_document_location_unfiled_doc_reports_not_found(rest, storage):
     result = dispatch_tool(
         rest,
+        storage,
         storage,
         storage,
         CONFIG,
@@ -301,6 +312,7 @@ def test_get_document_versions_lists_full_history(rest, storage):
         rest,
         storage,
         storage,
+        storage,
         CONFIG,
         "get_document_versions",
         {"client_name": "Acme", "doc_type": "MSA"},
@@ -316,6 +328,7 @@ def test_get_document_versions_unknown_client_reports_not_found(rest, storage):
         rest,
         storage,
         storage,
+        storage,
         CONFIG,
         "get_document_versions",
         {"client_name": "Ghost", "doc_type": "MSA"},
@@ -327,6 +340,7 @@ def test_get_document_versions_unknown_client_reports_not_found(rest, storage):
 def test_mark_document_not_applicable_dispatch_marks_it(rest, storage):
     result = dispatch_tool(
         rest,
+        storage,
         storage,
         storage,
         CONFIG,
@@ -343,7 +357,7 @@ def test_mark_document_not_applicable_dispatch_marks_it(rest, storage):
     assert result["doc_type"] == "SOW"
 
     status = dispatch_tool(
-        rest, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
+        rest, storage, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
     )
     prereq_phase = status["phases"][0]
     assert prereq_phase["not_applicable_documents"] == ["SOW"]
@@ -356,6 +370,7 @@ def test_mark_document_not_applicable_unknown_doc_type_does_not_raise(rest, stor
     # an unhandled 500.
     result = dispatch_tool(
         rest,
+        storage,
         storage,
         storage,
         CONFIG,
@@ -372,6 +387,7 @@ def test_unmark_document_not_applicable_dispatch_reverses_it(rest, storage):
         rest,
         storage,
         storage,
+        storage,
         CONFIG,
         "mark_document_not_applicable",
         {"client_name": "Acme", "doc_type": "SOW"},
@@ -379,6 +395,7 @@ def test_unmark_document_not_applicable_dispatch_reverses_it(rest, storage):
 
     result = dispatch_tool(
         rest,
+        storage,
         storage,
         storage,
         CONFIG,
@@ -390,7 +407,7 @@ def test_unmark_document_not_applicable_dispatch_reverses_it(rest, storage):
     assert result["was_marked"] is True
 
     status = dispatch_tool(
-        rest, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
+        rest, storage, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
     )
     assert status["phases"][0]["not_applicable_documents"] == []
     assert "SOW" in status["phases"][0]["missing_documents"]
@@ -399,6 +416,7 @@ def test_unmark_document_not_applicable_dispatch_reverses_it(rest, storage):
 def test_unmark_document_not_applicable_unknown_client_reports_not_found(rest, storage):
     result = dispatch_tool(
         rest,
+        storage,
         storage,
         storage,
         CONFIG,
@@ -421,6 +439,7 @@ def test_unmark_document_not_applicable_unknown_doc_type_reports_error_not_silen
         rest,
         storage,
         storage,
+        storage,
         CONFIG,
         "mark_document_not_applicable",
         {"client_name": "Acme", "doc_type": "SOW"},
@@ -428,6 +447,7 @@ def test_unmark_document_not_applicable_unknown_doc_type_reports_error_not_silen
 
     result = dispatch_tool(
         rest,
+        storage,
         storage,
         storage,
         CONFIG,
@@ -471,7 +491,7 @@ def test_get_sow_summary_dispatch_returns_extracted_fields(rest, storage):
             )
         )
         result = dispatch_tool(
-            rest, storage, storage, CONFIG, "get_sow_summary", {"client_name": "Acme"}
+            rest, storage, storage, storage, CONFIG, "get_sow_summary", {"client_name": "Acme"}
         )
 
     assert result["found"] is True
@@ -506,6 +526,7 @@ def test_summarize_document_dispatch_returns_summary(rest, storage):
             rest,
             storage,
             storage,
+            storage,
             CONFIG,
             "summarize_document",
             {"client_name": "Acme", "doc_type": "MSA"},
@@ -532,6 +553,7 @@ def test_summarize_document_dispatch_defaults_to_current_version(rest, storage):
             rest,
             storage,
             storage,
+            storage,
             CONFIG,
             "summarize_document",
             {"client_name": "Acme", "doc_type": "MSA"},
@@ -556,6 +578,7 @@ def test_summarize_document_dispatch_honors_a_specific_version_number(rest, stor
             rest,
             storage,
             storage,
+            storage,
             CONFIG,
             "summarize_document",
             {"client_name": "Acme", "doc_type": "MSA", "version_number": 1},
@@ -575,6 +598,7 @@ def test_summarize_document_dispatch_reports_not_found_for_a_nonexistent_version
         rest,
         storage,
         storage,
+        storage,
         CONFIG,
         "summarize_document",
         {"client_name": "Acme", "doc_type": "MSA", "version_number": 99},
@@ -587,6 +611,7 @@ def test_summarize_document_dispatch_reports_not_found_for_a_nonexistent_version
 def test_summarize_document_dispatch_reports_not_found_when_nothing_filed(rest, storage):
     result = dispatch_tool(
         rest,
+        storage,
         storage,
         storage,
         CONFIG,
@@ -603,6 +628,7 @@ def test_summarize_document_dispatch_reports_not_found_when_nothing_filed(rest, 
 def test_summarize_document_dispatch_unknown_doc_type_does_not_raise(rest, storage):
     result = dispatch_tool(
         rest,
+        storage,
         storage,
         storage,
         CONFIG,
@@ -624,6 +650,7 @@ def test_summarize_document_dispatch_excludes_a_deleted_document(rest, storage):
         rest,
         storage,
         storage,
+        storage,
         CONFIG,
         "summarize_document",
         {"client_name": "Acme", "doc_type": "MSA"},
@@ -634,7 +661,7 @@ def test_summarize_document_dispatch_excludes_a_deleted_document(rest, storage):
 
 def test_get_sow_summary_dispatch_reports_not_found_when_no_sow_filed(rest, storage):
     result = dispatch_tool(
-        rest, storage, storage, CONFIG, "get_sow_summary", {"client_name": "Acme"}
+        rest, storage, storage, storage, CONFIG, "get_sow_summary", {"client_name": "Acme"}
     )
 
     assert result["found"] is False
@@ -665,6 +692,7 @@ def test_generate_approval_reminder_dispatch_returns_owner_approver_and_message(
         )
         result = dispatch_tool(
             rest,
+            storage,
             storage,
             storage,
             CONFIG,
@@ -698,6 +726,7 @@ def test_generate_approval_reminder_dispatch_not_found_when_unassigned(rest, sto
             rest,
             storage,
             storage,
+            storage,
             CONFIG,
             "generate_approval_reminder",
             {"client_name": "Acme", "doc_type": "HLD"},
@@ -713,6 +742,7 @@ def test_generate_approval_reminder_dispatch_not_found_when_unassigned(rest, sto
 def test_search_document_content_unknown_client_returns_not_found(rest, storage):
     result = dispatch_tool(
         rest,
+        storage,
         storage,
         storage,
         CONFIG,
@@ -742,6 +772,7 @@ def test_search_document_content_returns_matches_for_known_client(rest, storage)
         )
         result = dispatch_tool(
             rest,
+            storage,
             storage,
             storage,
             CONFIG,
@@ -785,6 +816,7 @@ def test_search_document_content_excludes_a_deleted_document(rest, storage):
             rest,
             storage,
             storage,
+            storage,
             CONFIG,
             "search_document_content",
             {"client_name": "Acme", "query": "how do I terminate the contract"},
@@ -805,6 +837,7 @@ def test_search_document_content_no_matches_is_not_an_error(rest, storage):
             rest,
             storage,
             storage,
+            storage,
             CONFIG,
             "search_document_content",
             {"client_name": "Acme", "query": "anything"},
@@ -818,12 +851,12 @@ def test_delete_document_dispatch_hides_it_and_keeps_it_restorable(rest, storage
     upload_document(rest, storage, CONFIG, "MSA", "Acme", b"filled msa", "pdf")
 
     result = dispatch_tool(
-        rest, storage, storage, CONFIG, "delete_document", {"client_name": "Acme", "doc_type": "MSA"}
+        rest, storage, storage, storage, CONFIG, "delete_document", {"client_name": "Acme", "doc_type": "MSA"}
     )
     assert result == {"ok": True, "client_name": "Acme", "doc_type": "MSA"}
 
     status = dispatch_tool(
-        rest, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
+        rest, storage, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
     )
     assert "MSA" in status["phases"][0]["missing_documents"]
 
@@ -832,7 +865,7 @@ def test_delete_document_dispatch_reports_reason_when_nothing_on_file(rest, stor
     get_or_create_client(rest, storage, CONFIG, "Acme")
 
     result = dispatch_tool(
-        rest, storage, storage, CONFIG, "delete_document", {"client_name": "Acme", "doc_type": "MSA"}
+        rest, storage, storage, storage, CONFIG, "delete_document", {"client_name": "Acme", "doc_type": "MSA"}
     )
 
     assert result["ok"] is False
@@ -841,7 +874,7 @@ def test_delete_document_dispatch_reports_reason_when_nothing_on_file(rest, stor
 
 def test_delete_document_dispatch_unknown_client(rest, storage):
     result = dispatch_tool(
-        rest, storage, storage, CONFIG, "delete_document", {"client_name": "Ghost", "doc_type": "MSA"}
+        rest, storage, storage, storage, CONFIG, "delete_document", {"client_name": "Ghost", "doc_type": "MSA"}
     )
     assert result == {"ok": False, "reason": "No client named 'Ghost'"}
 
@@ -849,16 +882,16 @@ def test_delete_document_dispatch_unknown_client(rest, storage):
 def test_restore_document_dispatch_undoes_a_delete(rest, storage):
     upload_document(rest, storage, CONFIG, "MSA", "Acme", b"filled msa", "pdf")
     dispatch_tool(
-        rest, storage, storage, CONFIG, "delete_document", {"client_name": "Acme", "doc_type": "MSA"}
+        rest, storage, storage, storage, CONFIG, "delete_document", {"client_name": "Acme", "doc_type": "MSA"}
     )
 
     result = dispatch_tool(
-        rest, storage, storage, CONFIG, "restore_document", {"client_name": "Acme", "doc_type": "MSA"}
+        rest, storage, storage, storage, CONFIG, "restore_document", {"client_name": "Acme", "doc_type": "MSA"}
     )
     assert result == {"ok": True, "client_name": "Acme", "doc_type": "MSA"}
 
     status = dispatch_tool(
-        rest, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
+        rest, storage, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
     )
     assert "MSA" not in status["phases"][0]["missing_documents"]
 
@@ -867,7 +900,7 @@ def test_restore_document_dispatch_reports_reason_when_not_deleted(rest, storage
     upload_document(rest, storage, CONFIG, "MSA", "Acme", b"filled msa", "pdf")
 
     result = dispatch_tool(
-        rest, storage, storage, CONFIG, "restore_document", {"client_name": "Acme", "doc_type": "MSA"}
+        rest, storage, storage, storage, CONFIG, "restore_document", {"client_name": "Acme", "doc_type": "MSA"}
     )
 
     assert result["ok"] is False
@@ -882,6 +915,7 @@ def test_delete_document_dispatch_with_version_number_deletes_only_that_one(rest
         rest,
         storage,
         storage,
+        storage,
         CONFIG,
         "delete_document",
         {"client_name": "Acme", "doc_type": "MSA", "version_number": 1},
@@ -893,7 +927,7 @@ def test_delete_document_dispatch_with_version_number_deletes_only_that_one(rest
     assert result["document_now_missing"] is False
 
     versions = dispatch_tool(
-        rest, storage, storage, CONFIG, "get_document_versions", {"client_name": "Acme", "doc_type": "MSA"}
+        rest, storage, storage, storage, CONFIG, "get_document_versions", {"client_name": "Acme", "doc_type": "MSA"}
     )
     v1 = next(v for v in versions["versions"] if v["version_number"] == 1)
     assert v1["deleted_at"] is not None
@@ -908,6 +942,7 @@ def test_delete_document_dispatch_with_version_number_falls_back_current(rest, s
         rest,
         storage,
         storage,
+        storage,
         CONFIG,
         "delete_document",
         {"client_name": "Acme", "doc_type": "MSA", "version_number": 2},
@@ -917,7 +952,7 @@ def test_delete_document_dispatch_with_version_number_falls_back_current(rest, s
     assert result["new_current_version"] == 1
 
     status = dispatch_tool(
-        rest, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
+        rest, storage, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
     )
     assert "MSA" not in status["phases"][0]["missing_documents"]
 
@@ -928,6 +963,7 @@ def test_restore_document_dispatch_with_version_number(rest, storage):
         rest,
         storage,
         storage,
+        storage,
         CONFIG,
         "delete_document",
         {"client_name": "Acme", "doc_type": "MSA", "version_number": 1},
@@ -935,6 +971,7 @@ def test_restore_document_dispatch_with_version_number(rest, storage):
 
     result = dispatch_tool(
         rest,
+        storage,
         storage,
         storage,
         CONFIG,
@@ -945,14 +982,14 @@ def test_restore_document_dispatch_with_version_number(rest, storage):
     assert result["ok"] is True
     assert result["became_current"] is True
     status = dispatch_tool(
-        rest, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
+        rest, storage, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
     )
     assert "MSA" not in status["phases"][0]["missing_documents"]
 
 
 def test_restore_client_dispatch_undoes_a_deletion(rest, storage):
     dispatch_tool(
-        rest, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
+        rest, storage, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
     )
     from app.services.client_service import delete_client, find_client
 
@@ -961,7 +998,7 @@ def test_restore_client_dispatch_undoes_a_deletion(rest, storage):
     assert find_client(rest, "Acme") is None
 
     result = dispatch_tool(
-        rest, storage, storage, CONFIG, "restore_client", {"client_name": "Acme"}
+        rest, storage, storage, storage, CONFIG, "restore_client", {"client_name": "Acme"}
     )
 
     assert result == {"ok": True, "client_name": "Acme"}
@@ -970,11 +1007,11 @@ def test_restore_client_dispatch_undoes_a_deletion(rest, storage):
 
 def test_restore_client_dispatch_reports_reason_when_not_deleted(rest, storage):
     dispatch_tool(
-        rest, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
+        rest, storage, storage, storage, CONFIG, "get_client_status", {"client_name": "Acme"}
     )
 
     result = dispatch_tool(
-        rest, storage, storage, CONFIG, "restore_client", {"client_name": "Acme"}
+        rest, storage, storage, storage, CONFIG, "restore_client", {"client_name": "Acme"}
     )
 
     assert result["ok"] is False
@@ -983,6 +1020,6 @@ def test_restore_client_dispatch_reports_reason_when_not_deleted(rest, storage):
 
 def test_restore_client_dispatch_unknown_client(rest, storage):
     result = dispatch_tool(
-        rest, storage, storage, CONFIG, "restore_client", {"client_name": "Ghost"}
+        rest, storage, storage, storage, CONFIG, "restore_client", {"client_name": "Ghost"}
     )
     assert result["ok"] is False

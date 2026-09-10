@@ -9,6 +9,7 @@ from app.db.rest_client import SupabaseRestClient
 from app.deps import (
     get_client_storage,
     get_config,
+    get_recycle_bin_storage,
     get_rest_client,
     get_template_storage,
 )
@@ -47,8 +48,9 @@ def chat(
     rest: SupabaseRestClient = Depends(get_rest_client),
     client_storage: StorageBackend = Depends(get_client_storage),
     template_storage: StorageBackend = Depends(get_template_storage),
+    recycle_storage: StorageBackend = Depends(get_recycle_bin_storage),
     config: PhaseConfig = Depends(get_config),
 ):
     messages = [m.model_dump() for m in request.messages]
-    updated = run_turn(rest, client_storage, template_storage, config, messages)
+    updated = run_turn(rest, client_storage, template_storage, recycle_storage, config, messages)
     return ChatResponse(messages=updated)

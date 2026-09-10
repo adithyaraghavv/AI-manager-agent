@@ -304,6 +304,7 @@ class DeleteVersionResult:
 def delete_document_version(
     rest: SupabaseRestClient,
     storage: StorageBackend,
+    recycle_storage: StorageBackend,
     client_name: str,
     doc_type: str,
     version_number: int,
@@ -322,7 +323,7 @@ def delete_document_version(
 
     try:
         deleted = version_service.delete_version(
-            rest, storage, client["id"], doc_type, version_number
+            rest, storage, recycle_storage, client["id"], doc_type, version_number
         )
     except version_service.DocumentVersionNotFound as e:
         raise ClientDocumentNotFound(str(e)) from e
@@ -379,6 +380,7 @@ class RestoreVersionResult:
 def restore_document_version_by_number(
     rest: SupabaseRestClient,
     storage: StorageBackend,
+    recycle_storage: StorageBackend,
     client_name: str,
     doc_type: str,
     version_number: int,
@@ -397,7 +399,7 @@ def restore_document_version_by_number(
 
     try:
         restored = version_service.restore_version(
-            rest, storage, client["id"], doc_type, version_number
+            rest, storage, recycle_storage, client["id"], doc_type, version_number
         )
     except version_service.DocumentVersionNotFound as e:
         raise ClientDocumentNotFound(str(e)) from e

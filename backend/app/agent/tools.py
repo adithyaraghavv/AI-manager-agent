@@ -551,6 +551,7 @@ def dispatch_tool(
     rest: SupabaseRestClient,
     client_storage: StorageBackend,
     template_storage: StorageBackend,
+    recycle_storage: StorageBackend,
     config: PhaseConfig,
     tool_name: str,
     tool_input: dict[str, Any],
@@ -714,7 +715,7 @@ def dispatch_tool(
         if version_number is not None:
             try:
                 result = delete_document_version(
-                    rest, client_storage, client_name, doc_type, version_number
+                    rest, client_storage, recycle_storage, client_name, doc_type, version_number
                 )
             except ClientDocumentNotFound as e:
                 return {"ok": False, "client_name": client_name, "doc_type": doc_type, "reason": str(e)}
@@ -753,7 +754,7 @@ def dispatch_tool(
         if version_number is not None:
             try:
                 result = restore_document_version_by_number(
-                    rest, client_storage, client_name, doc_type, version_number
+                    rest, client_storage, recycle_storage, client_name, doc_type, version_number
                 )
             except ClientDocumentNotFound as e:
                 return {"ok": False, "client_name": client_name, "doc_type": doc_type, "reason": str(e)}

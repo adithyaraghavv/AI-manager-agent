@@ -379,6 +379,7 @@ def run_turn(
     rest: SupabaseRestClient,
     client_storage: StorageBackend,
     template_storage: StorageBackend,
+    recycle_storage: StorageBackend,
     config: PhaseConfig,
     messages: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
@@ -435,6 +436,7 @@ def run_turn(
                     rest,
                     client_storage,
                     template_storage,
+                    recycle_storage,
                     config,
                     tc.function.name,
                     tool_input,

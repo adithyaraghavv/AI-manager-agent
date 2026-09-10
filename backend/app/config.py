@@ -29,6 +29,10 @@ class Settings(BaseSettings):
 
     template_store_path: Path = _REPO_ROOT / "templates"
     client_store_path: Path = _REPO_ROOT / "clients"
+    # A sibling of client_store_path/template_store_path, NOT nested inside
+    # either — deleted versions (see version_service.delete_version) live
+    # here, mirroring each client/phase's own folder structure underneath.
+    recycle_bin_store_path: Path = _REPO_ROOT / "recycle_bin"
     phase_config_path: Path = _REPO_ROOT / "config" / "sdlc_phase_config.json"
 
     # Comma-separated origins allowed to make cross-origin requests (browser

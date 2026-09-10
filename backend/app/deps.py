@@ -74,5 +74,14 @@ def get_client_storage() -> StorageBackend:
     return _build_storage(settings.client_store_path, "clients")
 
 
+@lru_cache(maxsize=1)
+def get_recycle_bin_storage() -> StorageBackend:
+    """Rooted at the SAME level as get_client_storage()/get_template_storage()
+    (an empty sharepoint_subpath, unlike their "clients"/"templates"), so a
+    deleted version's Recycle Bin folder lands as a sibling of Clients and
+    Templates in SharePoint, not nested inside either one."""
+    return _build_storage(settings.recycle_bin_store_path, "")
+
+
 def get_config() -> PhaseConfig:
     return get_phase_config()

@@ -208,6 +208,7 @@ def get_version_content(
 def delete_version(
     rest: SupabaseRestClient,
     storage: StorageBackend,
+    recycle_storage: StorageBackend,
     client_id: int,
     doc_type: str,
     version_number: int,
@@ -216,7 +217,13 @@ def delete_version(
     RECYCLE_BIN_ROOT) and marks it deleted. Unlike client_service's
     delete_client_document (which only ever hides a DB row), this actually
     removes the file from its visible client/phase folder — restore_version
-    moves it back exactly as it was."""
+    moves it back exactly as it was.
+
+    `recycle_storage` is a DIFFERENT StorageBackend instance than `storage`
+    — rooted one level higher (see deps.get_recycle_bin_storage), so
+    "Recycle Bin" lands as a sibling of the Clients/Templates folders rather
+    than nested inside them. `storage` is only ever used for the original
+    client-scoped path."""
     row = rest.select_one(
         "document_versions", client_id=client_id, doc_type=doc_type, version_number=version_number
     )
@@ -231,7 +238,7 @@ def delete_version(
 
     try:
         content = storage.get(row["storage_path"])
-        storage.save(_recycle_bin_path(row["storage_path"]), content)
+        recycle_storage.save(_recycle_bin_path(row["storage_path"]), content)
         storage.delete(row["storage_path"])
     except FileNotFoundError:
         # Record exists but the file's already gone from storage somehow —
@@ -258,12 +265,15 @@ def delete_version(
 def restore_version(
     rest: SupabaseRestClient,
     storage: StorageBackend,
+    recycle_storage: StorageBackend,
     client_id: int,
     doc_type: str,
     version_number: int,
 ) -> VersionInfo:
     """Reverses delete_version: moves the file back out of the Recycle Bin
-    to its original path and clears deleted_at."""
+    to its original path and clears deleted_at. See delete_version's
+    docstring for why `recycle_storage` is a separate instance from
+    `storage`."""
     row = rest.select_one(
         "document_versions", client_id=client_id, doc_type=doc_type, version_number=version_number
     )
@@ -273,9 +283,9 @@ def restore_version(
         )
 
     try:
-        content = storage.get(_recycle_bin_path(row["storage_path"]))
+        content = recycle_storage.get(_recycle_bin_path(row["storage_path"]))
         storage.save(row["storage_path"], content)
-        storage.delete(_recycle_bin_path(row["storage_path"]))
+        recycle_storage.delete(_recycle_bin_path(row["storage_path"]))
     except FileNotFoundError:
         # The file isn't in the Recycle Bin either (e.g. manually removed
         # there) — still clear deleted_at rather than leaving the PM stuck

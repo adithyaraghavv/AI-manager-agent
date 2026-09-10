@@ -49,7 +49,7 @@ def test_plain_reply_with_no_tool_calls_is_appended_to_messages():
         instance.chat.completions.create.return_value = response
 
         messages = [{"role": "user", "content": "what's the status for Hillenbrand?"}]
-        result = run_turn(None, None, None, None, messages)
+        result = run_turn(None, None, None, None, None, messages)
 
     assert result[-1] == {
         "role": "assistant",
@@ -289,7 +289,7 @@ def test_run_turn_survives_a_tool_call_that_raises_instead_of_crashing(rest, tmp
         ]
 
         messages = [{"role": "user", "content": "check status for ../Escaped"}]
-        result = run_turn(rest, storage, storage, config, messages)
+        result = run_turn(rest, storage, storage, storage, config, messages)
 
     tool_messages = [m for m in result if m.get("role") == "tool"]
     assert len(tool_messages) == 1
@@ -319,7 +319,7 @@ def test_bad_request_errors_are_not_swallowed():
 
         messages = [{"role": "user", "content": "hi"}]
         try:
-            run_turn(None, None, None, None, messages)
+            run_turn(None, None, None, None, None, messages)
             assert False, "expected BadRequestError to propagate"
         except BadRequestError:
             pass
