@@ -334,7 +334,7 @@ function formatDeletedAt(deletedAt) {
   });
 }
 
-function FileCard({ title, badge, meta, comment, href, deletedAt }) {
+function FileCard({ title, badge, meta, comment, href, deletedAt, fileMissing }) {
   const icon = (
     <span className="file-card__icon" aria-hidden="true">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -372,6 +372,18 @@ function FileCard({ title, badge, meta, comment, href, deletedAt }) {
         {body}
         <span className="file-card__btn file-card__btn--deleted">
           Deleted on {formatDeletedAt(deletedAt)}
+        </span>
+      </div>
+    );
+  }
+
+  if (fileMissing) {
+    return (
+      <div className="file-card file-card--deleted">
+        {icon}
+        {body}
+        <span className="file-card__btn file-card__btn--deleted">
+          File missing from SharePoint
         </span>
       </div>
     );
@@ -487,6 +499,7 @@ export default function ToolActivity({ name, result }) {
               comment={v.comment}
               href={v.download_url}
               deletedAt={v.deleted_at}
+              fileMissing={v.file_missing}
             />
           ))}
         </div>

@@ -54,6 +54,12 @@ class VersionInfo:
     comment: str | None
     uploaded_at: str | None
     deleted_at: str | None = None
+    # Only set by document_service.list_document_versions (the PM-facing
+    # display path) — True when this version's database row exists but its
+    # file no longer exists in storage, e.g. someone deleted it directly in
+    # SharePoint outside the app. list_versions itself never sets this; it's
+    # a pure DB read and doesn't touch storage.
+    file_missing: bool = False
 
 
 @dataclass
@@ -184,15 +190,15 @@ def get_version_content(
     )
     if row is None or row.get("deleted_at"):
         raise DocumentVersionNotFound(
-            f"No version {version_number} on file for doc type {doc_type!r}"
+            f"No version {version_number} of {doc_type!r} on record."
         )
 
     try:
         content = storage.get(row["storage_path"])
     except FileNotFoundError as e:
         raise DocumentVersionNotFound(
-            f"Version {version_number} of {doc_type!r} is on record but its file isn't present on this "
-            "environment's local storage."
+            f"Version {version_number} of {doc_type!r} is on record but its file is missing from "
+            "storage — it may have been deleted or moved outside the app."
         ) from e
     return VersionContent(
         filename=row["filename"], content=content, version_number=version_number

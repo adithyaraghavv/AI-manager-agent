@@ -270,9 +270,10 @@ def list_document_versions_route(
     client_name: str,
     doc_type: str,
     rest: SupabaseRestClient = Depends(get_rest_client),
+    client_storage: StorageBackend = Depends(get_client_storage),
 ):
     try:
-        versions = list_document_versions(rest, client_name, doc_type)
+        versions = list_document_versions(rest, client_storage, client_name, doc_type)
     except ClientDocumentNotFound as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
 

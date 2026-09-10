@@ -625,7 +625,7 @@ def dispatch_tool(
         client_name = tool_input["client_name"]
         doc_type = tool_input["doc_type"]
         try:
-            versions = list_document_versions(rest, client_name, doc_type)
+            versions = list_document_versions(rest, client_storage, client_name, doc_type)
         except ClientDocumentNotFound as e:
             return {"found": False, "reason": str(e)}
         return {
@@ -640,9 +640,10 @@ def dispatch_tool(
                     "comment": v.comment,
                     "uploaded_at": v.uploaded_at,
                     "deleted_at": v.deleted_at,
+                    "file_missing": v.file_missing,
                     "download_url": (
                         None
-                        if v.deleted_at
+                        if v.deleted_at or v.file_missing
                         else f"/api/clients/{client_name}/documents/{doc_type}/versions/{v.version_number}/download"
                     ),
                 }

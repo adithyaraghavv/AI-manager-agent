@@ -266,15 +266,26 @@ class ClientDocumentNotFound(Exception):
 
 
 def list_document_versions(
-    rest: SupabaseRestClient, client_name: str, doc_type: str
+    rest: SupabaseRestClient, storage: StorageBackend, client_name: str, doc_type: str
 ) -> list:
     """Every version on file for a client's document, oldest first. Returns
     an empty list (not an error) if the client exists but has never filed
-    this doc_type — callers decide how to phrase "no versions yet."""
+    this doc_type — callers decide how to phrase "no versions yet."
+
+    This is the PM-facing display path, so unlike version_service.list_versions
+    (a pure DB read used internally for bookkeeping), it also confirms each
+    non-deleted version's file actually still exists in storage — a database
+    row can outlive its file if someone deletes it directly in SharePoint,
+    bypassing the app entirely, and a PM should see that plainly rather than
+    being told about a version they can't actually retrieve."""
     client = find_client(rest, client_name)
     if client is None:
         raise ClientDocumentNotFound(f"No client named {client_name!r}")
-    return version_service.list_versions(rest, client["id"], doc_type)
+    versions = version_service.list_versions(rest, client["id"], doc_type)
+    for v in versions:
+        if not v.deleted_at and not storage.exists(v.storage_path):
+            v.file_missing = True
+    return versions
 
 
 @dataclass

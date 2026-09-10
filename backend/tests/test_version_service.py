@@ -112,13 +112,24 @@ def test_list_document_versions_via_client_name(rest, storage):
     upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v1", "pdf")
     upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v2", "pdf")
 
-    versions = list_document_versions(rest, "Acme", "MSA")
+    versions = list_document_versions(rest, storage, "Acme", "MSA")
     assert [v.version_number for v in versions] == [1, 2]
 
 
 def test_list_document_versions_unknown_client_raises(rest, storage):
     with pytest.raises(ClientDocumentNotFound):
-        list_document_versions(rest, "Ghost", "MSA")
+        list_document_versions(rest, storage, "Ghost", "MSA")
+
+
+def test_list_document_versions_flags_file_missing_from_storage(rest, storage):
+    upload_document(rest, storage, CONFIG, "MSA", "Acme", b"v1", "pdf")
+    client = rest.select_one("clients", name="Acme")
+    row = rest.select_one("document_versions", client_id=client["id"], doc_type="MSA")
+    storage.delete(row["storage_path"])
+
+    versions = list_document_versions(rest, storage, "Acme", "MSA")
+    assert versions[0].file_missing is True
+    assert versions[0].deleted_at is None
 
 
 def test_get_document_version_returns_specific_version_content(rest, storage):

@@ -278,6 +278,12 @@ rather than treating it as an error.
 - get_document_versions includes deleted versions too (deleted_at set, download_url null) — when a PM \
 asks about a document's history/status and a version shows deleted_at, tell them plainly that version \
 was deleted and when, rather than omitting it or treating it like it never existed.
+- get_document_versions can also show file_missing=true on a version that was never deleted through \
+the app — its database record exists but the actual file isn't in storage anymore (e.g. someone \
+removed it directly in SharePoint, outside the app). download_url is null for it too. Tell the PM \
+plainly that version's file is missing from SharePoint and can't be downloaded/summarized — don't \
+confuse this with a normal deletion (deleted_at), and don't suggest restore_document for it, since \
+there's nothing in the Recycle Bin to restore — the file was never moved there by the app.
 - search_document_content answers a question using a document's ACTUAL TEXT — different from \
 get_sow_summary (fixed structured fields only: value, dates, scope, team, ownership) and different \
 from request_template/get_document_versions (the file itself). Use it for open-ended content \

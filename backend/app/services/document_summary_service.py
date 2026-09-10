@@ -90,9 +90,13 @@ def summarize_document(
                 rest, storage, client["id"], doc_type, version_number
             )
         except version_service.DocumentVersionNotFound as e:
-            raise DocumentSummaryFailed(
-                f"No version {version_number} of {doc_type!r} on file for {client['name']!r}."
-            ) from e
+            # Keep the underlying reason from get_version_content (it already
+            # distinguishes "no such version on record" from "the record
+            # exists but its file is missing from storage" — e.g. deleted
+            # directly in SharePoint outside the app) instead of collapsing
+            # both into one generic "not on file" message, which was
+            # actively misleading during testing.
+            raise DocumentSummaryFailed(f"{e} (client: {client['name']!r})") from e
         resolved_version = version_number
 
     extension = document.filename.rsplit(".", 1)[-1] if "." in document.filename else ""
