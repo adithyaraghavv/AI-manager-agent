@@ -18,8 +18,94 @@ already exists for that client.** This is enforced as a hard block in the backen
 not a suggestion — the conversational agent can't talk its way around it, because
 the check happens in the API layer regardless of what the AI says.
 
-For the full feature list, what's built vs. still pending, and the complete tech
-stack, see **[PROJECT_OVERVIEW.md](./PROJECT_OVERVIEW.md)**.
+For what's built vs. still pending and the full discovery docs, see
+**[PROJECT_OVERVIEW.md](./PROJECT_OVERVIEW.md)**.
+
+## Features
+
+### Chatbot capabilities
+
+The assistant (Groq-hosted Llama 3.3 70B) has four tools it can call — it can
+only ever do what these tools allow, so it can't be talked into doing something
+the system doesn't actually support:
+
+1. **List phases** — all 7 phases and the exact documents required for each.
+2. **Check a client's status** — which documents exist, which are missing, and
+   which phase they're currently blocked on. Client name matching is
+   case-insensitive ("Hillenbrand" and "hillenbrand" are never treated as two
+   different clients).
+3. **Request a master template** — hard-gated: refuses and explains exactly
+   what's missing if any earlier phase is incomplete, rather than handing over
+   a template out of order.
+4. **Delete a client** — looks the client up and shows their info, but
+   **never deletes anything itself**. It hands off to a confirm/cancel card in
+   the UI; only a human clicking "Confirm & delete" actually removes anything
+   (documents, database record, storage folder). The AI has no way of knowing
+   whether the human confirmed, so it's never allowed to claim a deletion
+   happened on its own.
+
+On top of the tools themselves:
+
+- **Attach-to-upload** — drop a completed file directly into the chat
+  (paperclip button) instead of switching to the upload panel; shows an inline
+  confirm-before-upload card that pre-fills client/doc-type guesses from the
+  conversation, editable before anything is sent.
+- **Clickable suggested prompts** on the empty chat screen — one click sends a
+  real example question instead of typing from scratch.
+- **Knows what it doesn't know** — for portfolio-wide questions it has no tool
+  for (e.g. "how many clients do we have"), it points to the Dashboard tab
+  instead of just declining, since that tab already answers it better than a
+  bare number would.
+- Every tool call renders inline in the chat as a visible activity line (⚙
+  icon + summary) — gating decisions and lookups are never hidden inside the
+  model's prose.
+
+### Everything else
+
+- **Document upload** — file a completed document for a client, either through
+  the standalone upload panel or by attaching a file directly in the chat
+  thread (with an inline confirm-before-upload card).
+- **Hard-block phase-gating** — enforced in `app/services/document_service.py`,
+  independent of the AI agent. Blocks both template requests and uploads if any
+  earlier phase is incomplete, and reports exactly what's missing.
+- **Manager dashboard** (`/api/clients/status`) — every client's phase
+  progress, current blocking phase + missing documents, and a stale-client
+  flag, with a copy-to-clipboard follow-up reminder generator.
+- **Stale-client detection** — a client with no document uploaded in
+  `stale_after_days` (default 3) is flagged automatically, no manual tracking
+  needed.
+- **Consistent file naming and filing** — `Marlabs_<DocType>_<ClientName>_
+  <Timestamp>`, automatically filed under the right client/phase folder every
+  time.
+- **Case-insensitive client matching everywhere** — status, upload, template
+  requests, and deletion all treat differently-cased lookups of the same
+  client as one client, not two (fixed after a real bug where this wasn't
+  true).
+- **Marlabs branding** — logo, brand colors, dark navy hero banner, Poppins
+  headings, matching Marlabs' existing internal tools.
+- **One-command local dev** — `npm run dev` from `/frontend` starts backend and
+  frontend together.
+
+### What's working today
+
+Backend and frontend fully built and integrated · Supabase Postgres (via REST
+API, so it works even on networks that block direct DB ports) · phase-gating
+logic fully tested · chat agent wired to Groq · document upload/download
+tested end-to-end · dashboard + stale flagging + copy-reminder · client
+deletion gated behind a mandatory human confirm/cancel click · 67 backend
+tests passing, no known dependency CVEs.
+
+### What's still pending
+
+- **Real SharePoint integration** — templates/documents currently live in a
+  local filesystem mock, not real SharePoint. The storage backend is already
+  abstracted behind an interface (`backend/app/storage/base.py`), so swapping
+  in a real `SharePointStorage` implementation later needs no changes to
+  gating or service logic.
+- **No authentication on any API endpoint** — fine for local dev, must be
+  addressed before this is reachable outside a trusted network.
+- **No upload file-size limit or file-type allow-list** yet.
+- **No rate limiting** on `/api/chat` (calls a paid Groq API per request).
 
 ## How it works
 
