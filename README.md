@@ -67,6 +67,14 @@ flowchart TD
 More flowcharts (client deletion, dashboard stale detection) and a table mapping
 each step to its code live in **[docs/WORKFLOW.md](./docs/WORKFLOW.md)**.
 
+> **Note:** this README and the rest of the repo document the coded app above.
+> There is a second, separate system — a Microsoft Copilot Studio agent sitting
+> on a real SharePoint library, with its own skills for upload/delete/restore/
+> summarize/approval-lookup — that has no source code (it's configured entirely
+> in Copilot Studio's UI). Its build log, known issues, and current Teams
+> deployment blocker are written up in
+> **[docs/copilot_studio_agent.md](./docs/copilot_studio_agent.md)**.
+
 ## Quick start
 
 ```bash
