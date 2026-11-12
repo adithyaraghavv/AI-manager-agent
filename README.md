@@ -21,6 +21,52 @@ the check happens in the API layer regardless of what the AI says.
 For the full feature list, what's built vs. still pending, and the complete tech
 stack, see **[PROJECT_OVERVIEW.md](./PROJECT_OVERVIEW.md)**.
 
+## How it works
+
+The 7-phase lifecycle every client moves through:
+
+```mermaid
+flowchart TD
+    A["1. Pre-requisites<br/>MSA, SOW, Pricing,<br/>Kick-off Deck, Kick-off Meeting Invite"] --> B
+    B["2. Requirement Analysis<br/>BRD, Stakeholder Approvals,<br/>Clear Scope Definition"] --> C
+    C["3. System Design<br/>Approved SRS, RTM Updated,<br/>Architecture Feasibility Study"] --> D
+    D["4. Implementation (Coding)<br/>Approved HLD, Approved LLD,<br/>Dev Environment Setup, Coding Standards"] --> E
+    E["5. Testing (STLC Integrated)<br/>Approved Test Plan, Test Environment Ready,<br/>Test Data Prepared"] --> F
+    F["6. Deployment<br/>Signed-off Test Summary Report,<br/>Release Notes, Deployment Plan"] --> G
+    G["7. Maintenance<br/>Deployed System in Production,<br/>SLA Agreements, Support Plan"]
+
+    style A fill:#283B91,color:#fff
+    style B fill:#283B91,color:#fff
+    style C fill:#283B91,color:#fff
+    style D fill:#283B91,color:#fff
+    style E fill:#283B91,color:#fff
+    style F fill:#283B91,color:#fff
+    style G fill:#283B91,color:#fff
+```
+
+The gating decision that runs on every template request and upload:
+
+```mermaid
+flowchart TD
+    Start(["PM asks for a template<br/>or uploads a document"]) --> Resolve["Resolve client name<br/>(case-insensitive)"]
+    Resolve --> Found{"Client found?"}
+    Found -- "No, and doc belongs to Phase 1" --> NewClient["Treat as brand-new client,<br/>continue"]
+    Found -- "No, and doc belongs to Phase 2+" --> Refuse1["Refuse:<br/>client not found"]
+    Found -- Yes --> Lookup["Get existing documents<br/>for this client"]
+    NewClient --> Lookup
+    Lookup --> Phase["Determine target phase<br/>for this document type"]
+    Phase --> Check{"Every required doc from<br/>every EARLIER phase present?"}
+    Check -- No --> Refuse2["Refuse upload/template.<br/>Report exactly what's<br/>missing and which phase<br/>is blocking"]
+    Check -- Yes --> Allow["Allow.<br/>Template: return file.<br/>Upload: version + file,<br/>confirm client/type/phase/version"]
+
+    style Refuse1 fill:#b91c1c,color:#fff
+    style Refuse2 fill:#b91c1c,color:#fff
+    style Allow fill:#15803d,color:#fff
+```
+
+More flowcharts (client deletion, dashboard stale detection) and a table mapping
+each step to its code live in **[docs/WORKFLOW.md](./docs/WORKFLOW.md)**.
+
 ## Quick start
 
 ```bash
