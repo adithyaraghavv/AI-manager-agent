@@ -48,8 +48,9 @@ terminal. Open `http://localhost:5173`.
 
 See [`backend/README.md`](./backend/README.md) and
 [`frontend/README.md`](./frontend/README.md) for setup details specific to each
-side, and [`docs/`](./docs) for the original discovery documentation and database
-structure.
+side, [`docs/WORKFLOW.md`](./docs/WORKFLOW.md) for how a document moves through
+the system (with flowcharts), and [`docs/`](./docs) for the original discovery
+documentation and database structure.
 
 ## Tech stack
 
