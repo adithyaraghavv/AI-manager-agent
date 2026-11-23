@@ -6,6 +6,25 @@ on top of a real SharePoint document library, built using Copilot Studio's own
 skill/instruction editor — there is no source-controlled code for it, so this file
 is the written record of what was built, fixed, and is still open.
 
+## How this fits with the rest of the project's history
+
+Per `docs/AI_Agent_Discovery_Documentation.md`, the original idea (discovery call,
+29 Jul 2026) called for a conversational agent with phase-gating and automatic
+client/phase folder filing. A first proof-of-concept was hand-built on Azure
+DevOps by Tarun and a former team member — local-only storage (literally on
+Tarun's machine), an unstyled placeholder UI, and originally conceived as a full
+RAG pipeline before that was questioned as unnecessary. That POC was then rebuilt
+as the actual coded app in this repo (FastAPI + React + Supabase, documented in
+`PROJECT_OVERVIEW.md`), with phase-gating properly hard-blocked server-side and
+storage abstracted so a real SharePoint backend could be swapped in later without
+touching gating logic.
+
+This Copilot Studio agent is a **parallel track**, built directly against real
+SharePoint rather than waiting on that coded app's SharePoint integration to be
+finished — it reuses the exact same 7-phase structure and document list
+(`sdlc_phase_config.json`), but every skill/rule here was authored separately in
+Copilot Studio's own editor, not shared code.
+
 ## SharePoint structure
 
 - `Clients/<ClientName>/<phase folder>` — active client documents
@@ -31,6 +50,7 @@ is the written record of what was built, fixed, and is still open.
 | `approval-reminder-skill` | Looks up who approves a given document type per the client's SOW, offers to draft a reminder message. Same latest-version-by-default rule. |
 | `delete-document-skill` / `restore-document-skill` | Pre-existing, single-document soft delete/restore — the proven per-file-move pattern that delete-client-skill and restore-client-skill were rewritten to match. |
 | `mark-not-applicable-skill` | Pre-existing — marks a document as not applicable for a client so it stops showing as missing. |
+| `identify-document-skill` | Reads an attached document's actual **content** (not just its filename) and identifies which of the 24 known document types it is, with a short explanation of what it contains. Added so a PM can attach a generically-named file (e.g. "untitled.docx") and ask "what document is this?" instead of the upload flow just asking them to guess. Fully additive — doesn't touch upload-document-skill or anything else; once it identifies a type, the PM uploads normally by stating that type explicitly. Tested against a clear case (correctly ID'd a SOW from a misleadingly generic filename), a genuinely ambiguous case (correctly said "could be Release Notes or Deployment Plan" rather than forcing a guess), a totally unrelated document (correctly said "not a project document" for a team-outing invite), and a large 12-section document (correctly ID'd as an Approved HLD with a real summary despite a long, dense body). |
 
 ## Bugs found and fixed
 
